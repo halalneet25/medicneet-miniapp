@@ -1,0 +1,1520 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+    <title>MedicNEET Quiz</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box
+        }
+
+        :root {
+            --bg: #fff;
+            --bg2: #f7f7f7;
+            --border: #e5e5e5;
+            --green: #58cc02;
+            --green-dk: #46a302;
+            --green-lt: #d7ffb8;
+            --red: #ff4b4b;
+            --red-lt: #ffdada;
+            --gold: #ffc800;
+            --gold-dk: #ce9c09;
+            --gold-lt: #fff4cc;
+            --blue: #1cb0f6;
+            --blue-dk: #1899d6;
+            --blue-lt: #ddf4ff;
+            --orange: #ff9600;
+            --orange-lt: #fff0d4;
+            --purple: #ce82ff;
+            --txt: #3c3c3c;
+            --txt2: #777;
+            --txt3: #afafaf
+        }
+
+        body {
+            font-family: 'Nunito', sans-serif;
+            background: var(--bg);
+            color: var(--txt);
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased
+        }
+
+        .header {
+            padding: 14px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--green)
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 8px
+        }
+
+        .logo-icon {
+            font-size: 24px
+        }
+
+        .logo-text {
+            font-weight: 900;
+            font-size: 18px;
+            color: #fff
+        }
+
+        .prize-badge {
+            background: var(--gold);
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-weight: 800;
+            font-size: 14px;
+            color: var(--txt);
+            box-shadow: 0 3px 0 var(--gold-dk)
+        }
+
+        .timer-section {
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--bg2);
+            border-bottom: 2px solid var(--border)
+        }
+
+        .timer-label {
+            font-size: 10px;
+            color: var(--txt3);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            font-weight: 800
+        }
+
+        .timer-value {
+            font-size: 30px;
+            font-weight: 900;
+            font-variant-numeric: tabular-nums
+        }
+
+        .timer-value.danger {
+            color: var(--red)
+        }
+
+        .stats-row {
+            display: flex;
+            gap: 8px
+        }
+
+        .stat-pill {
+            padding: 6px 12px;
+            border-radius: 12px;
+            text-align: center
+        }
+
+        .stat-pill.blue {
+            background: var(--blue-lt)
+        }
+
+        .stat-pill.orange {
+            background: var(--orange-lt)
+        }
+
+        .stat-num {
+            font-size: 15px;
+            font-weight: 800
+        }
+
+        .stat-pill.blue .stat-num {
+            color: var(--blue-dk)
+        }
+
+        .stat-pill.orange .stat-num {
+            color: var(--orange)
+        }
+
+        .stat-lbl {
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--txt3)
+        }
+
+        .screen {
+            display: none;
+            padding: 16px
+        }
+
+        .screen.active {
+            display: block
+        }
+
+        .question-chapter {
+            display: inline-block;
+            background: var(--green-lt);
+            color: var(--green-dk);
+            padding: 4px 14px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            margin-bottom: 14px
+        }
+
+        .question-text {
+            font-size: 16px;
+            font-weight: 700;
+            line-height: 1.65;
+            margin-bottom: 20px
+        }
+
+        .stopwatch {
+            text-align: center;
+            margin-bottom: 16px
+        }
+
+        .stopwatch-value {
+            font-size: 56px;
+            font-weight: 900;
+            font-variant-numeric: tabular-nums;
+            color: var(--green);
+            letter-spacing: -3px;
+            line-height: 1
+        }
+
+        .stopwatch-label {
+            font-size: 10px;
+            color: var(--txt3);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-weight: 800;
+            margin-top: 4px
+        }
+
+        .options {
+            display: flex;
+            flex-direction: column;
+            gap: 10px
+        }
+
+        .option-btn {
+            width: 100%;
+            padding: 16px 18px;
+            background: var(--bg);
+            border: 2px solid var(--border);
+            border-radius: 16px;
+            color: var(--txt);
+            font-size: 15px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            text-align: left;
+            box-shadow: 0 3px 0 var(--border);
+            -webkit-tap-highlight-color: transparent;
+            transition: transform .05s
+        }
+
+        .option-btn:active {
+            transform: translateY(3px);
+            box-shadow: none
+        }
+
+        .opt-letter {
+            width: 34px;
+            height: 34px;
+            border-radius: 10px;
+            background: var(--bg2);
+            border: 2px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 14px;
+            flex-shrink: 0
+        }
+
+        .option-btn.correct {
+            border-color: var(--green);
+            background: var(--green-lt);
+            box-shadow: 0 3px 0 var(--green-dk)
+        }
+
+        .option-btn.correct .opt-letter {
+            background: var(--green);
+            border-color: var(--green-dk);
+            color: #fff
+        }
+
+        .option-btn.wrong {
+            border-color: var(--red);
+            background: var(--red-lt);
+            box-shadow: 0 3px 0 var(--red)
+        }
+
+        .option-btn.wrong .opt-letter {
+            background: var(--red);
+            border-color: var(--red);
+            color: #fff
+        }
+
+        .result-card {
+            text-align: center;
+            padding: 28px 20px;
+            border-radius: 24px;
+            border: 2px solid var(--border);
+            margin-bottom: 16px;
+            box-shadow: 0 4px 0 var(--border)
+        }
+
+        .result-card.win {
+            background: var(--gold-lt);
+            border-color: var(--gold);
+            box-shadow: 0 4px 0 var(--gold-dk)
+        }
+
+        .result-card.correct {
+            background: var(--green-lt);
+            border-color: var(--green);
+            box-shadow: 0 4px 0 var(--green-dk)
+        }
+
+        .result-card.wrong {
+            background: var(--red-lt);
+            border-color: var(--red);
+            box-shadow: 0 4px 0 var(--red)
+        }
+
+        .result-icon {
+            font-size: 56px;
+            margin-bottom: 8px
+        }
+
+        .result-title {
+            font-size: 26px;
+            font-weight: 900;
+            margin-bottom: 4px
+        }
+
+        .result-title.win-text {
+            color: var(--txt)
+        }
+
+        .result-title.correct-text {
+            color: var(--green-dk)
+        }
+
+        .result-title.wrong-text {
+            color: var(--red)
+        }
+
+        .result-sub {
+            font-size: 14px;
+            color: var(--txt2);
+            font-weight: 600;
+            margin-bottom: 16px
+        }
+
+        .result-time {
+            font-size: 48px;
+            font-weight: 900;
+            font-variant-numeric: tabular-nums;
+            color: var(--green);
+            line-height: 1
+        }
+
+        .result-time-label {
+            font-size: 12px;
+            color: var(--txt3);
+            font-weight: 700;
+            margin-top: 4px
+        }
+
+        .explanation-card {
+            background: var(--blue-lt);
+            border: 2px solid var(--blue);
+            border-radius: 18px;
+            padding: 16px 18px;
+            margin-bottom: 16px;
+            box-shadow: 0 3px 0 var(--blue-dk)
+        }
+
+        .explanation-header {
+            font-size: 12px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--blue-dk);
+            margin-bottom: 8px
+        }
+
+        .explanation-text {
+            font-size: 14px;
+            line-height: 1.6;
+            font-weight: 600
+        }
+
+        .winner-form {
+            border: 2px solid var(--gold);
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 16px;
+            box-shadow: 0 4px 0 var(--gold-dk)
+        }
+
+        .winner-form h3 {
+            font-size: 20px;
+            font-weight: 900;
+            margin-bottom: 16px;
+            text-align: center
+        }
+
+        .form-group {
+            margin-bottom: 14px
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 11px;
+            color: var(--txt3);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 800;
+            margin-bottom: 6px
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 14px 16px;
+            background: var(--bg2);
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            font-size: 15px;
+            font-family: inherit;
+            font-weight: 600;
+            outline: none
+        }
+
+        .form-input:focus {
+            border-color: var(--gold)
+        }
+
+        .upload-area {
+            border: 2px dashed var(--border);
+            border-radius: 14px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer
+        }
+
+        .upload-area:hover {
+            border-color: var(--gold)
+        }
+
+        .upload-area.has-file {
+            border-color: var(--green);
+            border-style: solid;
+            background: var(--green-lt)
+        }
+
+        .upload-icon {
+            font-size: 28px;
+            margin-bottom: 6px
+        }
+
+        .upload-text {
+            font-size: 13px;
+            color: var(--txt3);
+            font-weight: 700
+        }
+
+        .duo-btn {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 16px;
+            font-size: 16px;
+            font-weight: 800;
+            font-family: inherit;
+            cursor: pointer;
+            box-shadow: 0 4px 0 var(--green-dk);
+            color: #fff;
+            background: var(--green);
+            -webkit-tap-highlight-color: transparent;
+            transition: transform .05s
+        }
+
+        .duo-btn:active {
+            transform: translateY(4px);
+            box-shadow: none
+        }
+
+        .duo-btn:disabled {
+            opacity: .5;
+            cursor: not-allowed
+        }
+
+        .duo-btn.gold {
+            background: var(--gold);
+            box-shadow: 0 4px 0 var(--gold-dk);
+            color: var(--txt)
+        }
+
+        .duo-btn.blue {
+            background: var(--blue);
+            box-shadow: 0 4px 0 var(--blue-dk);
+            color: #fff
+        }
+
+        .duo-btn.purple {
+            background: var(--purple);
+            box-shadow: 0 4px 0 #a855d6;
+            color: #fff
+        }
+
+        .cta-banner {
+            border: 2px solid var(--border);
+            border-radius: 20px;
+            padding: 20px;
+            text-align: center;
+            margin: 16px 0;
+            box-shadow: 0 4px 0 var(--border)
+        }
+
+        .cta-banner h3 {
+            font-size: 17px;
+            font-weight: 900;
+            margin-bottom: 6px
+        }
+
+        .cta-banner p {
+            color: var(--txt2);
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 14px
+        }
+
+        /* Launching Soon CTA */
+        .notify-cta {
+            border: 2px solid var(--purple);
+            border-radius: 20px;
+            padding: 20px;
+            text-align: center;
+            margin: 16px 0;
+            box-shadow: 0 4px 0 #a855d6;
+            background: linear-gradient(135deg, #f3e0ff 0%, #fff 100%)
+        }
+
+        .notify-cta h3 {
+            font-size: 18px;
+            font-weight: 900;
+            color: var(--txt);
+            margin-bottom: 4px
+        }
+
+        .notify-cta .badge {
+            display: inline-block;
+            background: var(--purple);
+            color: #fff;
+            padding: 3px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 800;
+            margin-bottom: 10px
+        }
+
+        .notify-cta p {
+            color: var(--txt2);
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 14px
+        }
+
+        .notify-row {
+            display: flex;
+            gap: 8px
+        }
+
+        .notify-input {
+            flex: 1;
+            padding: 14px 14px;
+            background: #fff;
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            font-size: 14px;
+            font-family: inherit;
+            font-weight: 600;
+            outline: none
+        }
+
+        .notify-input:focus {
+            border-color: var(--purple)
+        }
+
+        .notify-submit {
+            padding: 14px 20px;
+            border: none;
+            border-radius: 14px;
+            background: var(--purple);
+            color: #fff;
+            font-size: 14px;
+            font-weight: 800;
+            font-family: inherit;
+            cursor: pointer;
+            box-shadow: 0 3px 0 #a855d6;
+            white-space: nowrap
+        }
+
+        .notify-submit:active {
+            transform: translateY(3px);
+            box-shadow: none
+        }
+
+        .notify-submit:disabled {
+            opacity: .5
+        }
+
+        .notify-success {
+            color: var(--green-dk);
+            font-weight: 700;
+            font-size: 13px;
+            margin-top: 8px
+        }
+
+        .notify-count {
+            color: var(--txt3);
+            font-size: 12px;
+            font-weight: 700;
+            margin-top: 6px
+        }
+
+        .lb-section {
+            margin-top: 16px
+        }
+
+        .lb-title {
+            font-size: 12px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--txt3);
+            margin-bottom: 10px
+        }
+
+        .lb-row {
+            display: flex;
+            align-items: center;
+            padding: 12px 14px;
+            border-radius: 16px;
+            margin-bottom: 8px;
+            border: 2px solid var(--border);
+            box-shadow: 0 3px 0 var(--border)
+        }
+
+        .lb-row.first {
+            border-color: var(--gold);
+            background: var(--gold-lt);
+            box-shadow: 0 3px 0 var(--gold-dk)
+        }
+
+        .lb-row.second {
+            border-color: var(--green);
+            background: var(--green-lt);
+            box-shadow: 0 3px 0 var(--green-dk)
+        }
+
+        .lb-row.third {
+            border-color: var(--blue);
+            background: var(--blue-lt);
+            box-shadow: 0 3px 0 var(--blue-dk)
+        }
+
+        .lb-rank {
+            width: 30px;
+            height: 30px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            font-size: 14px;
+            margin-right: 12px;
+            background: var(--border);
+            color: var(--txt2)
+        }
+
+        .lb-row.first .lb-rank {
+            background: var(--gold);
+            color: #fff
+        }
+
+        .lb-row.second .lb-rank {
+            background: var(--green);
+            color: #fff
+        }
+
+        .lb-row.third .lb-rank {
+            background: var(--blue);
+            color: #fff
+        }
+
+        .lb-name {
+            flex: 1;
+            font-weight: 700;
+            font-size: 14px
+        }
+
+        .lb-time {
+            font-weight: 800;
+            font-variant-numeric: tabular-nums;
+            color: var(--green);
+            font-size: 14px
+        }
+
+        .lb-wins {
+            font-weight: 800;
+            color: var(--gold-dk);
+            font-size: 14px
+        }
+
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            background: var(--bg);
+            border-top: 2px solid var(--border);
+            padding: 6px 0 max(6px, env(safe-area-inset-bottom));
+            z-index: 100
+        }
+
+        .nav-item {
+            flex: 1;
+            text-align: center;
+            padding: 8px;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent
+        }
+
+        .nav-icon {
+            font-size: 22px;
+            margin-bottom: 2px
+        }
+
+        .nav-label {
+            font-size: 10px;
+            font-weight: 800;
+            color: var(--txt3);
+            text-transform: uppercase;
+            letter-spacing: .5px
+        }
+
+        .nav-item.active .nav-label {
+            color: var(--green)
+        }
+
+        .nav-item.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40px;
+            height: 4px;
+            background: var(--green);
+            border-radius: 2px
+        }
+
+        .nav-item.active {
+            position: relative
+        }
+
+        .loading {
+            text-align: center;
+            padding: 60px 20px
+        }
+
+        .spinner {
+            width: 44px;
+            height: 44px;
+            border: 4px solid var(--border);
+            border-top: 4px solid var(--green);
+            border-radius: 50%;
+            animation: spin .7s linear infinite;
+            margin: 0 auto 16px
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg)
+            }
+        }
+
+        .page-content {
+            padding-bottom: 80px
+        }
+
+        .next-round-card {
+            text-align: center;
+            padding: 40px 20px;
+            border-radius: 24px;
+            border: 2px solid var(--border);
+            box-shadow: 0 4px 0 var(--border)
+        }
+
+        .next-round-card .countdown {
+            font-size: 44px;
+            font-weight: 900;
+            font-variant-numeric: tabular-nums;
+            color: var(--blue);
+            margin: 12px 0
+        }
+
+        /* ========== RESPONSIVE OPTIMIZATIONS ========== */
+
+        /* Small screens (up to 480px) */
+        @media screen and (max-width: 480px) {
+            .header {
+                padding: 12px 14px;
+            }
+
+            .logo-icon {
+                font-size: 22px;
+            }
+
+            .logo-text {
+                font-size: 16px;
+            }
+
+            .prize-badge {
+                padding: 5px 12px;
+                font-size: 13px;
+                border-radius: 16px;
+            }
+
+            .timer-section {
+                padding: 8px 14px;
+            }
+
+            .timer-value {
+                font-size: 26px;
+            }
+
+            .timer-label {
+                font-size: 9px;
+            }
+
+            .stat-pill {
+                padding: 5px 10px;
+                border-radius: 10px;
+            }
+
+            .stat-num {
+                font-size: 14px;
+            }
+
+            .stat-lbl {
+                font-size: 8px;
+            }
+
+            .screen {
+                padding: 14px;
+            }
+
+            .stopwatch-value {
+                font-size: 48px;
+                letter-spacing: -2px;
+            }
+
+            .question-text {
+                font-size: 15px;
+                line-height: 1.5;
+                margin-bottom: 16px;
+            }
+
+            .option-btn {
+                padding: 14px 16px;
+                border-radius: 14px;
+                font-size: 14px;
+            }
+
+            .opt-letter {
+                width: 32px;
+                height: 32px;
+                font-size: 13px;
+            }
+
+            .result-card {
+                padding: 24px 16px;
+                border-radius: 20px;
+                margin-bottom: 14px;
+            }
+
+            .result-icon {
+                font-size: 48px;
+            }
+
+            .result-title {
+                font-size: 22px;
+            }
+
+            .result-sub {
+                font-size: 13px;
+                margin-bottom: 14px;
+            }
+
+            .result-time {
+                font-size: 42px;
+            }
+
+            .explanation-card {
+                padding: 14px 16px;
+                border-radius: 16px;
+            }
+
+            .explanation-text {
+                font-size: 13px;
+                line-height: 1.5;
+            }
+
+            .winner-form {
+                padding: 16px;
+                border-radius: 18px;
+            }
+
+            .winner-form h3 {
+                font-size: 18px;
+                margin-bottom: 14px;
+            }
+
+            .form-input {
+                padding: 12px 14px;
+                font-size: 14px;
+            }
+
+            .upload-area {
+                padding: 16px;
+            }
+
+            .duo-btn {
+                padding: 14px;
+                font-size: 15px;
+            }
+
+            .cta-banner {
+                padding: 16px;
+                border-radius: 18px;
+            }
+
+            .cta-banner h3 {
+                font-size: 16px;
+            }
+
+            .cta-banner p {
+                font-size: 12px;
+            }
+
+            .notify-cta {
+                padding: 16px;
+                border-radius: 18px;
+            }
+
+            .notify-cta h3 {
+                font-size: 16px;
+            }
+
+            .notify-cta p {
+                font-size: 12px;
+            }
+
+            .notify-row {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .notify-input,
+            .notify-submit {
+                padding: 12px 14px;
+                font-size: 13px;
+            }
+
+            .lb-row {
+                padding: 10px 12px;
+                border-radius: 14px;
+            }
+
+            .lb-name {
+                font-size: 13px;
+            }
+
+            .lb-time,
+            .lb-wins {
+                font-size: 13px;
+            }
+
+            h2 {
+                font-size: 20px !important;
+            }
+
+            .next-round-card {
+                padding: 32px 16px;
+                border-radius: 20px;
+            }
+
+            .next-round-card .countdown {
+                font-size: 38px;
+            }
+
+            .nav-icon {
+                font-size: 20px;
+            }
+
+            .nav-label {
+                font-size: 9px;
+            }
+
+            .nav-item.active::after {
+                width: 36px;
+                height: 3px;
+            }
+
+            .page-content {
+                padding-bottom: 70px;
+            }
+        }
+
+        /* Extra small screens (up to 360px) */
+        @media screen and (max-width: 360px) {
+            .header {
+                padding: 10px 12px;
+            }
+
+            .logo-icon {
+                font-size: 20px;
+            }
+
+            .logo-text {
+                font-size: 15px;
+            }
+
+            .prize-badge {
+                padding: 4px 10px;
+                font-size: 12px;
+                border-radius: 14px;
+            }
+
+            .timer-value {
+                font-size: 24px;
+            }
+
+            .screen {
+                padding: 12px;
+            }
+
+            .stopwatch-value {
+                font-size: 42px;
+            }
+
+            .question-text {
+                font-size: 14px;
+                margin-bottom: 14px;
+            }
+
+            .option-btn {
+                padding: 12px 14px;
+                gap: 10px;
+            }
+
+            .opt-letter {
+                width: 30px;
+                height: 30px;
+                font-size: 12px;
+            }
+
+            .result-card {
+                padding: 20px 14px;
+            }
+
+            .result-icon {
+                font-size: 42px;
+            }
+
+            .result-title {
+                font-size: 20px;
+            }
+
+            .result-time {
+                font-size: 36px;
+            }
+
+            .winner-form h3 {
+                font-size: 17px;
+            }
+
+            .stats-row {
+                flex-wrap: wrap;
+                justify-content: flex-end;
+            }
+
+            .stat-pill {
+                min-width: 70px;
+            }
+
+            .nav-item {
+                padding: 6px;
+            }
+
+            .nav-icon {
+                font-size: 18px;
+            }
+
+            .nav-label {
+                font-size: 8px;
+            }
+
+            .page-content {
+                padding-bottom: 65px;
+            }
+        }
+
+        /* Very small screens (up to 320px) */
+        @media screen and (max-width: 320px) {
+            .timer-value {
+                font-size: 22px;
+            }
+
+            .stopwatch-value {
+                font-size: 38px;
+            }
+
+            .question-chapter {
+                font-size: 10px;
+                padding: 3px 12px;
+            }
+
+            .option-btn {
+                padding: 10px 12px;
+                font-size: 13px;
+            }
+
+            .opt-letter {
+                width: 28px;
+                height: 28px;
+            }
+
+            .stat-pill {
+                padding: 4px 8px;
+                min-width: 65px;
+            }
+
+            .stat-num {
+                font-size: 13px;
+            }
+
+            .result-time {
+                font-size: 32px;
+            }
+
+            .notify-cta .badge {
+                font-size: 10px;
+                padding: 2px 10px;
+            }
+
+            .lb-name {
+                font-size: 12px;
+            }
+        }
+
+        /* Tablet and landscape orientation adjustments */
+        @media screen and (min-width: 481px) and (max-width: 768px) {
+            .option-btn {
+                padding: 15px 18px;
+            }
+
+            .result-card {
+                padding: 30px 24px;
+            }
+
+            .winner-form {
+                padding: 24px;
+            }
+        }
+
+        /* Prevent text overflow on very small screens */
+        .option-btn div:last-child {
+            overflow-wrap: break-word;
+            word-break: break-word;
+        }
+
+        /* Ensure safe area for notched phones */
+        @supports (padding: max(0px)) {
+            .bottom-nav {
+                padding: 6px 0 max(6px, env(safe-area-inset-bottom));
+            }
+
+            .page-content {
+                padding-bottom: calc(80px + env(safe-area-inset-bottom));
+            }
+        }
+
+        /* Improve tap targets for mobile */
+        button,
+        .nav-item,
+        .upload-area {
+            min-height: 44px;
+        }
+
+        /* Prevent zoom on input focus for iOS */
+        @media screen and (max-width: 768px) {
+
+            input,
+            select,
+            textarea {
+                font-size: 16px !important;
+            }
+        }
+
+        /* Smooth transitions for layout changes */
+        .screen,
+        .header,
+        .timer-section,
+        .bottom-nav {
+            transition: all 0.2s ease;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <div class="logo">
+            <div class="logo-icon">🦉</div>
+            <div class="logo-text">MedicNEET</div>
+        </div>
+        <div class="prize-badge">₹50 Prize</div>
+    </div>
+    <div class="timer-section" id="timerSection">
+        <div>
+            <div class="timer-label">Round ends in</div>
+            <div class="timer-value" id="roundTimer">--:--:--</div>
+        </div>
+        <div class="stats-row">
+            <div class="stat-pill blue">
+                <div class="stat-num" id="statFastest">--</div>
+                <div class="stat-lbl">Fastest</div>
+            </div>
+            <div class="stat-pill orange">
+                <div class="stat-num" id="statAttempts">0</div>
+                <div class="stat-lbl">Playing</div>
+            </div>
+        </div>
+    </div>
+    <div class="page-content">
+        <div class="screen active" id="loadingScreen">
+            <div class="loading">
+                <div class="spinner"></div>
+                <p style="color:var(--txt3);font-weight:700">Loading question...</p>
+            </div>
+        </div>
+
+        <div class="screen" id="quizScreen">
+            <div class="stopwatch">
+                <div class="stopwatch-value" id="stopwatch">0.00</div>
+                <div class="stopwatch-label">Your time (seconds)</div>
+            </div>
+            <div class="question-chapter" id="qChapter"></div>
+            <div class="question-text" id="qText"></div>
+            <div class="options" id="optionsContainer">
+                <button class="option-btn" data-answer="A" onclick="selectAnswer(this)">
+                    <div class="opt-letter">A</div>
+                    <div id="optA"></div>
+                </button>
+                <button class="option-btn" data-answer="B" onclick="selectAnswer(this)">
+                    <div class="opt-letter">B</div>
+                    <div id="optB"></div>
+                </button>
+                <button class="option-btn" data-answer="C" onclick="selectAnswer(this)">
+                    <div class="opt-letter">C</div>
+                    <div id="optC"></div>
+                </button>
+                <button class="option-btn" data-answer="D" onclick="selectAnswer(this)">
+                    <div class="opt-letter">D</div>
+                    <div id="optD"></div>
+                </button>
+            </div>
+        </div>
+
+        <div class="screen" id="resultScreen">
+            <div class="result-card" id="resultCard">
+                <div class="result-icon" id="resultIcon"></div>
+                <div class="result-title" id="resultTitle"></div>
+                <div class="result-sub" id="resultSub"></div>
+                <div class="result-time" id="resultTime"></div>
+                <div class="result-time-label">seconds</div>
+            </div>
+            <div class="explanation-card" id="explanationCard" style="display:none">
+                <div class="explanation-header">📖 Explanation</div>
+                <div class="explanation-text" id="explanationText"></div>
+            </div>
+            <div class="winner-form" id="winnerForm" style="display:none">
+                <h3>🏆 Claim Your ₹50!</h3>
+                <div class="form-group"><label>Your UPI ID</label><input type="text" class="form-input" id="upiInput"
+                        placeholder="name@upi or 9876543210@paytm"></div>
+                <div class="form-group"><label>Your Photo (channel announcement)</label>
+                    <div class="upload-area" id="uploadArea" onclick="document.getElementById('photoInput').click()">
+                        <div class="upload-icon">📸</div>
+                        <div class="upload-text">Tap to upload photo</div>
+                    </div>
+                    <input type="file" id="photoInput" accept="image/jpeg,image/png" style="display:none"
+                        onchange="handlePhotoUpload(this)">
+                </div>
+                <button class="duo-btn gold" id="claimBtn" onclick="submitWinnerDetails()" disabled>Claim ₹50 Prize
+                    🎉</button>
+            </div>
+            <div id="appCTA"></div>
+            <div class="lb-section" id="roundLeaderboard"></div>
+        </div>
+
+        <div class="screen" id="leaderboardScreen">
+            <h2 style="font-size:22px;font-weight:900;margin-bottom:16px">🏆 All-Time Champions</h2>
+            <div id="allTimeLeaderboard">
+                <div class="loading">
+                    <div class="spinner"></div>
+                </div>
+            </div>
+            <div id="lbCTA"></div>
+        </div>
+
+        <div class="screen" id="historyScreen">
+            <h2 style="font-size:22px;font-weight:900;margin-bottom:16px">📜 Recent Winners</h2>
+            <div id="historyList">
+                <div class="loading">
+                    <div class="spinner"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="screen" id="waitingScreen">
+            <div class="next-round-card">
+                <div style="font-size:56px">⏳</div>
+                <div style="font-size:20px;font-weight:900;margin-top:12px">Next Question Coming</div>
+                <div class="countdown" id="nextRoundCountdown">--:--:--</div>
+                <div style="color:var(--txt3);font-size:14px;font-weight:700">Stay tuned — ₹50 up for grabs!</div>
+            </div>
+            <div id="waitCTA"></div>
+        </div>
+    </div>
+
+    <div class="bottom-nav">
+        <div class="nav-item active" onclick="switchTab('quiz')">
+            <div class="nav-icon">⚡</div>
+            <div class="nav-label">Quiz</div>
+        </div>
+        <div class="nav-item" onclick="switchTab('leaderboard')">
+            <div class="nav-icon">🏆</div>
+            <div class="nav-label">Top</div>
+        </div>
+        <div class="nav-item" onclick="switchTab('history')">
+            <div class="nav-icon">📜</div>
+            <div class="nav-label">History</div>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram?.WebApp; if (tg) { tg.ready(); tg.expand(); tg.setHeaderColor('#58cc02'); tg.setBackgroundColor('#ffffff') }
+        const user = tg?.initDataUnsafe?.user || { id: 'test_' + Date.now(), first_name: 'Test' };
+        const userId = String(user.id), userName = [user.first_name, user.last_name].filter(Boolean).join(' ') || 'Anonymous', initData = tg?.initData || '';
+        const APP_STATUS = '{{ app_status }}', PLAYSTORE_LINK = '{{ playstore_link }}';
+        let currentRound = null, stopwatchInterval = null, stopwatchStart = null, roundTimerInterval = null, hasAttempted = false, selectedPhoto = null;
+        const API = '';
+
+        // ─── CTA BUILDER (Launching Soon vs Live) ─────────────────────
+        function buildCTA(containerId) {
+            const el = document.getElementById(containerId); if (!el) return;
+            if (APP_STATUS === 'live' && PLAYSTORE_LINK) {
+                el.innerHTML = `<div class="cta-banner"><h3>🔥 Practice 2000+ Questions!</h3><p>NEET 2025 — Statement, Sequence & Match types.</p><button class="duo-btn" onclick="window.open('${PLAYSTORE_LINK}','_blank')">Download MedicNEET ⬇️</button></div>`;
+            } else {
+                const uid = 'notify_' + containerId;
+                el.innerHTML = `
+        <div class="notify-cta">
+            <div class="badge">🚀 LAUNCHING SOON</div>
+            <h3>MedicNEET App</h3>
+            <p>2000+ NEET 2025 style questions — Statement,<br>Sequence & Match types. Get notified at launch!</p>
+            <div class="notify-row">
+                <input type="email" class="notify-input" id="${uid}" placeholder="your@email.com">
+                <button class="notify-submit" onclick="submitNotifyEmail('${uid}',this)">Notify Me</button>
+            </div>
+            <div id="${uid}_msg"></div>
+        </div>`;
+            }
+        }
+
+        async function submitNotifyEmail(inputId, btn) {
+            const inp = document.getElementById(inputId); const email = inp.value.trim();
+            if (!email || !email.includes('@') || !email.includes('.')) {
+                document.getElementById(inputId + '_msg').innerHTML = '<div style="color:var(--red);font-weight:700;font-size:13px;margin-top:8px">Please enter a valid email</div>'; return;
+            }
+            btn.disabled = true; btn.textContent = '...';
+            try {
+                const res = await fetch(`${API}/api/notify-email`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, user_id: userId, user_name: userName }) });
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById(inputId + '_msg').innerHTML = `<div class="notify-success">✅ You're in! We'll email you at launch.</div><div class="notify-count">${data.total_signups} people waiting</div>`;
+                    inp.style.display = 'none'; btn.style.display = 'none';
+                } else { btn.disabled = false; btn.textContent = 'Notify Me'; }
+            } catch (e) { btn.disabled = false; btn.textContent = 'Notify Me' }
+        }
+
+        function showScreen(id) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); document.getElementById(id)?.classList.add('active') }
+        function switchTab(tab) {
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active')); event.currentTarget.classList.add('active');
+            if (tab === 'quiz') { if (currentRound && !hasAttempted) showScreen('quizScreen'); else if (hasAttempted) showScreen('resultScreen'); else showScreen('waitingScreen') }
+            else if (tab === 'leaderboard') { showScreen('leaderboardScreen'); loadAllTimeLeaderboard() } else if (tab === 'history') { showScreen('historyScreen'); loadHistory() }
+        }
+
+        async function loadCurrentRound() {
+            try {
+                const res = await fetch(`${API}/api/current-round`); if (!res.ok) { showScreen('waitingScreen'); buildCTA('waitCTA'); return }
+                const data = await res.json(); currentRound = data; hasAttempted = false;
+                document.getElementById('statAttempts').textContent = data.stats.attempts;
+                document.getElementById('statFastest').textContent = data.stats.fastest_time_ms ? (data.stats.fastest_time_ms / 1000).toFixed(1) + 's' : '--';
+                startRoundTimer(data.ends_at);
+                document.getElementById('qChapter').textContent = data.question.chapter || 'NEET Biology';
+                document.getElementById('qText').textContent = data.question.text;
+                document.getElementById('optA').textContent = data.question.option_a;
+                document.getElementById('optB').textContent = data.question.option_b;
+                document.getElementById('optC').textContent = data.question.option_c;
+                document.getElementById('optD').textContent = data.question.option_d;
+                document.querySelectorAll('.option-btn').forEach(btn => { btn.classList.remove('correct', 'wrong'); btn.style.pointerEvents = 'auto' });
+                showScreen('quizScreen'); startStopwatch()
+            } catch (e) { console.error(e); showScreen('waitingScreen'); buildCTA('waitCTA') }
+        }
+
+        function startStopwatch() {
+            stopwatchStart = performance.now(); clearInterval(stopwatchInterval);
+            stopwatchInterval = setInterval(() => { document.getElementById('stopwatch').textContent = ((performance.now() - stopwatchStart) / 1000).toFixed(2) }, 50)
+        }
+        function stopStopwatch() { clearInterval(stopwatchInterval); return Math.round(performance.now() - stopwatchStart) }
+        function startRoundTimer(endsAt) {
+            clearInterval(roundTimerInterval); const end = new Date(endsAt + 'Z').getTime();
+            roundTimerInterval = setInterval(() => {
+                const d = end - Date.now(); if (d <= 0) { clearInterval(roundTimerInterval); document.getElementById('roundTimer').textContent = '00:00:00'; setTimeout(() => loadCurrentRound(), 3000); return }
+                const h = Math.floor(d / 3600000), m = Math.floor((d % 3600000) / 60000), s = Math.floor((d % 60000) / 1000);
+                document.getElementById('roundTimer').textContent = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+                if (d < 300000) document.getElementById('roundTimer').classList.add('danger')
+            }, 1000)
+        }
+
+        async function selectAnswer(btn) {
+            if (hasAttempted) return; hasAttempted = true; const tms = stopStopwatch(), answer = btn.dataset.answer;
+            document.querySelectorAll('.option-btn').forEach(b => b.style.pointerEvents = 'none');
+            try {
+                const res = await fetch(`${API}/api/submit`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ round_id: currentRound.round_id, user_id: userId, user_name: userName, answer, time_ms: tms, init_data: initData })
+                });
+                if (res.status === 400) { const err = await res.json(); if (err.detail === 'Already attempted') { showAlreadyAttempted(); return } }
+                const data = await res.json();
+                document.querySelectorAll('.option-btn').forEach(b => { if (b.dataset.answer === data.correct_answer) b.classList.add('correct') });
+                if (!data.correct) btn.classList.add('wrong');
+                setTimeout(() => showResult(data, tms), 800)
+            } catch (e) { console.error(e); hasAttempted = false; document.querySelectorAll('.option-btn').forEach(b => b.style.pointerEvents = 'auto') }
+        }
+
+        function showResult(data, tms) {
+            const ts = (tms / 1000).toFixed(2); const card = document.getElementById('resultCard');
+            if (data.is_current_winner) {
+                card.className = 'result-card win'; document.getElementById('resultIcon').textContent = '🏆';
+                document.getElementById('resultTitle').textContent = "YOU'RE WINNING!"; document.getElementById('resultTitle').className = 'result-title win-text';
+                document.getElementById('resultSub').textContent = 'Fastest correct answer — claim your ₹50!';
+                document.getElementById('winnerForm').style.display = 'block'; document.getElementById('resultTime').style.color = 'var(--green)'
+            }
+            else if (data.correct) {
+                card.className = 'result-card correct'; document.getElementById('resultIcon').textContent = '✅';
+                document.getElementById('resultTitle').textContent = 'Correct!'; document.getElementById('resultTitle').className = 'result-title correct-text';
+                document.getElementById('resultSub').textContent = 'Someone was faster. Try next round!';
+                document.getElementById('winnerForm').style.display = 'none'; document.getElementById('resultTime').style.color = 'var(--green-dk)'
+            }
+            else {
+                card.className = 'result-card wrong'; document.getElementById('resultIcon').textContent = '❌';
+                document.getElementById('resultTitle').textContent = 'Wrong Answer'; document.getElementById('resultTitle').className = 'result-title wrong-text';
+                document.getElementById('resultSub').textContent = `Correct answer was ${data.correct_answer}`;
+                document.getElementById('winnerForm').style.display = 'none'; document.getElementById('resultTime').style.color = 'var(--txt)'
+            }
+            document.getElementById('resultTime').textContent = ts;
+            if (data.explanation?.trim()) { document.getElementById('explanationText').textContent = data.explanation; document.getElementById('explanationCard').style.display = 'block' }
+            else document.getElementById('explanationCard').style.display = 'none';
+            buildCTA('appCTA'); buildRoundLeaderboard(data.leaderboard);
+            if (tg?.HapticFeedback) { if (data.is_current_winner) tg.HapticFeedback.notificationOccurred('success'); else if (data.correct) tg.HapticFeedback.notificationOccurred('warning'); else tg.HapticFeedback.notificationOccurred('error') }
+            showScreen('resultScreen')
+        }
+
+        function showAlreadyAttempted() {
+            const card = document.getElementById('resultCard'); card.className = 'result-card';
+            document.getElementById('resultIcon').textContent = '⏰'; document.getElementById('resultTitle').textContent = 'Already Played';
+            document.getElementById('resultTitle').className = 'result-title'; document.getElementById('resultSub').textContent = 'Next question coming soon!';
+            document.getElementById('resultTime').textContent = '--'; document.getElementById('winnerForm').style.display = 'none';
+            document.getElementById('explanationCard').style.display = 'none'; document.getElementById('roundLeaderboard').innerHTML = ''; buildCTA('appCTA'); showScreen('resultScreen')
+        }
+
+        function buildRoundLeaderboard(lb) {
+            const c = document.getElementById('roundLeaderboard'); if (!lb?.length) { c.innerHTML = ''; return }
+            let h = '<div class="lb-title">⚡ This Round — Fastest Correct</div>';
+            lb.forEach((e, i) => {
+                const cls = i === 0 ? 'first' : i === 1 ? 'second' : i === 2 ? 'third' : ''; const me = e.user_name === userName;
+                h += `<div class="lb-row ${cls}" ${me ? 'style="border-width:3px"' : ''}><div class="lb-rank">${i + 1}</div><div class="lb-name">${e.user_name}${me ? ' (You)' : ''}</div><div class="lb-time">${(e.time_ms / 1000).toFixed(2)}s</div></div>`
+            }); c.innerHTML = h
+        }
+
+        async function loadAllTimeLeaderboard() {
+            try {
+                const res = await fetch(`${API}/api/leaderboard`); const data = await res.json(); const c = document.getElementById('allTimeLeaderboard');
+                if (!data.leaderboard?.length) { c.innerHTML = '<p style="color:var(--txt3);text-align:center;padding:40px;font-weight:700">No winners yet!</p>'; buildCTA('lbCTA'); return }
+                let h = ''; data.leaderboard.forEach((e, i) => {
+                    const cls = i === 0 ? 'first' : i === 1 ? 'second' : i === 2 ? 'third' : '';
+                    h += `<div class="lb-row ${cls}"><div class="lb-rank">${i + 1}</div><div class="lb-name">${e.user_name}</div><div class="lb-wins">${e.wins} 🏆</div><div class="lb-time" style="margin-left:10px">₹${e.total_won}</div></div>`
+                }); c.innerHTML = h; buildCTA('lbCTA')
+            } catch (e) { console.error(e) }
+        }
+
+        async function loadHistory() {
+            try {
+                const res = await fetch(`${API}/api/history`); const data = await res.json(); const c = document.getElementById('historyList');
+                if (!data.history?.length) { c.innerHTML = '<p style="color:var(--txt3);text-align:center;padding:40px;font-weight:700">No rounds yet.</p>'; return }
+                let h = ''; data.history.forEach(e => { h += `<div class="lb-row" style="flex-direction:column;align-items:flex-start;gap:4px"><div style="font-size:12px;color:var(--txt3);font-weight:700">${e.chapter || 'Biology'}</div><div style="font-size:14px;font-weight:700">${e.question.substring(0, 80)}...</div><div style="display:flex;justify-content:space-between;width:100%"><span style="color:var(--gold-dk);font-weight:800">🏆 ${e.winner_name || 'No winner'}</span><span style="color:var(--green);font-weight:800">${e.winner_time_ms ? (e.winner_time_ms / 1000).toFixed(1) + 's' : '--'}</span></div></div>` }); c.innerHTML = h
+            } catch (e) { }
+        }
+
+        function handlePhotoUpload(input) {
+            const f = input.files[0]; if (!f) return; selectedPhoto = f; const a = document.getElementById('uploadArea');
+            a.classList.add('has-file'); a.innerHTML = `<div class="upload-icon">✅</div><div class="upload-text">${f.name}</div>`; checkClaimReady()
+        }
+        function checkClaimReady() { document.getElementById('claimBtn').disabled = !(document.getElementById('upiInput').value.trim() && selectedPhoto) }
+        document.getElementById('upiInput')?.addEventListener('input', checkClaimReady);
+
+        async function submitWinnerDetails() {
+            const btn = document.getElementById('claimBtn'); btn.disabled = true; btn.textContent = 'Uploading...';
+            const fd = new FormData(); fd.append('round_id', currentRound.round_id); fd.append('user_id', userId);
+            fd.append('upi_id', document.getElementById('upiInput').value.trim()); fd.append('photo', selectedPhoto);
+            try {
+                const res = await fetch(`${API}/api/winner-photo`, { method: 'POST', body: fd }); const data = await res.json();
+                if (data.success) { document.getElementById('winnerForm').innerHTML = `<div style="text-align:center;padding:20px"><div style="font-size:48px;margin-bottom:12px">🎉</div><h3 style="margin-bottom:8px;font-size:20px">Prize Claimed!</h3><p style="color:var(--txt2);font-size:14px;font-weight:600">₹50 sent to your UPI. Featured on channel!</p></div>` }
+                else { btn.textContent = 'Claim ₹50 Prize 🎉'; btn.disabled = false }
+            }
+            catch (e) { btn.textContent = 'Claim ₹50 Prize 🎉'; btn.disabled = false }
+        }
+
+        loadCurrentRound();
+    </script>
+</body>
+
+</html>

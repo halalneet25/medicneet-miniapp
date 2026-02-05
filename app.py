@@ -20,6 +20,7 @@ from fastapi.templating import Jinja2Templates
 BOT_TOKEN = os.getenv("BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
 CHANNEL_ID = os.getenv("CHANNEL_ID", "@your_channel")
 QUESTION_INTERVAL_HOURS = int(os.getenv("QUESTION_INTERVAL_HOURS", "4"))
+PRIZE_WINDOW_MINUTES = int(os.getenv("PRIZE_WINDOW_MINUTES", "1"))  # Prize only for first X minutes
 CASH_PRIZE = int(os.getenv("CASH_PRIZE", "50"))
 DB_PATH = os.getenv("DB_PATH", "medicneet.db")
 WEBAPP_URL = os.getenv("WEBAPP_URL", "https://yourdomain.com")
@@ -46,7 +47,7 @@ def init_db():
             correct_answer TEXT NOT NULL, explanation TEXT, chapter TEXT, difficulty TEXT, sheet_row INTEGER UNIQUE)""",
         """CREATE TABLE IF NOT EXISTS rounds (
             id INTEGER PRIMARY KEY AUTOINCREMENT, question_id INTEGER NOT NULL,
-            started_at TEXT NOT NULL, ends_at TEXT NOT NULL,
+            started_at TEXT NOT NULL, ends_at TEXT NOT NULL, prize_ends_at TEXT,
             winner_user_id TEXT, winner_name TEXT, winner_time_ms INTEGER,
             winner_photo_path TEXT, winner_upi_id TEXT, announced INTEGER DEFAULT 0)""",
         """CREATE TABLE IF NOT EXISTS attempts (
@@ -119,8 +120,10 @@ def get_or_create_current_round():
     q = c.fetchone()
     if not q: c.execute("SELECT id FROM questions ORDER BY RANDOM() LIMIT 1"); q = c.fetchone()
     if not q: conn.close(); return None
-    started = datetime.utcnow(); ends = started + timedelta(hours=QUESTION_INTERVAL_HOURS)
-    c.execute("INSERT INTO rounds (question_id, started_at, ends_at) VALUES (?,?,?)", (q["id"], started.isoformat(), ends.isoformat()))
+    started = datetime.utcnow()
+    prize_ends = started + timedelta(minutes=PRIZE_WINDOW_MINUTES)
+    ends = started + timedelta(hours=QUESTION_INTERVAL_HOURS)
+    c.execute("INSERT INTO rounds (question_id, started_at, ends_at, prize_ends_at) VALUES (?,?,?,?)", (q["id"], started.isoformat(), ends.isoformat(), prize_ends.isoformat()))
     rid = c.lastrowid; conn.commit()
     c.execute("SELECT * FROM rounds WHERE id = ?", (rid,)); r = dict(c.fetchone()); conn.close(); return r
 
@@ -231,7 +234,7 @@ async def api_current_round():
     c.execute("SELECT COUNT(*) as cnt FROM attempts WHERE round_id = ?", (rnd["id"],)); ac = c.fetchone()["cnt"]
     c.execute("SELECT user_name, time_ms FROM attempts WHERE round_id = ? AND is_correct = 1 ORDER BY time_ms ASC LIMIT 1", (rnd["id"],))
     f = c.fetchone(); conn.close()
-    return {"round_id":rnd["id"],"ends_at":rnd["ends_at"],"question":{"text":q["question"],"option_a":q["option_a"],"option_b":q["option_b"],"option_c":q["option_c"],"option_d":q["option_d"],"chapter":q["chapter"]},"stats":{"attempts":ac,"fastest_name":f["user_name"] if f else None,"fastest_time_ms":f["time_ms"] if f else None}}
+    return {"round_id":rnd["id"],"ends_at":rnd["ends_at"],"prize_ends_at":rnd.get("prize_ends_at"),"question":{"text":q["question"],"option_a":q["option_a"],"option_b":q["option_b"],"option_c":q["option_c"],"option_d":q["option_d"],"chapter":q["chapter"]},"stats":{"attempts":ac,"fastest_name":f["user_name"] if f else None,"fastest_time_ms":f["time_ms"] if f else None}}
 
 @app.post("/api/submit")
 async def api_submit(request: Request):
@@ -246,7 +249,10 @@ async def api_submit(request: Request):
     correct = qd["correct_answer"]; exp = qd["explanation"] or ""; ic = 1 if sel==correct else 0
     c.execute("INSERT INTO attempts (round_id,user_id,user_name,selected_answer,is_correct,time_ms) VALUES (?,?,?,?,?,?)", (rid,uid,un,sel,ic,tms))
     iw = False
-    if ic:
+    # Check if still in prize window
+    prize_ends_at = rnd["prize_ends_at"]
+    in_prize_window = prize_ends_at and now <= prize_ends_at
+    if ic and in_prize_window:
         c.execute("SELECT MIN(time_ms) as best FROM attempts WHERE round_id = ? AND is_correct = 1", (rid,))
         if c.fetchone()["best"] == tms:
             c.execute("UPDATE rounds SET winner_user_id=?,winner_name=?,winner_time_ms=? WHERE id=?", (uid,un,tms,rid))
@@ -255,7 +261,7 @@ async def api_submit(request: Request):
     conn.commit()
     c.execute("SELECT user_name, time_ms FROM attempts WHERE round_id = ? AND is_correct = 1 ORDER BY time_ms ASC LIMIT 10", (rid,))
     lb = [dict(r) for r in c.fetchall()]; conn.close()
-    return {"correct":bool(ic),"correct_answer":correct,"explanation":exp,"your_time_ms":tms,"is_current_winner":iw,"leaderboard":lb}
+    return {"correct":bool(ic),"correct_answer":correct,"explanation":exp,"your_time_ms":tms,"is_current_winner":iw,"leaderboard":lb,"prize_window_active":in_prize_window}
 
 @app.post("/api/winner-photo")
 async def api_winner_photo(round_id:int=Form(...),user_id:str=Form(...),upi_id:str=Form(...),photo:UploadFile=File(...)):
@@ -273,7 +279,7 @@ async def api_winner_photo(round_id:int=Form(...),user_id:str=Form(...),upi_id:s
     conn.commit(); conn.close()
     # Send instant email notification
     send_winner_notification_email(round_id, rnd_info["winner_name"] if rnd_info else "Unknown", upi_id, rnd_info["winner_time_ms"] if rnd_info else 0, user_id)
-    return {"success":True,"message":"Photo uploaded! Featured on channel soon 🏆"}
+    return {"success":True,"message":"Details submitted! Prize will be sent within 24 hours 🏆"}
 
 @app.get("/api/leaderboard")
 async def api_leaderboard():

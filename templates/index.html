@@ -1204,8 +1204,8 @@
     </div>
     <div class="timer-section" id="timerSection">
         <div>
-            <div class="timer-label">Round ends in</div>
-            <div class="timer-value" id="roundTimer">--:--:--</div>
+            <div class="timer-label" id="timerLabel">Prize ends in</div>
+            <div class="timer-value" id="roundTimer">--:--</div>
         </div>
         <div class="stats-row">
             <div class="stat-pill blue">
@@ -1217,6 +1217,11 @@
                 <div class="stat-lbl">Playing</div>
             </div>
         </div>
+    </div>
+    <div id="practiceModeBanner"
+        style="display:none;background:var(--orange-lt);padding:8px 16px;text-align:center;border-bottom:2px solid var(--orange)">
+        <span style="font-weight:800;color:var(--orange);font-size:13px">⏰ PRACTICE MODE — Prize window ended. Next
+            question in <span id="nextQuestionTime">--:--</span></span>
     </div>
     <div class="page-content">
         <div class="screen active" id="loadingScreen">
@@ -1266,10 +1271,12 @@
                 <div class="explanation-text" id="explanationText"></div>
             </div>
             <div class="winner-form" id="winnerForm" style="display:none">
-                <h3>🏆 Claim Your ₹50!</h3>
+                <h3>🏆 Claim Your ₹50 Prize!</h3>
+                <p style="color:var(--txt2);font-size:13px;margin-bottom:14px;text-align:center">Submit your details.
+                    Payment within 24 hours.</p>
                 <div class="form-group"><label>Your UPI ID</label><input type="text" class="form-input" id="upiInput"
                         placeholder="name@upi or 9876543210@paytm"></div>
-                <div class="form-group"><label>Your Photo (channel announcement)</label>
+                <div class="form-group"><label>Your Photo (for channel announcement)</label>
                     <div class="upload-area" id="uploadArea" onclick="document.getElementById('photoInput').click()">
                         <div class="upload-icon">📸</div>
                         <div class="upload-text">Tap to upload photo</div>
@@ -1277,7 +1284,7 @@
                     <input type="file" id="photoInput" accept="image/jpeg,image/png" style="display:none"
                         onchange="handlePhotoUpload(this)">
                 </div>
-                <button class="duo-btn gold" id="claimBtn" onclick="submitWinnerDetails()" disabled>Claim ₹50 Prize
+                <button class="duo-btn gold" id="claimBtn" onclick="submitWinnerDetails()" disabled>Submit Details
                     🎉</button>
             </div>
             <div id="appCTA"></div>
@@ -1387,7 +1394,7 @@
                 const data = await res.json(); currentRound = data; hasAttempted = false;
                 document.getElementById('statAttempts').textContent = data.stats.attempts;
                 document.getElementById('statFastest').textContent = data.stats.fastest_time_ms ? (data.stats.fastest_time_ms / 1000).toFixed(1) + 's' : '--';
-                startRoundTimer(data.ends_at);
+                startPrizeTimer(data.prize_ends_at, data.ends_at);
                 document.getElementById('qChapter').textContent = data.question.chapter || 'NEET Biology';
                 document.getElementById('qText').textContent = data.question.text;
                 document.getElementById('optA').textContent = data.question.option_a;
@@ -1404,14 +1411,47 @@
             stopwatchInterval = setInterval(() => { document.getElementById('stopwatch').textContent = ((performance.now() - stopwatchStart) / 1000).toFixed(2) }, 50)
         }
         function stopStopwatch() { clearInterval(stopwatchInterval); return Math.round(performance.now() - stopwatchStart) }
-        function startRoundTimer(endsAt) {
-            clearInterval(roundTimerInterval); const end = new Date(endsAt + 'Z').getTime();
+
+        let prizeWindowActive = true;
+        function startPrizeTimer(prizeEndsAt, roundEndsAt) {
+            clearInterval(roundTimerInterval);
+            const prizeEnd = prizeEndsAt ? new Date(prizeEndsAt + 'Z').getTime() : 0;
+            const roundEnd = new Date(roundEndsAt + 'Z').getTime();
+
             roundTimerInterval = setInterval(() => {
-                const d = end - Date.now(); if (d <= 0) { clearInterval(roundTimerInterval); document.getElementById('roundTimer').textContent = '00:00:00'; setTimeout(() => loadCurrentRound(), 3000); return }
-                const h = Math.floor(d / 3600000), m = Math.floor((d % 3600000) / 60000), s = Math.floor((d % 60000) / 1000);
-                document.getElementById('roundTimer').textContent = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-                if (d < 300000) document.getElementById('roundTimer').classList.add('danger')
-            }, 1000)
+                const now = Date.now();
+                const prizeRemaining = prizeEnd - now;
+                const roundRemaining = roundEnd - now;
+
+                if (roundRemaining <= 0) {
+                    clearInterval(roundTimerInterval);
+                    document.getElementById('roundTimer').textContent = '00:00';
+                    setTimeout(() => loadCurrentRound(), 3000);
+                    return;
+                }
+
+                if (prizeRemaining > 0) {
+                    // Prize window still active
+                    prizeWindowActive = true;
+                    document.getElementById('timerSection').style.display = 'flex';
+                    document.getElementById('practiceModeBanner').style.display = 'none';
+                    document.getElementById('timerLabel').textContent = '💰 PRIZE ENDS IN';
+                    const m = Math.floor(prizeRemaining / 60000);
+                    const s = Math.floor((prizeRemaining % 60000) / 1000);
+                    document.getElementById('roundTimer').textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+                    if (prizeRemaining < 30000) document.getElementById('roundTimer').classList.add('danger');
+                    else document.getElementById('roundTimer').classList.remove('danger');
+                } else {
+                    // Practice mode
+                    prizeWindowActive = false;
+                    document.getElementById('timerSection').style.display = 'none';
+                    document.getElementById('practiceModeBanner').style.display = 'block';
+                    const h = Math.floor(roundRemaining / 3600000);
+                    const m = Math.floor((roundRemaining % 3600000) / 60000);
+                    const s = Math.floor((roundRemaining % 60000) / 1000);
+                    document.getElementById('nextQuestionTime').textContent = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+                }
+            }, 1000);
         }
 
         async function selectAnswer(btn) {
@@ -1432,22 +1472,29 @@
 
         function showResult(data, tms) {
             const ts = (tms / 1000).toFixed(2); const card = document.getElementById('resultCard');
-            if (data.is_current_winner) {
+            const inPrizeWindow = data.prize_window_active !== false;
+            if (data.is_current_winner && inPrizeWindow) {
                 card.className = 'result-card win'; document.getElementById('resultIcon').textContent = '🏆';
                 document.getElementById('resultTitle').textContent = "YOU'RE WINNING!"; document.getElementById('resultTitle').className = 'result-title win-text';
                 document.getElementById('resultSub').textContent = 'Fastest correct answer — claim your ₹50!';
                 document.getElementById('winnerForm').style.display = 'block'; document.getElementById('resultTime').style.color = 'var(--green)'
             }
-            else if (data.correct) {
+            else if (data.correct && inPrizeWindow) {
                 card.className = 'result-card correct'; document.getElementById('resultIcon').textContent = '✅';
                 document.getElementById('resultTitle').textContent = 'Correct!'; document.getElementById('resultTitle').className = 'result-title correct-text';
                 document.getElementById('resultSub').textContent = 'Someone was faster. Try next round!';
                 document.getElementById('winnerForm').style.display = 'none'; document.getElementById('resultTime').style.color = 'var(--green-dk)'
             }
+            else if (data.correct && !inPrizeWindow) {
+                card.className = 'result-card correct'; document.getElementById('resultIcon').textContent = '✅';
+                document.getElementById('resultTitle').textContent = 'Correct!'; document.getElementById('resultTitle').className = 'result-title correct-text';
+                document.getElementById('resultSub').textContent = 'Practice mode — prize window ended. Nice revision!';
+                document.getElementById('winnerForm').style.display = 'none'; document.getElementById('resultTime').style.color = 'var(--green-dk)'
+            }
             else {
                 card.className = 'result-card wrong'; document.getElementById('resultIcon').textContent = '❌';
                 document.getElementById('resultTitle').textContent = 'Wrong Answer'; document.getElementById('resultTitle').className = 'result-title wrong-text';
-                document.getElementById('resultSub').textContent = `Correct answer was ${data.correct_answer}`;
+                document.getElementById('resultSub').textContent = inPrizeWindow ? `Correct answer was ${data.correct_answer}` : `Practice mode — Correct answer was ${data.correct_answer}`;
                 document.getElementById('winnerForm').style.display = 'none'; document.getElementById('resultTime').style.color = 'var(--txt)'
             }
             document.getElementById('resultTime').textContent = ts;
@@ -1507,10 +1554,10 @@
             fd.append('upi_id', document.getElementById('upiInput').value.trim()); fd.append('photo', selectedPhoto);
             try {
                 const res = await fetch(`${API}/api/winner-photo`, { method: 'POST', body: fd }); const data = await res.json();
-                if (data.success) { document.getElementById('winnerForm').innerHTML = `<div style="text-align:center;padding:20px"><div style="font-size:48px;margin-bottom:12px">🎉</div><h3 style="margin-bottom:8px;font-size:20px">Prize Claimed!</h3><p style="color:var(--txt2);font-size:14px;font-weight:600">₹50 sent to your UPI. Featured on channel!</p></div>` }
-                else { btn.textContent = 'Claim ₹50 Prize 🎉'; btn.disabled = false }
+                if (data.success) { document.getElementById('winnerForm').innerHTML = `<div style="text-align:center;padding:20px"><div style="font-size:48px;margin-bottom:12px">✅</div><h3 style="margin-bottom:8px;font-size:20px">Details Submitted!</h3><p style="color:var(--txt2);font-size:14px;font-weight:600">₹50 will be sent to your UPI within 24 hours.</p><p style="color:var(--green-dk);font-size:13px;font-weight:700;margin-top:8px">You'll be announced on the channel now! 🎉</p></div>` }
+                else { btn.textContent = 'Submit Details 🎉'; btn.disabled = false }
             }
-            catch (e) { btn.textContent = 'Claim ₹50 Prize 🎉'; btn.disabled = false }
+            catch (e) { btn.textContent = 'Submit Details 🎉'; btn.disabled = false }
         }
 
         loadCurrentRound();

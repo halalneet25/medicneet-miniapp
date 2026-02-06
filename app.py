@@ -111,21 +111,26 @@ def is_valid_photo(fp):
         return ok and 10*1024 < os.path.getsize(fp) < 5*1024*1024
     except: return False
 
-def get_or_create_current_round():
+def get_or_create_current_round(return_is_new=False):
     conn = get_db(); c = conn.cursor(); now = datetime.utcnow().isoformat()
     c.execute("SELECT * FROM rounds WHERE ends_at > ? ORDER BY started_at DESC LIMIT 1", (now,))
     rnd = c.fetchone()
-    if rnd: conn.close(); return dict(rnd)
+    if rnd: 
+        conn.close()
+        return (dict(rnd), False) if return_is_new else dict(rnd)
     c.execute("SELECT id FROM questions WHERE id NOT IN (SELECT question_id FROM rounds ORDER BY started_at DESC LIMIT 50) ORDER BY RANDOM() LIMIT 1")
     q = c.fetchone()
     if not q: c.execute("SELECT id FROM questions ORDER BY RANDOM() LIMIT 1"); q = c.fetchone()
-    if not q: conn.close(); return None
+    if not q: 
+        conn.close()
+        return (None, False) if return_is_new else None
     started = datetime.utcnow()
     prize_ends = started + timedelta(minutes=PRIZE_WINDOW_MINUTES)
     ends = started + timedelta(hours=QUESTION_INTERVAL_HOURS)
     c.execute("INSERT INTO rounds (question_id, started_at, ends_at, prize_ends_at) VALUES (?,?,?,?)", (q["id"], started.isoformat(), ends.isoformat(), prize_ends.isoformat()))
     rid = c.lastrowid; conn.commit()
-    c.execute("SELECT * FROM rounds WHERE id = ?", (rid,)); r = dict(c.fetchone()); conn.close(); return r
+    c.execute("SELECT * FROM rounds WHERE id = ?", (rid,)); r = dict(c.fetchone()); conn.close()
+    return (r, True) if return_is_new else r
 
 async def send_winner_to_channel(round_id, winner_name, time_ms, photo_path=None):
     ts = time_ms/1000
@@ -136,6 +141,20 @@ async def send_winner_to_channel(round_id, winner_name, time_ms, photo_path=None
         if photo_path and os.path.exists(photo_path):
             with open(photo_path,"rb") as p: await client.post(f"{url}/sendPhoto", data={"chat_id":CHANNEL_ID,"caption":text,"parse_mode":"HTML"}, files={"photo":p})
         else: await client.post(f"{url}/sendMessage", data={"chat_id":CHANNEL_ID,"text":text,"parse_mode":"HTML"})
+
+async def send_new_round_to_channel():
+    """Post new question alert with quiz button to channel"""
+    text = f"""🚨 <b>NEW QUESTION LIVE!</b>
+
+💰 ₹{CASH_PRIZE} for the fastest correct answer
+⏱ Prize window: {PRIZE_WINDOW_MINUTES} minute only!
+🏆 Winners announced with payment proof
+
+👇 Answer now!"""
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}"
+    button = {"inline_keyboard": [[{"text": "🧠 Play Quiz - Win ₹50!", "web_app": {"url": WEBAPP_URL}}]]}
+    async with httpx.AsyncClient() as client:
+        await client.post(f"{url}/sendMessage", json={"chat_id": CHANNEL_ID, "text": text, "parse_mode": "HTML", "reply_markup": button})
 
 def export_emails_csv():
     conn = get_db(); c = conn.cursor()
@@ -204,7 +223,12 @@ async def round_manager():
                 await send_winner_to_channel(rnd["id"], rnd["winner_name"], rnd["winner_time_ms"], rnd["winner_photo_path"])
                 c.execute("UPDATE rounds SET announced = 1 WHERE id = ?", (rnd["id"],))
             c.execute("UPDATE rounds SET announced = 1 WHERE ends_at <= ? AND announced = 0 AND winner_user_id IS NULL", (now_str,))
-            conn.commit(); conn.close(); get_or_create_current_round()
+            conn.commit(); conn.close()
+            # Check for new round and announce if created
+            rnd, is_new = get_or_create_current_round(return_is_new=True)
+            if is_new and rnd:
+                await send_new_round_to_channel()
+                logger.info(f"📢 New round announced: Round #{rnd['id']}")
             today_str = now.strftime("%Y-%m-%d")
             if now.hour == 2 and now.minute >= 30 and last_export_date != today_str:
                 send_daily_email_export(); last_export_date = today_str

@@ -710,6 +710,107 @@
             display: block
         }
 
+        /* ─── Study Material Styles ─── */
+        .study-link-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            background: var(--bg2);
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            margin-bottom: 8px;
+            text-decoration: none;
+            color: var(--txt);
+            font-weight: 700;
+            font-size: 14px;
+            transition: border-color .15s, background .15s;
+            -webkit-tap-highlight-color: transparent
+        }
+        .study-link-item:active {
+            background: var(--green-lt);
+            border-color: var(--green)
+        }
+        .study-link-num {
+            min-width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--green);
+            color: #fff;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 900;
+            flex-shrink: 0
+        }
+        .study-link-name {
+            flex: 1;
+            line-height: 1.3
+        }
+        .study-link-arrow {
+            color: var(--txt3);
+            font-size: 16px;
+            font-weight: 900;
+            flex-shrink: 0
+        }
+        .study-chapter-card {
+            background: var(--bg2);
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            margin-bottom: 8px;
+            overflow: hidden;
+            transition: border-color .15s
+        }
+        .study-chapter-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent
+        }
+        .study-chapter-header:active {
+            background: var(--green-lt)
+        }
+        .study-chapter-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 2px
+        }
+        .study-topic-count {
+            font-size: 11px;
+            color: var(--txt3);
+            font-weight: 700
+        }
+        .study-expand-icon {
+            color: var(--txt3);
+            font-size: 12px;
+            font-weight: 900;
+            flex-shrink: 0;
+            transition: transform .2s
+        }
+        .study-topics-list {
+            border-top: 2px solid var(--border);
+            padding: 8px 10px
+        }
+        .study-topic-link {
+            display: block;
+            padding: 10px 12px;
+            padding-left: 44px;
+            color: var(--txt);
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 700;
+            border-radius: 10px;
+            transition: background .1s;
+            -webkit-tap-highlight-color: transparent
+        }
+        .study-topic-link:active {
+            background: var(--green-lt)
+        }
+
         .lb-row.user-row {
             border-width: 3px;
             background: var(--purple) !important;
@@ -1903,87 +2004,27 @@
             <div id="waitCTA"></div>
         </div>
 
-        <div class="screen" id="challengesScreen">
-            <h2 style="font-size:22px;font-weight:900;margin-bottom:16px">⚔️ CHALLENGES</h2>
+        <div class="screen" id="studyScreen">
+            <h2 style="font-size:22px;font-weight:900;margin-bottom:12px">📖 STUDY MATERIAL</h2>
+
+            <input type="text" id="studySearch" placeholder="Search chapters & topics..." oninput="filterStudyLinks()" style="width:100%;padding:12px 16px;border:2px solid var(--border);border-radius:14px;font-size:14px;font-weight:700;font-family:inherit;margin-bottom:12px;outline:none;transition:border .2s" onfocus="this.style.borderColor='var(--green)'" onblur="this.style.borderColor='var(--border)'">
 
             <div class="sub-tabs">
-                <button class="sub-tab-btn active" id="chalStatsTabBtn" onclick="switchChallengeTab('stats')">My Stats</button>
-                <button class="sub-tab-btn" id="chalLbTabBtn" onclick="switchChallengeTab('leaderboard')">Leaderboard</button>
-                <button class="sub-tab-btn" id="chalHistTabBtn" onclick="switchChallengeTab('history')">History</button>
+                <button class="sub-tab-btn active" id="studyPyqTabBtn" onclick="switchStudyTab('pyq')">PYQ</button>
+                <button class="sub-tab-btn" id="studyChaptersTabBtn" onclick="switchStudyTab('chapters')">Chapters</button>
+                <button class="sub-tab-btn" id="studyResourcesTabBtn" onclick="switchStudyTab('resources')">Resources</button>
             </div>
 
-            <div class="sub-tab-content active" id="chalStatsTab">
-                <div id="challengeStatsCard" style="background:var(--bg2);border:2px solid var(--border);border-radius:18px;padding:16px;margin-bottom:12px;box-shadow:0 3px 0 var(--border)">
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-                        <div style="display:flex;align-items:center;gap:10px">
-                            <div style="font-size:24px">⚔️</div>
-                            <div>
-                                <div style="font-size:11px;color:var(--txt3);font-weight:700;text-transform:uppercase">Battles Won</div>
-                                <div id="chalBattlesWon" style="font-size:18px;font-weight:900;color:var(--green-dk)">0</div>
-                            </div>
-                        </div>
-                        <div style="display:flex;align-items:center;gap:10px">
-                            <div style="font-size:24px">💀</div>
-                            <div>
-                                <div style="font-size:11px;color:var(--txt3);font-weight:700;text-transform:uppercase">Battles Lost</div>
-                                <div id="chalBattlesLost" style="font-size:18px;font-weight:900;color:var(--red)">0</div>
-                            </div>
-                        </div>
-                        <div style="display:flex;align-items:center;gap:10px">
-                            <div style="font-size:24px">🛡️</div>
-                            <div>
-                                <div style="font-size:11px;color:var(--txt3);font-weight:700;text-transform:uppercase">Defended</div>
-                                <div id="chalDefended" style="font-size:18px;font-weight:900;color:var(--blue-dk)">0</div>
-                            </div>
-                        </div>
-                        <div style="display:flex;align-items:center;gap:10px">
-                            <div style="font-size:24px">😞</div>
-                            <div>
-                                <div style="font-size:11px;color:var(--txt3);font-weight:700;text-transform:uppercase">Lost Defenses</div>
-                                <div id="chalLostDef" style="font-size:18px;font-weight:900;color:var(--orange)">0</div>
-                            </div>
-                        </div>
-                        <div style="display:flex;align-items:center;gap:10px">
-                            <div style="font-size:24px">🔥</div>
-                            <div>
-                                <div style="font-size:11px;color:var(--txt3);font-weight:700;text-transform:uppercase">Win Streak</div>
-                                <div id="chalWinStreak" style="font-size:18px;font-weight:900;color:var(--gold-dk)">0</div>
-                            </div>
-                        </div>
-                        <div style="display:flex;align-items:center;gap:10px">
-                            <div style="font-size:24px">⚡</div>
-                            <div>
-                                <div style="font-size:11px;color:var(--txt3);font-weight:700;text-transform:uppercase">Best Time</div>
-                                <div id="chalBestTime" style="font-size:18px;font-weight:900;color:var(--green)">--</div>
-                            </div>
-                        </div>
-                        <div style="display:flex;align-items:center;gap:10px;grid-column:1/-1">
-                            <div style="font-size:24px">🏅</div>
-                            <div style="flex:1">
-                                <div style="font-size:11px;color:var(--txt3);font-weight:700;text-transform:uppercase">Challenge Score</div>
-                                <div style="display:flex;align-items:baseline;gap:8px">
-                                    <div id="chalScore" style="font-size:22px;font-weight:900;color:var(--txt)">0</div>
-                                    <div id="chalRank" style="font-size:13px;font-weight:700;color:var(--txt3)"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div style="background:var(--blue-lt);border:2px solid var(--blue);border-radius:16px;padding:14px;text-align:center;box-shadow:0 3px 0 var(--blue-dk)">
-                    <div style="font-size:13px;font-weight:700;color:var(--blue-dk)">Score = (Battles Won × 3) + (Defended × 2) - (Lost × 1)</div>
-                </div>
+            <div class="sub-tab-content active" id="studyPyqTab">
+                <div id="pyqChaptersList"></div>
             </div>
 
-            <div class="sub-tab-content" id="chalLbTab">
-                <div id="challengeLeaderboard">
-                    <div class="loading"><div class="spinner"></div></div>
-                </div>
+            <div class="sub-tab-content" id="studyChaptersTab">
+                <div id="studyChaptersList"></div>
             </div>
 
-            <div class="sub-tab-content" id="chalHistTab">
-                <div id="challengeHistory">
-                    <div class="loading"><div class="spinner"></div></div>
-                </div>
+            <div class="sub-tab-content" id="studyResourcesTab">
+                <div id="studyResourcesList"></div>
             </div>
         </div>
 
@@ -2107,9 +2148,9 @@
             <div class="nav-icon">⚡</div>
             <div class="nav-label">Quiz</div>
         </div>
-        <div class="nav-item" onclick="switchTab('challenges')">
-            <div class="nav-icon">⚔️</div>
-            <div class="nav-label">Battle</div>
+        <div class="nav-item" onclick="switchTab('study')">
+            <div class="nav-icon">📖</div>
+            <div class="nav-label">Study</div>
         </div>
         <div class="nav-item" onclick="switchTab('wallet')">
             <div class="nav-icon">💰</div>
@@ -2332,7 +2373,7 @@
             else if (tab === 'leaderboard') { showScreen('leaderboardScreen'); loadAllTimeLeaderboard() }
             else if (tab === 'history') { showScreen('historyScreen'); loadHistory() }
             else if (tab === 'practice') { showScreen('practiceScreen'); loadPracticeRounds() }
-            else if (tab === 'challenges') { showScreen('challengesScreen'); loadChallengeStats(); }
+            else if (tab === 'study') { showScreen('studyScreen'); renderStudyLinks(); }
         }
 
         let nextRoundCountdownInterval = null;
@@ -3886,169 +3927,424 @@
             setTimeout(() => { if (notifDiv.parentElement) notifDiv.remove(); }, 30000);
         }
 
-        // ─── CHALLENGE STATS / LEADERBOARD / HISTORY ─────────────────
+        // ─── STUDY MATERIAL DATA & FUNCTIONS ─────────────────────────
 
-        function switchChallengeTab(tab) {
-            document.getElementById('chalStatsTabBtn').classList.remove('active');
-            document.getElementById('chalLbTabBtn').classList.remove('active');
-            document.getElementById('chalHistTabBtn').classList.remove('active');
-            document.getElementById('chalStatsTab').classList.remove('active');
-            document.getElementById('chalLbTab').classList.remove('active');
-            document.getElementById('chalHistTab').classList.remove('active');
+        const STUDY_DATA = {
+            pyq: [
+                {name:'The Living World',url:'/pyq/biology/the-living-world'},
+                {name:'Biological Classification',url:'/pyq/biology/biological-classification'},
+                {name:'Plant Kingdom',url:'/pyq/biology/plant-kingdom'},
+                {name:'Animal Kingdom',url:'/pyq/biology/animal-kingdom'},
+                {name:'Morphology of Flowering Plants',url:'/pyq/biology/morphology-of-flowering-plants'},
+                {name:'Anatomy of Flowering Plants',url:'/pyq/biology/anatomy-of-flowering-plants'},
+                {name:'Structural Organisation in Animals',url:'/pyq/biology/structural-organisation-in-animals'},
+                {name:'Cell: The Unit of Life',url:'/pyq/biology/cell-the-unit-of-life'},
+                {name:'Biomolecules',url:'/pyq/biology/biomolecules'},
+                {name:'Cell Cycle and Cell Division',url:'/pyq/biology/cell-cycle-and-cell-division'},
+                {name:'Photosynthesis in Higher Plants',url:'/pyq/biology/photosynthesis-in-higher-plants'},
+                {name:'Respiration in Plants',url:'/pyq/biology/respiration-in-plants'},
+                {name:'Transport in Plants',url:'/pyq/biology/transport-in-plants'},
+                {name:'Mineral Nutrition',url:'/pyq/biology/mineral-nutrition'},
+                {name:'Plant Growth and Development',url:'/pyq/biology/plant-growth-and-development'},
+                {name:'Digestion and Absorption',url:'/pyq/biology/digestion-and-absorption'},
+                {name:'Breathing and Exchange of Gases',url:'/pyq/biology/breathing-and-exchange-of-gases'},
+                {name:'Body Fluids and Circulation',url:'/pyq/biology/body-fluids-and-circulation'},
+                {name:'Excretory Products and Their Elimination',url:'/pyq/biology/excretory-products-and-their-elimination'},
+                {name:'Locomotion and Movement',url:'/pyq/biology/locomotion-and-movement'},
+                {name:'Neural Control and Coordination',url:'/pyq/biology/neural-control-and-coordination'},
+                {name:'Chemical Coordination and Integration',url:'/pyq/biology/chemical-coordination-and-integration'},
+                {name:'Reproduction in Organisms',url:'/pyq/biology/reproduction-in-organisms'},
+                {name:'Sexual Reproduction in Flowering Plants',url:'/pyq/biology/sexual-reproduction-in-flowering-plants'},
+                {name:'Human Reproduction',url:'/pyq/biology/human-reproduction'},
+                {name:'Reproductive Health',url:'/pyq/biology/reproductive-health'},
+                {name:'Principles of Inheritance and Variation',url:'/pyq/biology/principles-of-inheritance-and-variation'},
+                {name:'Molecular Basis of Inheritance',url:'/pyq/biology/molecular-basis-of-inheritance'},
+                {name:'Evolution',url:'/pyq/biology/evolution'},
+                {name:'Human Health and Diseases',url:'/pyq/biology/human-health-and-diseases'},
+                {name:'Strategies for Enhancement in Food Production',url:'/pyq/biology/strategies-for-enhancement-in-food-production'},
+                {name:'Microbes in Human Welfare',url:'/pyq/biology/microbes-in-human-welfare'},
+                {name:'Biotechnology: Principles and Processes',url:'/pyq/biology/biotechnology-principles-and-processes'},
+                {name:'Biotechnology and Its Applications',url:'/pyq/biology/biotechnology-and-its-applications'},
+                {name:'Organisms and Populations',url:'/pyq/biology/organisms-and-populations'},
+                {name:'Ecosystems',url:'/pyq/biology/ecosystems'},
+                {name:'Biodiversity and Conservation',url:'/pyq/biology/biodiversity-and-conservation'},
+                {name:'Environmental Issues',url:'/pyq/biology/environmental-issues'}
+            ],
+            chapters: [
+                {name:'The Living World',url:'/neet-biology/the-living-world/',topics:[
+                    {name:'Taxonomic Categories',url:'/neet-biology/the-living-world/taxonomic-categories/'}
+                ]},
+                {name:'Biological Classification',url:'/neet-biology/biological-classification/',topics:[
+                    {name:'Introduction',url:'/neet-biology/biological-classification/introduction/'},
+                    {name:'Kingdom Fungi',url:'/neet-biology/biological-classification/kingdom-fungi/'},
+                    {name:'Kingdom Protista',url:'/neet-biology/biological-classification/kingdom-protista/'},
+                    {name:'Viruses, Viroids, Prions & Lichens',url:'/neet-biology/biological-classification/viruses-viroids-prions-and-lichens/'}
+                ]},
+                {name:'Plant Kingdom',url:'/neet-biology/plant-kingdom/',topics:[
+                    {name:'Introduction',url:'/neet-biology/plant-kingdom/introduction/'},
+                    {name:'Algae',url:'/neet-biology/plant-kingdom/algae/'},
+                    {name:'Bryophyta',url:'/neet-biology/plant-kingdom/bryophyta/'},
+                    {name:'Angiosperms & Gymnosperms',url:'/neet-biology/plant-kingdom/angiosperms-and-gymnosperms/'}
+                ]},
+                {name:'Animal Kingdom',url:'/neet-biology/animal-kingdom/',topics:[
+                    {name:'Basis of Classification',url:'/neet-biology/animal-kingdom/basis-of-classification/'},
+                    {name:'Porifera',url:'/neet-biology/animal-kingdom/porifera/'},
+                    {name:'Platyhelminthes',url:'/neet-biology/animal-kingdom/platyhelminthes/'},
+                    {name:'Aschelminthes',url:'/neet-biology/animal-kingdom/aschelminthes/'},
+                    {name:'Annelida',url:'/neet-biology/animal-kingdom/annelida/'},
+                    {name:'Arthropoda',url:'/neet-biology/animal-kingdom/arthropoda/'},
+                    {name:'Class Cyclostomata',url:'/neet-biology/animal-kingdom/class-cyclostomata/'},
+                    {name:'Class Osteichthyes',url:'/neet-biology/animal-kingdom/class-osteichthyes/'},
+                    {name:'Class Amphibia',url:'/neet-biology/animal-kingdom/class-amphibia/'},
+                    {name:'Class Reptilia',url:'/neet-biology/animal-kingdom/class-reptilia/'},
+                    {name:'Class Aves',url:'/neet-biology/animal-kingdom/class-aves/'},
+                    {name:'Class Mammalia',url:'/neet-biology/animal-kingdom/class-mammalia/'}
+                ]},
+                {name:'Morphology of Flowering Plants',url:'/neet-biology/morphology-of-flowering-plants/',topics:[
+                    {name:'The Root',url:'/neet-biology/morphology-of-flowering-plants/the-root/'},
+                    {name:'The Stem',url:'/neet-biology/morphology-of-flowering-plants/the-stem/'},
+                    {name:'The Leaf',url:'/neet-biology/morphology-of-flowering-plants/the-leaf/'},
+                    {name:'The Inflorescence',url:'/neet-biology/morphology-of-flowering-plants/the-inflorescence/'},
+                    {name:'The Flower',url:'/neet-biology/morphology-of-flowering-plants/the-flower/'},
+                    {name:'The Fruit',url:'/neet-biology/morphology-of-flowering-plants/the-fruit/'},
+                    {name:'The Seed',url:'/neet-biology/morphology-of-flowering-plants/the-seed/'},
+                    {name:'Semi-Technical Description',url:'/neet-biology/morphology-of-flowering-plants/semi-technical-description/'}
+                ]},
+                {name:'Anatomy of Flowering Plants',url:'/neet-biology/anatomy-of-flowering-plants/',topics:[
+                    {name:'The Tissue System',url:'/neet-biology/anatomy-of-flowering-plants/the-tissue-system/'},
+                    {name:'Anatomy of Dicot & Monocot Plants',url:'/neet-biology/anatomy-of-flowering-plants/anatomy-of-dicotyledonous-and-monocotyledonous-plants/'}
+                ]},
+                {name:'Structural Organisation in Animals',url:'/neet-biology/structural-organisation-in-animals/',topics:[
+                    {name:'Introduction',url:'/neet-biology/structural-organisation-in-animals/introduction/'},
+                    {name:'Introduction & Frog Morphology',url:'/neet-biology/structural-organisation-in-animals/introduction-frog-morphology/'},
+                    {name:'Frog Anatomy',url:'/neet-biology/structural-organisation-in-animals/frog-anatomy/'}
+                ]},
+                {name:'Cell: The Unit of Life',url:'/neet-biology/cell-the-unit-of-life/',topics:[
+                    {name:'Cell Theory & Overview',url:'/neet-biology/cell-the-unit-of-life/cell-theory-overview-of-cell/'},
+                    {name:'Prokaryotic Cells',url:'/neet-biology/cell-the-unit-of-life/prokaryotic/'},
+                    {name:'Eukaryotes: Cell Membrane & Wall',url:'/neet-biology/cell-the-unit-of-life/eukaryotes-cell-membrane-cell-wall/'},
+                    {name:'Endomembrane System, Mitochondria, Plastids, Ribosomes',url:'/neet-biology/cell-the-unit-of-life/endomembrane-system-mitochondria-plastids-ribosomes/'},
+                    {name:'Cytoskeleton, Cilia, Flagella, Nucleus',url:'/neet-biology/cell-the-unit-of-life/cytoskeleton-cilia-and-flagella-centrosome-and-centrioles-nucleus-microbodies/'}
+                ]},
+                {name:'Biomolecules',url:'/neet-biology/biomolecules/',topics:[
+                    {name:'How to Analyse Chemical Composition',url:'/neet-biology/biomolecules/how-to-analyse-chemical-composition/'},
+                    {name:'Biomacromolecules & Metabolites',url:'/neet-biology/biomolecules/biomacromolecules-primary-and-secondary-metabolites/'},
+                    {name:'Proteins & Structure',url:'/neet-biology/biomolecules/proteins-structure-of-proteins/'},
+                    {name:'Polysaccharides & Nucleic Acid',url:'/neet-biology/biomolecules/polysaccharides-nucleic-acid/'},
+                    {name:'Enzymes',url:'/neet-biology/biomolecules/enzymes/'}
+                ]},
+                {name:'Cell Cycle and Cell Division',url:'/neet-biology/cell-cycle-and-cell-division/',topics:[
+                    {name:'Cell Cycle, M Phase & Mitosis',url:'/neet-biology/cell-cycle-and-cell-division/cell-cycle-m-phasemitosis-and-significance-of-mitosis/'},
+                    {name:'Meiosis I, II & Significance',url:'/neet-biology/cell-cycle-and-cell-division/meiosis-meiosis-1-meiosis-2-and-significance-of-meiosis/'}
+                ]},
+                {name:'Photosynthesis in Higher Plants',url:'/neet-biology/photosynthesis-in-higher-plants/',topics:[
+                    {name:'What Do We Know?',url:'/neet-biology/photosynthesis-in-higher-plants/what-do-we-know/'},
+                    {name:'Early Experiments',url:'/neet-biology/photosynthesis-in-higher-plants/early-experiments/'},
+                    {name:'Where Does Photosynthesis Take Place?',url:'/neet-biology/photosynthesis-in-higher-plants/where-does-photosynthesis-take-place/'},
+                    {name:'Pigments in Photosynthesis',url:'/neet-biology/photosynthesis-in-higher-plants/how-mant-types-of-pigments-are-involved-in-photosynthesis/'},
+                    {name:'What is Light Reaction?',url:'/neet-biology/photosynthesis-in-higher-plants/what-is-light-reaction/'},
+                    {name:'Electron Transport',url:'/neet-biology/photosynthesis-in-higher-plants/the-electron-transport/'},
+                    {name:'Where are ATP & NADPH Used?',url:'/neet-biology/photosynthesis-in-higher-plants/where-are-the-atp-and-nadph-used/'},
+                    {name:'The C4 Pathway',url:'/neet-biology/photosynthesis-in-higher-plants/the-c4-pathway/'},
+                    {name:'Photorespiration',url:'/neet-biology/photosynthesis-in-higher-plants/photorespiration/'},
+                    {name:'Factors Affecting Photosynthesis',url:'/neet-biology/photosynthesis-in-higher-plants/factors-affecting-photosynthesis/'}
+                ]},
+                {name:'Respiration in Plants',url:'/neet-biology/respiration-in-plants/',topics:[
+                    {name:'Do Plants Breathe?',url:'/neet-biology/respiration-in-plants/do-plants-breathe/'},
+                    {name:'Glycolysis',url:'/neet-biology/respiration-in-plants/glycolysis/'},
+                    {name:'Fermentation',url:'/neet-biology/respiration-in-plants/fermentation/'},
+                    {name:'Aerobic Respiration',url:'/neet-biology/respiration-in-plants/aerobic-respiration/'},
+                    {name:'The Respiratory Balance Sheet',url:'/neet-biology/respiration-in-plants/the-respiratory-balance-sheet/'},
+                    {name:'Amphibolic Pathway',url:'/neet-biology/respiration-in-plants/amphibolic-pathway/'},
+                    {name:'Respiratory Quotient',url:'/neet-biology/respiration-in-plants/respiratory-quotient/'}
+                ]},
+                {name:'Transport in Plants',url:'/neet-biology/transport-in-plants/',topics:[]},
+                {name:'Mineral Nutrition',url:'/neet-biology/mineral-nutrition/',topics:[]},
+                {name:'Plant Growth and Development',url:'/neet-biology/plant-growth-and-development/',topics:[
+                    {name:'Growth',url:'/neet-biology/plant-growth-and-development/growth/'},
+                    {name:'Differentiation & Redifferentiation',url:'/neet-biology/plant-growth-and-development/differentiation-dedifferentiation-and-redifferentiation/'},
+                    {name:'Development',url:'/neet-biology/plant-growth-and-development/development/'},
+                    {name:'Plant Growth Regulators',url:'/neet-biology/plant-growth-and-development/plant-growth-regulators/'}
+                ]},
+                {name:'Digestion and Absorption',url:'/neet-biology/digestion-and-absorption/',topics:[]},
+                {name:'Breathing and Gaseous Exchange',url:'/neet-biology/breathing-and-gaseous-exchange/',topics:[
+                    {name:'Respiratory Organs',url:'/neet-biology/breathing-and-gaseous-exchange/respiratory-organs/'},
+                    {name:'Mechanism of Breathing',url:'/neet-biology/breathing-and-gaseous-exchange/mechanism-of-breathing/'},
+                    {name:'Exchange of Gases',url:'/neet-biology/breathing-and-gaseous-exchange/exchange-of-gases/'},
+                    {name:'Transport of Gases',url:'/neet-biology/breathing-and-gaseous-exchange/transport-of-gases/'},
+                    {name:'Regulation & Disorders',url:'/neet-biology/breathing-and-gaseous-exchange/regulation-of-respiration-disperse-of-respiratory-system/'}
+                ]},
+                {name:'Body Fluids and Circulation',url:'/neet-biology/body-fluids-and-circulation/',topics:[
+                    {name:'Blood',url:'/neet-biology/body-fluids-and-circulation/blood/'},
+                    {name:'Lymph & Tissue Fluid',url:'/neet-biology/body-fluids-and-circulation/lymph-tissue-fluid/'},
+                    {name:'Circulatory Pathways',url:'/neet-biology/body-fluids-and-circulation/circulatory-pathways/'},
+                    {name:'Double Circulation',url:'/neet-biology/body-fluids-and-circulation/double-circulation/'},
+                    {name:'Regulation of Cardiac Activity',url:'/neet-biology/body-fluids-and-circulation/regulation-of-cardiac-activity/'},
+                    {name:'Disorders of Circulatory System',url:'/neet-biology/body-fluids-and-circulation/disorders-of-circulatory-system/'}
+                ]},
+                {name:'Excretory Products and Their Elimination',url:'/neet-biology/excretory-products-and-their-elimination/',topics:[
+                    {name:'Human Excretory System',url:'/neet-biology/excretory-products-and-their-elimination/human-excretory-system/'},
+                    {name:'Urine Formation',url:'/neet-biology/excretory-products-and-their-elimination/urine-formation/'},
+                    {name:'Function of the Tubules',url:'/neet-biology/excretory-products-and-their-elimination/function-of-the-tubules/'},
+                    {name:'Concentration of the Filtrate',url:'/neet-biology/excretory-products-and-their-elimination/mechanism-of-concentration-of-the-filtrate/'},
+                    {name:'Regulation of Kidney Function',url:'/neet-biology/excretory-products-and-their-elimination/regulation-of-kidney-function/'},
+                    {name:'Micturition',url:'/neet-biology/excretory-products-and-their-elimination/micturition/'},
+                    {name:'Role of Other Organs in Excretion',url:'/neet-biology/excretory-products-and-their-elimination/role-of-other-organs-in-excretion/'},
+                    {name:'Disorders of the Excretory System',url:'/neet-biology/excretory-products-and-their-elimination/disorders-of-the-excretory-system/'}
+                ]},
+                {name:'Locomotion and Movement',url:'/neet-biology/locomotion-and-movement/',topics:[
+                    {name:'Muscle',url:'/neet-biology/locomotion-and-movement/muscle/'},
+                    {name:'Contractile Proteins & Contraction',url:'/neet-biology/locomotion-and-movement/structure-of-contractile-proteins-mechanism-of-muscle-contraction/'},
+                    {name:'Skeletal System',url:'/neet-biology/locomotion-and-movement/skeletal-system/'},
+                    {name:'Joints',url:'/neet-biology/locomotion-and-movement/joints/'},
+                    {name:'Disorders',url:'/neet-biology/locomotion-and-movement/disorders-of-muscular-and-skeletal-system/'}
+                ]},
+                {name:'Neural Control and Coordination',url:'/neet-biology/neural-control-and-coordination/',topics:[
+                    {name:'Neural System',url:'/neet-biology/neural-control-and-coordination/neural-system/'},
+                    {name:'Neuron',url:'/neet-biology/neural-control-and-coordination/neuron/'},
+                    {name:'Central Neural System',url:'/neet-biology/neural-control-and-coordination/central-neural-system/'}
+                ]},
+                {name:'Chemical Coordination and Integration',url:'/neet-biology/chemical-coordination-and-integration/',topics:[
+                    {name:'Endocrine Glands & Hormones',url:'/neet-biology/chemical-coordination-and-integration/endocrine-glands-and-hormones/'},
+                    {name:'Hypothalamus, Pituitary, Pineal',url:'/neet-biology/chemical-coordination-and-integration/the-hypothalamus-pituitary-pineal-gland/'},
+                    {name:'Thyroid, Parathyroid & Thymus',url:'/neet-biology/chemical-coordination-and-integration/thyroid-parathyroid-and-thymus-glands/'},
+                    {name:'Adrenal Gland',url:'/neet-biology/chemical-coordination-and-integration/adrenal-gland/'},
+                    {name:'Pancreas',url:'/neet-biology/chemical-coordination-and-integration/pancreas/'},
+                    {name:'Testis',url:'/neet-biology/chemical-coordination-and-integration/testis/'},
+                    {name:'Ovary',url:'/neet-biology/chemical-coordination-and-integration/ovary/'},
+                    {name:'Hormones of Heart, Kidney & GI Tract',url:'/neet-biology/chemical-coordination-and-integration/hormones-of-heart-kidney-and-gastrointestinal-tract/'},
+                    {name:'Mechanism of Hormone Action',url:'/neet-biology/chemical-coordination-and-integration/mechanism-of-hormones-action/'}
+                ]},
+                {name:'Sexual Reproduction in Flowering Plants',url:'/neet-biology/sexual-reproduction-in-flowering-plants/',topics:[
+                    {name:'Flower',url:'/neet-biology/sexual-reproduction-in-flowering-plants/flower/'},
+                    {name:'Pre-Fertilisation',url:'/neet-biology/sexual-reproduction-in-flowering-plants/pre-fertilisation/'},
+                    {name:'Double Fertilization',url:'/neet-biology/sexual-reproduction-in-flowering-plants/double-fertilization/'},
+                    {name:'Post-Fertilization',url:'/neet-biology/sexual-reproduction-in-flowering-plants/post-fertilization/'},
+                    {name:'Apomixis & Polyembryony',url:'/neet-biology/sexual-reproduction-in-flowering-plants/apomixis-and-polyembryony/'}
+                ]},
+                {name:'Human Reproduction',url:'/neet-biology/human-reproduction/',topics:[
+                    {name:'Male Reproductive System',url:'/neet-biology/human-reproduction/the-male-reproductive-system/'},
+                    {name:'Female Reproductive System',url:'/neet-biology/human-reproduction/the-female-reproductive-system/'},
+                    {name:'Gametogenesis',url:'/neet-biology/human-reproduction/gametogenesis/'},
+                    {name:'Menstrual Cycle',url:'/neet-biology/human-reproduction/menstrual-cycle/'},
+                    {name:'Fertilisation & Implantation',url:'/neet-biology/human-reproduction/fertilisation-and-implantation/'},
+                    {name:'Pregnancy & Embryonic Development',url:'/neet-biology/human-reproduction/pregnancy-and-embryonic-development/'},
+                    {name:'Parturition & Lactation',url:'/neet-biology/human-reproduction/parturition-and-lactation/'}
+                ]},
+                {name:'Reproductive Health',url:'/neet-biology/reproductive-health/',topics:[
+                    {name:'Problems & Strategies',url:'/neet-biology/reproductive-health/problems-and-strategies/'},
+                    {name:'Population Stabilization & Birth Control',url:'/neet-biology/reproductive-health/population-stabilization-and-birth-control/'},
+                    {name:'Medical Termination of Pregnancy',url:'/neet-biology/reproductive-health/medical-termination-of-pregnancy-mtp/'},
+                    {name:'STIs',url:'/neet-biology/reproductive-health/sexually-transmitted-infections-stis/'},
+                    {name:'Infertility',url:'/neet-biology/reproductive-health/infertility/'}
+                ]},
+                {name:'Principles of Inheritance and Variation',url:'/neet-biology/principles-of-inheritance-and-variation/',topics:[
+                    {name:"Mendel's Laws of Inheritance",url:'/neet-biology/principles-of-inheritance-and-variation/mendels-laws-of-inheritance/'},
+                    {name:'Inheritance of One Gene',url:'/neet-biology/principles-of-inheritance-and-variation/inheritance-of-one-gene/'},
+                    {name:'Inheritance of Two Genes',url:'/neet-biology/principles-of-inheritance-and-variation/inheritance-of-two-genes/'},
+                    {name:'Sex Determination',url:'/neet-biology/principles-of-inheritance-and-variation/sex-determination/'},
+                    {name:'Mutation',url:'/neet-biology/principles-of-inheritance-and-variation/mutation/'},
+                    {name:'Polygenic Inheritance',url:'/neet-biology/principles-of-inheritance-and-variation/polygenic-inheritance/'},
+                    {name:'Genetic Disorders',url:'/neet-biology/principles-of-inheritance-and-variation/genetic-disorders/'}
+                ]},
+                {name:'Molecular Basis of Inheritance',url:'/neet-biology/molecular-basis-of-inheritance/',topics:[
+                    {name:'The Search for Genetic Material',url:'/neet-biology/molecular-basis-of-inheritance/the-search-for-genetic-material/'},
+                    {name:'The DNA',url:'/neet-biology/molecular-basis-of-inheritance/the-dna/'},
+                    {name:'Replication',url:'/neet-biology/molecular-basis-of-inheritance/replication/'},
+                    {name:'Transcription',url:'/neet-biology/molecular-basis-of-inheritance/transcription/'},
+                    {name:'Genetic Code',url:'/neet-biology/molecular-basis-of-inheritance/genetic-code/'},
+                    {name:'Translation',url:'/neet-biology/molecular-basis-of-inheritance/translation/'},
+                    {name:'Regulation of Gene Expression',url:'/neet-biology/molecular-basis-of-inheritance/regulation-of-gene-expression/'},
+                    {name:'Human Genome Project',url:'/neet-biology/molecular-basis-of-inheritance/human-genome-project/'},
+                    {name:'DNA Fingerprinting',url:'/neet-biology/molecular-basis-of-inheritance/dna-fingerprinting/'},
+                    {name:'RNA World',url:'/neet-biology/molecular-basis-of-inheritance/rna-world/'}
+                ]},
+                {name:'Evolution',url:'/neet-biology/evolution/',topics:[
+                    {name:'Origin of Life',url:'/neet-biology/evolution/origin-of-life/'},
+                    {name:'Evolution of Life Forms',url:'/neet-biology/evolution/evolution-of-life-forms/'},
+                    {name:'Evidence for Evolution',url:'/neet-biology/evolution/what-are-the-evidence-for-evolution/'},
+                    {name:'Adaptive Radiation',url:'/neet-biology/evolution/what-is-adaptive-radiation/'},
+                    {name:'Biological Evolution',url:'/neet-biology/evolution/biological-evolution/'},
+                    {name:'Mechanism of Evolution',url:'/neet-biology/evolution/mechanism-of-evolution/'},
+                    {name:'Hardy-Weinberg Principle',url:'/neet-biology/evolution/hardy-weinberg-principle/'},
+                    {name:'Brief Account of Evolution',url:'/neet-biology/evolution/a-brief-account-of-evolution/'},
+                    {name:'Origin & Evolution of Man',url:'/neet-biology/evolution/origin-and-evolution-of-man/'}
+                ]},
+                {name:'Human Health and Disease',url:'/neet-biology/human-health-and-disease/',topics:[
+                    {name:'Common Diseases in Humans',url:'/neet-biology/human-health-and-disease/common-diseases-in-humans/'},
+                    {name:'Immunity',url:'/neet-biology/human-health-and-disease/immunity/'},
+                    {name:'AIDS',url:'/neet-biology/human-health-and-disease/aids/'},
+                    {name:'Cancer',url:'/neet-biology/human-health-and-disease/cancer/'},
+                    {name:'Drugs & Alcohol Abuse',url:'/neet-biology/human-health-and-disease/drugs-and-alcohol-abuse/'}
+                ]},
+                {name:'Strategies for Enhancement in Food Production',url:'/neet-biology/strategies-for-enhancement-in-food-production/',topics:[]},
+                {name:'Microbes in Human Welfare',url:'/neet-biology/microbes-in-human-welfare/',topics:[
+                    {name:'Microbes in Household Products',url:'/neet-biology/microbes-in-human-welfare/microbes-in-household-products/'},
+                    {name:'Microbes in Industrial Products',url:'/neet-biology/microbes-in-human-welfare/microbes-in-industrial-products/'},
+                    {name:'Microbes in Sewage Treatment',url:'/neet-biology/microbes-in-human-welfare/microbes-in-sewage-treatment/'},
+                    {name:'Microbes in Biogas Production',url:'/neet-biology/microbes-in-human-welfare/microbes-in-production-of-biogas/'},
+                    {name:'Microbes as Biocontrol Agents',url:'/neet-biology/microbes-in-human-welfare/microbes-as-biocontrol-agents/'},
+                    {name:'Microbes as Biofertilizers',url:'/neet-biology/microbes-in-human-welfare/microbes-as-biofertilizers/'}
+                ]},
+                {name:'Biotechnology: Principles and Processes',url:'/neet-biology/biotechnology-principles-and-processes/',topics:[
+                    {name:'Principles of Biotechnology',url:'/neet-biology/biotechnology-principles-and-processes/principles-of-biotechnology/'},
+                    {name:'Tools of rDNA Technology',url:'/neet-biology/biotechnology-principles-and-processes/tools-of-recombinant-dna-technology/'},
+                    {name:'Processes of rDNA Technology',url:'/neet-biology/biotechnology-principles-and-processes/processes-of-recombinant-dna-technology/'}
+                ]},
+                {name:'Biotechnology and Its Applications',url:'/neet-biology/biotechnology-and-its-application/',topics:[
+                    {name:'Applications in Agriculture',url:'/neet-biology/biotechnology-and-its-application/biotechnology-applications-in-agriculture/'},
+                    {name:'Applications in Medicine',url:'/neet-biology/biotechnology-and-its-application/biotechnology-applications-in-medicine/'},
+                    {name:'Transgenic Animals',url:'/neet-biology/biotechnology-and-its-application/transgenic-animals/'},
+                    {name:'Ethical Issues',url:'/neet-biology/biotechnology-and-its-application/ethical-issues/'}
+                ]},
+                {name:'Organisms and Populations',url:'/neet-biology/organisms-and-populations/',topics:[
+                    {name:'Populations',url:'/neet-biology/organisms-and-populations/populations/'}
+                ]},
+                {name:'Ecosystem',url:'/neet-biology/ecosystem/',topics:[
+                    {name:'Structure & Function',url:'/neet-biology/ecosystem/ecosystemstructure-and-function/'},
+                    {name:'Productivity',url:'/neet-biology/ecosystem/productivity/'},
+                    {name:'Decomposition',url:'/neet-biology/ecosystem/decomposition/'},
+                    {name:'Energy Flow',url:'/neet-biology/ecosystem/energy-flow/'},
+                    {name:'Ecological Pyramids',url:'/neet-biology/ecosystem/ecological-pyramids/'}
+                ]},
+                {name:'Biodiversity and Conservation',url:'/neet-biology/biodiversity-and-conservation/',topics:[
+                    {name:'Biodiversity',url:'/neet-biology/biodiversity-and-conservation/biodiversity/'},
+                    {name:'Biodiversity Conservation',url:'/neet-biology/biodiversity-and-conservation/biodiversity-conservation/'}
+                ]},
+                {name:'Environmental Issues',url:'/neet-biology/environmental-issues/',topics:[]}
+            ],
+            resources: [
+                {name:'MedicNEET Home',url:'/',icon:'🏠',category:'General'},
+                {name:'Pricing & Plans',url:'/pricing',icon:'💎',category:'General'},
+                {name:'FAQs',url:'/faqs',icon:'❓',category:'General'},
+                {name:'NEET Biology - All Chapters',url:'/neet-biology/',icon:'📚',category:'Study'},
+                {name:'NEET Biology PYQ - All Chapters',url:'/pyq/biology',icon:'📝',category:'Study'},
+                {name:'Chapter Weightage Analysis',url:'/neet-biology-chapter-weightage',icon:'📊',category:'Exam Info'},
+                {name:'NEET Biology Syllabus 2026',url:'/neet-biology-syllabus-2026',icon:'📋',category:'Exam Info'},
+                {name:'Important Topics 2026',url:'/neet-biology-important-topics-2026',icon:'🎯',category:'Exam Info'},
+                {name:'NEET 2025 Answer Key (Biology)',url:'/neet-2025-answer-key-biology',icon:'🔑',category:'Exam Info'},
+                {name:'NEET Cutoff 2025 (MBBS)',url:'/neet-cutoff-2025-mbbs',icon:'📈',category:'Exam Info'},
+                {name:'Privacy Policy',url:'/privacy-policy',icon:'🔒',category:'Legal'},
+                {name:'Terms & Conditions',url:'/terms',icon:'📄',category:'Legal'}
+            ]
+        };
 
-            if (tab === 'stats') {
-                document.getElementById('chalStatsTabBtn').classList.add('active');
-                document.getElementById('chalStatsTab').classList.add('active');
-                loadChallengeStats();
-            } else if (tab === 'leaderboard') {
-                document.getElementById('chalLbTabBtn').classList.add('active');
-                document.getElementById('chalLbTab').classList.add('active');
-                loadChallengeLeaderboard();
-            } else if (tab === 'history') {
-                document.getElementById('chalHistTabBtn').classList.add('active');
-                document.getElementById('chalHistTab').classList.add('active');
-                loadChallengeHistory();
+        const BASE_URL = 'https://www.medicneet.com';
+        let studyRendered = false;
+
+        function switchStudyTab(tab) {
+            document.getElementById('studyPyqTabBtn').classList.remove('active');
+            document.getElementById('studyChaptersTabBtn').classList.remove('active');
+            document.getElementById('studyResourcesTabBtn').classList.remove('active');
+            document.getElementById('studyPyqTab').classList.remove('active');
+            document.getElementById('studyChaptersTab').classList.remove('active');
+            document.getElementById('studyResourcesTab').classList.remove('active');
+
+            if (tab === 'pyq') {
+                document.getElementById('studyPyqTabBtn').classList.add('active');
+                document.getElementById('studyPyqTab').classList.add('active');
+            } else if (tab === 'chapters') {
+                document.getElementById('studyChaptersTabBtn').classList.add('active');
+                document.getElementById('studyChaptersTab').classList.add('active');
+            } else if (tab === 'resources') {
+                document.getElementById('studyResourcesTabBtn').classList.add('active');
+                document.getElementById('studyResourcesTab').classList.add('active');
             }
         }
 
-        async function loadChallengeStats() {
-            try {
-                const res = await fetch(`${API}/api/challenge/stats?user_id=${userId}`);
-                if (!res.ok) return;
-                const d = await res.json();
+        function renderStudyLinks() {
+            if (studyRendered) return;
+            studyRendered = true;
 
-                document.getElementById('chalBattlesWon').textContent = d.battles_won || 0;
-                document.getElementById('chalBattlesLost').textContent = d.battles_lost || 0;
-                document.getElementById('chalDefended').textContent = d.challenges_defended || 0;
-                document.getElementById('chalLostDef').textContent = d.challenges_lost || 0;
-                document.getElementById('chalWinStreak').textContent = d.win_streak || 0;
-                document.getElementById('chalBestTime').textContent = d.best_time_ms ? (d.best_time_ms / 1000).toFixed(1) + 's' : '--';
-                document.getElementById('chalScore').textContent = d.score || 0;
-                document.getElementById('chalRank').textContent = d.rank ? '(Rank #' + d.rank + ')' : '';
+            // Render PYQ chapters
+            let pyqHtml = '';
+            STUDY_DATA.pyq.forEach((ch, i) => {
+                pyqHtml += `<a href="${BASE_URL}${ch.url}" target="_blank" rel="noopener" class="study-link-item">
+                    <span class="study-link-num">${i+1}</span>
+                    <span class="study-link-name">${ch.name}</span>
+                    <span class="study-link-arrow">→</span>
+                </a>`;
+            });
+            document.getElementById('pyqChaptersList').innerHTML = pyqHtml;
 
-                // Color the stats card based on score
-                const card = document.getElementById('challengeStatsCard');
-                if (d.score >= 20) {
-                    card.style.borderColor = 'var(--gold)';
-                    card.style.background = 'var(--gold-lt)';
-                    card.style.boxShadow = '0 3px 0 var(--gold-dk)';
-                } else if (d.score >= 10) {
-                    card.style.borderColor = 'var(--green)';
-                    card.style.background = 'var(--green-lt)';
-                    card.style.boxShadow = '0 3px 0 var(--green-dk)';
+            // Render Study chapters with expandable subtopics
+            let chapHtml = '';
+            STUDY_DATA.chapters.forEach((ch, i) => {
+                const hasTopics = ch.topics && ch.topics.length > 0;
+                const topicCount = hasTopics ? ch.topics.length : 0;
+                chapHtml += `<div class="study-chapter-card" id="studyCh${i}">
+                    <div class="study-chapter-header" onclick="${hasTopics ? `toggleChapter(${i})` : `window.open('${BASE_URL}${ch.url}','_blank')`}">
+                        <span class="study-link-num">${i+1}</span>
+                        <div class="study-chapter-info">
+                            <span class="study-link-name">${ch.name}</span>
+                            ${topicCount ? `<span class="study-topic-count">${topicCount} topics</span>` : ''}
+                        </div>
+                        ${hasTopics ? `<span class="study-expand-icon" id="expandIcon${i}">▼</span>` : `<span class="study-link-arrow">→</span>`}
+                    </div>
+                    ${hasTopics ? `<div class="study-topics-list" id="topicsList${i}" style="display:none">
+                        <a href="${BASE_URL}${ch.url}" target="_blank" rel="noopener" class="study-topic-link" style="color:var(--green-dk);font-weight:800">📖 Chapter Overview →</a>
+                        ${ch.topics.map(t => `<a href="${BASE_URL}${t.url}" target="_blank" rel="noopener" class="study-topic-link">${t.name} →</a>`).join('')}
+                    </div>` : ''}
+                </div>`;
+            });
+            document.getElementById('studyChaptersList').innerHTML = chapHtml;
+
+            // Render Resources grouped by category
+            let resHtml = '';
+            const categoryOrder = ['Exam Info', 'Study', 'General', 'Legal'];
+            const categoryIcons = {'Exam Info':'🎓', 'Study':'📚', 'General':'🌐', 'Legal':'⚖️'};
+            categoryOrder.forEach(cat => {
+                const items = STUDY_DATA.resources.filter(r => r.category === cat);
+                if (items.length === 0) return;
+                resHtml += `<div style="font-size:13px;font-weight:800;color:var(--txt3);text-transform:uppercase;letter-spacing:1px;margin:16px 0 8px 4px">${categoryIcons[cat] || ''} ${cat}</div>`;
+                items.forEach(r => {
+                    resHtml += `<a href="${BASE_URL}${r.url}" target="_blank" rel="noopener" class="study-link-item" style="padding:14px 16px">
+                        <span style="font-size:20px">${r.icon}</span>
+                        <span class="study-link-name">${r.name}</span>
+                        <span class="study-link-arrow">→</span>
+                    </a>`;
+                });
+            });
+            document.getElementById('studyResourcesList').innerHTML = resHtml;
+        }
+
+        function toggleChapter(i) {
+            const list = document.getElementById('topicsList' + i);
+            const icon = document.getElementById('expandIcon' + i);
+            if (list.style.display === 'none') {
+                list.style.display = 'block';
+                icon.textContent = '▲';
+                icon.style.transform = 'rotate(0deg)';
+            } else {
+                list.style.display = 'none';
+                icon.textContent = '▼';
+            }
+        }
+
+        function filterStudyLinks() {
+            const query = document.getElementById('studySearch').value.toLowerCase().trim();
+            // Filter PYQ
+            document.querySelectorAll('#pyqChaptersList .study-link-item').forEach(el => {
+                el.style.display = el.textContent.toLowerCase().includes(query) ? '' : 'none';
+            });
+            // Filter Chapters
+            document.querySelectorAll('#studyChaptersList .study-chapter-card').forEach(el => {
+                const text = el.textContent.toLowerCase();
+                if (text.includes(query)) {
+                    el.style.display = '';
+                    if (query.length > 0) {
+                        const list = el.querySelector('.study-topics-list');
+                        const icon = el.querySelector('.study-expand-icon');
+                        if (list) { list.style.display = 'block'; if (icon) icon.textContent = '▲'; }
+                    }
                 } else {
-                    card.style.borderColor = 'var(--border)';
-                    card.style.background = 'var(--bg2)';
-                    card.style.boxShadow = '0 3px 0 var(--border)';
+                    el.style.display = 'none';
                 }
-            } catch (e) {
-                console.error('Failed to load challenge stats:', e);
-            }
-        }
-
-        async function loadChallengeLeaderboard() {
-            try {
-                const res = await fetch(`${API}/api/challenge/leaderboard`);
-                if (!res.ok) return;
-                const data = await res.json();
-                const c = document.getElementById('challengeLeaderboard');
-
-                if (!data.leaderboard || data.leaderboard.length === 0) {
-                    c.innerHTML = '<p style="color:var(--txt3);text-align:center;padding:40px;font-weight:700">No challenge battles yet! Be the first.</p>';
-                    return;
-                }
-
-                let h = '<div style="text-align:center;margin-bottom:16px;font-size:20px;font-weight:900">\u2694\uFE0F CHALLENGE LEADERBOARD</div>';
-
-                data.leaderboard.forEach((e, i) => {
-                    const cls = i === 0 ? 'first' : i === 1 ? 'second' : i === 2 ? 'third' : '';
-                    const medal = i === 0 ? '\uD83E\uDD47' : i === 1 ? '\uD83E\uDD48' : i === 2 ? '\uD83E\uDD49' : '';
-                    const isCurrentUser = e.user_id === userId;
-                    const userCls = isCurrentUser ? 'user-row' : '';
-                    const userBadge = isCurrentUser ? '<span class="user-badge">YOU</span>' : '';
-
-                    h += `<div class="lb-row ${cls} ${userCls}">
-                        ${medal ? '<span class="medal-icon">' + medal + '</span>' : '<div class="lb-rank">' + e.rank + '</div>'}
-                        <div class="lb-name">${e.user_name || 'Anonymous'}${userBadge}</div>
-                        <div style="margin-left:auto;display:flex;gap:12px;align-items:center">
-                            <div style="text-align:center">
-                                <div style="font-size:10px;color:var(--txt3);font-weight:700">\u2694\uFE0F</div>
-                                <div style="font-weight:800;font-size:13px;color:var(--green-dk)">${e.battles_won}</div>
-                            </div>
-                            <div style="text-align:center">
-                                <div style="font-size:10px;color:var(--txt3);font-weight:700">\uD83D\uDEE1\uFE0F</div>
-                                <div style="font-weight:800;font-size:13px;color:var(--blue-dk)">${e.challenges_defended}</div>
-                            </div>
-                            <div style="font-weight:900;font-size:16px;color:var(--gold-dk)">${e.score}</div>
-                        </div>
-                    </div>`;
-                });
-
-                c.innerHTML = h;
-            } catch (e) {
-                console.error('Failed to load challenge leaderboard:', e);
-            }
-        }
-
-        async function loadChallengeHistory() {
-            try {
-                const res = await fetch(`${API}/api/challenge/history?user_id=${userId}`);
-                if (!res.ok) return;
-                const data = await res.json();
-                const c = document.getElementById('challengeHistory');
-
-                if (!data.history || data.history.length === 0) {
-                    c.innerHTML = '<p style="color:var(--txt3);text-align:center;padding:40px;font-weight:700">No battles yet! Challenge a friend after getting 4/4.</p>';
-                    return;
-                }
-
-                let h = '';
-                data.history.forEach(e => {
-                    let resultColor, resultText, resultIcon;
-                    if (e.result === 'won') {
-                        resultColor = 'var(--green)'; resultText = 'WON'; resultIcon = '\u2705';
-                    } else if (e.result === 'lost') {
-                        resultColor = 'var(--red)'; resultText = 'LOST'; resultIcon = '\u274C';
-                    } else if (e.result === 'pending') {
-                        resultColor = 'var(--txt3)'; resultText = 'PENDING'; resultIcon = '\u23F3';
-                    } else {
-                        resultColor = 'var(--txt3)'; resultText = 'EXPIRED'; resultIcon = '\u23F0';
-                    }
-
-                    const userTimeStr = e.user_time_ms ? (e.user_time_ms / 1000).toFixed(1) + 's' : '--';
-                    const oppTimeStr = e.opponent_time_ms ? (e.opponent_time_ms / 1000).toFixed(1) + 's' : '--';
-                    const roleLabel = e.user_role === 'challenger' ? 'Challenger' : 'Friend';
-                    const dateStr = e.created_at ? new Date(e.created_at + 'Z').toLocaleDateString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
-
-                    let actionBtn = '';
-                    if (e.result === 'pending' && e.user_role === 'friend') {
-                        actionBtn = '<div style="margin-top:8px"><button class="duo-btn" style="padding:8px 14px;font-size:12px" onclick="switchTab(\'quiz\')">Play now!</button></div>';
-                    } else if (e.result === 'pending' && e.user_role === 'challenger') {
-                        actionBtn = '<div style="font-size:12px;color:var(--txt3);font-weight:600;margin-top:4px">Waiting for ' + e.opponent_name + '...</div>';
-                    }
-
-                    h += `<div class="lb-row" style="flex-direction:column;align-items:stretch;gap:6px;margin-bottom:8px">
-                        <div style="display:flex;align-items:center;justify-content:space-between">
-                            <div style="display:flex;align-items:center;gap:8px">
-                                <span style="font-size:18px">${resultIcon}</span>
-                                <div>
-                                    <div style="font-size:14px;font-weight:800;color:var(--txt)">vs ${e.opponent_name}</div>
-                                    <div style="font-size:11px;color:var(--txt3);font-weight:600">${roleLabel} \u2022 ${dateStr}</div>
-                                </div>
-                            </div>
-                            <div style="text-align:right">
-                                <div style="font-size:12px;font-weight:900;color:${resultColor};text-transform:uppercase">${resultText}</div>
-                                <div style="font-size:12px;font-weight:700;color:var(--txt2)">${userTimeStr} vs ${oppTimeStr}</div>
-                            </div>
-                        </div>
-                        ${actionBtn}
-                    </div>`;
-                });
-
-                c.innerHTML = h;
-            } catch (e) {
-                console.error('Failed to load challenge history:', e);
-            }
+            });
+            // Filter Resources
+            document.querySelectorAll('#studyResourcesList .study-link-item').forEach(el => {
+                el.style.display = el.textContent.toLowerCase().includes(query) ? '' : 'none';
+            });
         }
 
         loadCurrentRound();

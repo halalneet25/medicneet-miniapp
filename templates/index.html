@@ -711,6 +711,100 @@
         }
 
         
+        
+        /* ─── PYQ CTA Banner ─── */
+        .pyq-cta-banner {
+            margin: 16px 0;
+            background: linear-gradient(135deg, #0f3460 0%, #1a1a2e 40%, #16213e 100%);
+            border-radius: 18px;
+            padding: 16px;
+            position: relative;
+            overflow: hidden;
+            border: 2px solid rgba(88,204,2,0.25);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .pyq-cta-banner::after {
+            content: '';
+            position: absolute;
+            top: -2px; right: -2px; bottom: -2px; left: -2px;
+            border-radius: 18px;
+            background: linear-gradient(60deg, transparent 40%, rgba(88,204,2,0.15) 50%, transparent 60%);
+            animation: pyqShine 4s ease-in-out infinite;
+        }
+        @keyframes pyqShine {
+            0%, 100% { transform: translateX(-150%); }
+            50% { transform: translateX(150%); }
+        }
+        .pyq-cta-inner {
+            position: relative;
+            z-index: 1;
+        }
+        .pyq-cta-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: var(--green);
+            color: #fff;
+            font-size: 10px;
+            font-weight: 900;
+            padding: 3px 10px;
+            border-radius: 8px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+        .pyq-cta-badge-dot {
+            width: 5px; height: 5px;
+            background: #fff;
+            border-radius: 50%;
+            animation: livePulse 1.5s infinite;
+        }
+        .pyq-cta-question {
+            color: rgba(255,255,255,0.6);
+            font-size: 12px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        .pyq-cta-chapter {
+            color: #fff;
+            font-size: 16px;
+            font-weight: 900;
+            margin-bottom: 10px;
+            line-height: 1.3;
+        }
+        .pyq-cta-chapter em {
+            color: var(--green);
+            font-style: normal;
+        }
+        .pyq-cta-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            background: var(--green);
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            padding: 10px 16px;
+            font-size: 13px;
+            font-weight: 900;
+            font-family: inherit;
+            cursor: pointer;
+            width: 100%;
+            box-shadow: 0 3px 0 var(--green-dk);
+            transition: transform 0.1s;
+        }
+        .pyq-cta-btn:active {
+            transform: translateY(2px);
+            box-shadow: 0 1px 0 var(--green-dk);
+        }
+        .pyq-cta-arrow {
+            font-size: 16px;
+            animation: arrowBounce 1.5s infinite;
+        }
+
         /* ─── Flash News Banner ─── */
         .flash-news-banner {
             margin-bottom: 14px;
@@ -2038,6 +2132,7 @@
                 <div class="explanation-text" id="explanationText"></div>
             </div>
             <div id="questionsReviewContainer"></div>
+            <div id="pyqCTAContainer" style="display:none"></div>
             <div id="top10Notification" style="display:none;background:var(--green-lt);border:2px solid var(--green);border-radius:18px;padding:16px;margin-bottom:16px;text-align:center;box-shadow:0 3px 0 var(--green-dk)">
                 <div style="font-size:32px;margin-bottom:8px">🎉</div>
                 <div style="font-size:18px;font-weight:900;color:var(--green-dk);margin-bottom:4px" id="top10Title">You're in Top 10!</div>
@@ -3099,6 +3194,7 @@
             }
 
             buildCTA('appCTA');
+            buildPyqCTA();
             buildRoundLeaderboard(data.leaderboard);
 
             // Wallet balance updates at round end, not on submit
@@ -4533,6 +4629,108 @@
             });
         })();
     
+        
+        // ─── PYQ CTA AFTER QUIZ RESULT ─────────────────────
+        const PYQ_CHAPTER_MAP = {
+            'the living world': {slug:'the-living-world', name:'The Living World'},
+            'biological classification': {slug:'biological-classification', name:'Biological Classification'},
+            'plant kingdom': {slug:'plant-kingdom', name:'Plant Kingdom'},
+            'animal kingdom': {slug:'animal-kingdom', name:'Animal Kingdom'},
+            'morphology of flowering plants': {slug:'morphology-of-flowering-plants', name:'Morphology of Flowering Plants'},
+            'anatomy of flowering plants': {slug:'anatomy-of-flowering-plants', name:'Anatomy of Flowering Plants'},
+            'structural organisation in animals': {slug:'structural-organisation-in-animals', name:'Structural Organisation in Animals'},
+            'cell the unit of life': {slug:'cell-the-unit-of-life', name:'Cell: The Unit of Life'},
+            'cell: the unit of life': {slug:'cell-the-unit-of-life', name:'Cell: The Unit of Life'},
+            'biomolecules': {slug:'biomolecules', name:'Biomolecules'},
+            'cell cycle and cell division': {slug:'cell-cycle-and-cell-division', name:'Cell Cycle and Cell Division'},
+            'photosynthesis in higher plants': {slug:'photosynthesis-in-higher-plants', name:'Photosynthesis in Higher Plants'},
+            'respiration in plants': {slug:'respiration-in-plants', name:'Respiration in Plants'},
+            'transport in plants': {slug:'transport-in-plants', name:'Transport in Plants'},
+            'mineral nutrition': {slug:'mineral-nutrition', name:'Mineral Nutrition'},
+            'plant growth and development': {slug:'plant-growth-and-development', name:'Plant Growth and Development'},
+            'digestion and absorption': {slug:'digestion-and-absorption', name:'Digestion and Absorption'},
+            'breathing and exchange of gases': {slug:'breathing-and-exchange-of-gases', name:'Breathing and Exchange of Gases'},
+            'body fluids and circulation': {slug:'body-fluids-and-circulation', name:'Body Fluids and Circulation'},
+            'excretory products and their elimination': {slug:'excretory-products-and-their-elimination', name:'Excretory Products and Their Elimination'},
+            'locomotion and movement': {slug:'locomotion-and-movement', name:'Locomotion and Movement'},
+            'neural control and coordination': {slug:'neural-control-and-coordination', name:'Neural Control and Coordination'},
+            'chemical coordination and integration': {slug:'chemical-coordination-and-integration', name:'Chemical Coordination and Integration'},
+            'reproduction in organisms': {slug:'reproduction-in-organisms', name:'Reproduction in Organisms'},
+            'sexual reproduction in flowering plants': {slug:'sexual-reproduction-in-flowering-plants', name:'Sexual Reproduction in Flowering Plants'},
+            'human reproduction': {slug:'human-reproduction', name:'Human Reproduction'},
+            'reproductive health': {slug:'reproductive-health', name:'Reproductive Health'},
+            'principles of inheritance and variation': {slug:'principles-of-inheritance-and-variation', name:'Principles of Inheritance and Variation'},
+            'molecular basis of inheritance': {slug:'molecular-basis-of-inheritance', name:'Molecular Basis of Inheritance'},
+            'evolution': {slug:'evolution', name:'Evolution'},
+            'human health and diseases': {slug:'human-health-and-diseases', name:'Human Health and Diseases'},
+            'human health and disease': {slug:'human-health-and-diseases', name:'Human Health and Diseases'},
+            'strategies for enhancement in food production': {slug:'strategies-for-enhancement-in-food-production', name:'Strategies for Enhancement in Food Production'},
+            'microbes in human welfare': {slug:'microbes-in-human-welfare', name:'Microbes in Human Welfare'},
+            'biotechnology principles and processes': {slug:'biotechnology-principles-and-processes', name:'Biotechnology: Principles and Processes'},
+            'biotechnology: principles and processes': {slug:'biotechnology-principles-and-processes', name:'Biotechnology: Principles and Processes'},
+            'biotechnology and its applications': {slug:'biotechnology-and-its-applications', name:'Biotechnology and Its Applications'},
+            'organisms and populations': {slug:'organisms-and-populations', name:'Organisms and Populations'},
+            'ecosystem': {slug:'ecosystems', name:'Ecosystems'},
+            'ecosystems': {slug:'ecosystems', name:'Ecosystems'},
+            'biodiversity and conservation': {slug:'biodiversity-and-conservation', name:'Biodiversity and Conservation'},
+            'environmental issues': {slug:'environmental-issues', name:'Environmental Issues'},
+            'biology in human welfare': {slug:'human-health-and-diseases', name:'Human Health and Diseases'},
+        };
+
+        function findPyqChapter(chapterName) {
+            if (!chapterName) return null;
+            const key = chapterName.toLowerCase().trim();
+            if (PYQ_CHAPTER_MAP[key]) return PYQ_CHAPTER_MAP[key];
+            // Fuzzy match: try partial
+            for (const [k, v] of Object.entries(PYQ_CHAPTER_MAP)) {
+                if (key.includes(k) || k.includes(key)) return v;
+            }
+            return null;
+        }
+
+        function buildPyqCTA() {
+            const container = document.getElementById('pyqCTAContainer');
+            if (!container || !currentRound?.questions) { container && (container.style.display = 'none'); return; }
+
+            // Get unique chapters from current round questions
+            const chapters = [];
+            const seen = new Set();
+            currentRound.questions.forEach(q => {
+                if (q.chapter && !seen.has(q.chapter.toLowerCase())) {
+                    seen.add(q.chapter.toLowerCase());
+                    const match = findPyqChapter(q.chapter);
+                    if (match) chapters.push(match);
+                }
+            });
+
+            if (chapters.length === 0) { container.style.display = 'none'; return; }
+
+            // Pick one chapter (first one or random)
+            const ch = chapters[Math.floor(Math.random() * chapters.length)];
+            const pyqUrl = 'https://www.medicneet.com/pyq/biology/' + ch.slug;
+
+            const messages = [
+                { q: 'Think you know', em: ch.name, suffix: '? Prove it.' },
+                { q: 'Wanna test your grip on', em: ch.name, suffix: '?' },
+                { q: 'How strong is your', em: ch.name, suffix: '? Find out.' },
+                { q: 'Ready to crush', em: ch.name, suffix: ' PYQs?' },
+            ];
+            const msg = messages[Math.floor(Math.random() * messages.length)];
+
+            container.innerHTML = `
+                <div class="pyq-cta-banner" onclick="window.open('${pyqUrl}', '_blank')">
+                    <div class="pyq-cta-inner">
+                        <div class="pyq-cta-badge"><span class="pyq-cta-badge-dot"></span> PYQ CHALLENGE</div>
+                        <div class="pyq-cta-chapter">${msg.q} <em>${msg.em}</em>${msg.suffix}</div>
+                        <button class="pyq-cta-btn" onclick="event.stopPropagation(); window.open('${pyqUrl}', '_blank')">
+                            Solve PYQs Now <span class="pyq-cta-arrow">→</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+            container.style.display = 'block';
+        }
+
         // ─── FLASH NEWS BANNER ─────────────────────────────
         const CATEGORY_EMOJI = {
             registration: '📝', exam_date: '📅', admit_card: '🎫',

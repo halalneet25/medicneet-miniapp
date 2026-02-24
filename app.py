@@ -1377,7 +1377,7 @@ async def api_withdraw_tasks(user_id: str):
     tasks["share_friends"] = {"completed": referral_count >= 3, "value": referral_count}
 
     # Generate referral link
-    referral_link = f"https://t.me/MedicNEETBot/quiz?startapp=ref_{user_id}"
+    referral_link = f"https://t.me/Winners_neetbot/Medicneet?startapp=ref_{user_id}"
 
     # 10. upi_id: Check if UPI ID is saved
     c.execute("SELECT upi_id FROM wallets WHERE user_id = ?", (user_id,))

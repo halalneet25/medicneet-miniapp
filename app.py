@@ -1372,7 +1372,7 @@ async def api_withdraw_tasks(user_id: str):
     tasks["join_group"] = {"completed": group_verified}
 
     # 9. share_friends: Check referral clicks >= 3
-    c.execute("SELECT COUNT(*) as cnt FROM referrals WHERE referrer_id = ?", (user_id,))
+    c.execute("SELECT COUNT(*) as cnt FROM referrals r WHERE r.referrer_id = ? AND (SELECT COUNT(DISTINCT round_id) FROM attempts WHERE user_id = r.referee_id) >= 3", (user_id,))
     referral_count = c.fetchone()["cnt"]
     tasks["share_friends"] = {"completed": referral_count >= 3, "value": referral_count}
 
@@ -1563,7 +1563,7 @@ async def api_withdraw_request(request: Request):
             raise HTTPException(400, f"Task '{task_name}' not completed")
 
     # Verify referrals >= 3
-    c.execute("SELECT COUNT(*) as cnt FROM referrals WHERE referrer_id = ?", (user_id,))
+    c.execute("SELECT COUNT(*) as cnt FROM referrals r WHERE r.referrer_id = ? AND (SELECT COUNT(DISTINCT round_id) FROM attempts WHERE user_id = r.referee_id) >= 3", (user_id,))
     if c.fetchone()["cnt"] < 3:
         conn.close()
         raise HTTPException(400, "Need at least 3 referrals")

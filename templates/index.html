@@ -407,6 +407,7 @@
         }
 
         .explanation-card {
+            margin-top: 16px;
             background: var(--blue-lt);
             border: 2px solid var(--blue);
             border-radius: 18px;
@@ -1338,6 +1339,7 @@
             }
 
             .explanation-card {
+            margin-top: 16px;
                 padding: 14px 16px;
                 border-radius: 16px;
             }
@@ -2132,6 +2134,7 @@
                 <div class="explanation-text" id="explanationText"></div>
             </div>
             <div id="questionsReviewContainer"></div>
+            <div style="background:var(--bg2);border:2px solid var(--border);border-radius:16px;padding:16px;margin:16px 0;text-align:center;box-shadow:0 3px 0 var(--border)"><div style="font-size:15px;font-weight:800;color:var(--txt1);margin-bottom:8px">Got doubts on any question? 🤔</div><a href="https://t.me/neetbiotraps" onclick="window.Telegram?.WebApp?.openTelegramLink('https://t.me/neetbiotraps');return false;" style="display:inline-block;background:var(--green);color:#fff;font-weight:800;font-size:14px;padding:10px 24px;border-radius:12px;text-decoration:none;box-shadow:0 3px 0 var(--green-dk)">Ask in Group — AI Bot Answers Instantly 🧬</a></div>
             <div id="pyqCTAContainer" style="display:none"></div>
             <div id="top10Notification" style="display:none;background:var(--green-lt);border:2px solid var(--green);border-radius:18px;padding:16px;margin-bottom:16px;text-align:center;box-shadow:0 3px 0 var(--green-dk)">
                 <div style="font-size:32px;margin-bottom:8px">🎉</div>
@@ -2215,6 +2218,7 @@
                 <div style="font-size:14px;color:var(--txt2);font-weight:600;margin-top:4px" id="practiceWinnerTime">--</div>
             </div>
             <div id="practiceQuestionsReview"></div>
+            <div style="background:var(--bg2);border:2px solid var(--border);border-radius:16px;padding:16px;margin:16px 0;text-align:center;box-shadow:0 3px 0 var(--border)"><div style="font-size:15px;font-weight:800;color:var(--txt1);margin-bottom:8px">Got doubts on any question? 🤔</div><a href="https://t.me/neetbiotraps" onclick="window.Telegram?.WebApp?.openTelegramLink('https://t.me/neetbiotraps');return false;" style="display:inline-block;background:var(--green);color:#fff;font-weight:800;font-size:14px;padding:10px 24px;border-radius:12px;text-decoration:none;box-shadow:0 3px 0 var(--green-dk)">Ask in Group — AI Bot Answers Instantly 🧬</a></div>
             <button class="duo-btn blue" onclick="switchTab('practice')" style="margin-top:16px">Back to Practice Mode</button>
         </div>
 
@@ -2417,7 +2421,19 @@
         const userId = String(user.id), userName = [user.first_name, user.last_name].filter(Boolean).join(' ') || 'Anonymous', initData = tg?.initData || '';
         const APP_STATUS = '{{ app_status }}', PLAYSTORE_LINK = '{{ playstore_link }}';
         let currentRound = null, stopwatchInterval = null, stopwatchStart = null, roundTimerInterval = null, hasAttempted = false;
-        let userAnswers = [null, null, null, null];  // Track answers for 4 questions
+        function formatQuestion(t) {
+            if (!t) return '';
+            t = t.replace(/\n/g, '<br>');
+            t = t.replace(/(S[1-5]:)/g, '<br><strong>$1</strong>');
+            t = t.replace(/(Statement [IVX]+)/g, '<br><strong>$1</strong>');
+            t = t.replace(/(Column [AB]|Column [IVX]+)/g, '<br><strong>$1</strong>');
+            t = t.replace(/(\([a-d]\))/g, '<br>$1');
+            t = t.replace(/(<br>){2,}/g, '<br>');
+            return t;
+        }
+
+        let userAnswers = [null, null, null, null];
+        let optionMaps = [{},{},{},{}];  // Track answers for 4 questions
         let questionTimes = [null, null, null, null];  // Track when each question was answered (ms since quiz start)
         let quizStartTime = null;  // Date.now() when quiz starts
         let submitCountdownInterval = null, submitTimeRemaining = 60;  // 60 second countdown timer
@@ -2738,6 +2754,7 @@
                 hasAttempted = false;
                 userAnswers = [null, null, null, null];
                 questionTimes = [null, null, null, null];
+                optionMaps = [{},{},{},{}];
 
                 document.getElementById('statAttempts').textContent = data.stats.attempts;
                 document.getElementById('statFastest').textContent = data.stats.fastest_time_ms ? (data.stats.fastest_time_ms / 1000).toFixed(1) + 's' : '--';
@@ -2748,30 +2765,35 @@
                 container.innerHTML = '';
 
                 data.questions.forEach((q, idx) => {
+                    const letters = ['A','B','C','D'];
+                    const opts = [
+                        {orig: 'A', text: q.option_a},
+                        {orig: 'B', text: q.option_b},
+                        {orig: 'C', text: q.option_c},
+                        {orig: 'D', text: q.option_d}
+                    ];
+                    for (let i = opts.length - 1; i > 0; i--) {
+                        const j = Math.floor(Math.random() * (i + 1));
+                        [opts[i], opts[j]] = [opts[j], opts[i]];
+                    }
+                    const map = {};
+                    opts.forEach((o, i) => { map[letters[i]] = o.orig; });
+                    optionMaps[idx] = map;
+
                     const qBlock = document.createElement('div');
                     qBlock.className = 'question-block';
                     qBlock.id = `question-${idx}`;
+                    if (idx > 0) qBlock.style.display = 'none';
                     qBlock.innerHTML = `
                         <div class="question-number">Question ${idx + 1}</div>
                         <div class="question-chapter">${q.chapter || 'NEET Biology'}</div>
-                        <div class="question-text">${q.text}</div>
+                        <div class="question-text">${formatQuestion(q.text)}</div>
                         <div class="options">
-                            <button class="option-btn" data-question="${idx}" data-answer="A" onclick="selectQuestionAnswer(${idx}, 'A', this)">
-                                <div class="opt-letter">A</div>
-                                <div>${q.option_a}</div>
-                            </button>
-                            <button class="option-btn" data-question="${idx}" data-answer="B" onclick="selectQuestionAnswer(${idx}, 'B', this)">
-                                <div class="opt-letter">B</div>
-                                <div>${q.option_b}</div>
-                            </button>
-                            <button class="option-btn" data-question="${idx}" data-answer="C" onclick="selectQuestionAnswer(${idx}, 'C', this)">
-                                <div class="opt-letter">C</div>
-                                <div>${q.option_c}</div>
-                            </button>
-                            <button class="option-btn" data-question="${idx}" data-answer="D" onclick="selectQuestionAnswer(${idx}, 'D', this)">
-                                <div class="opt-letter">D</div>
-                                <div>${q.option_d}</div>
-                            </button>
+                            ${opts.map((o, i) => `
+                            <button class="option-btn" data-question="${idx}" data-answer="${letters[i]}" onclick="selectQuestionAnswer(${idx}, '${letters[i]}', this)">
+                                <div class="opt-letter">${letters[i]}</div>
+                                <div>${o.text}</div>
+                            </button>`).join('')}
                         </div>
                     `;
                     container.appendChild(qBlock);
@@ -2780,7 +2802,6 @@
                 document.getElementById('submitBtn').disabled = true;
                 showScreen('quizScreen');
                 startStopwatch();
-                startSubmitCountdown();
             } catch (e) {
                 console.error(e);
                 showScreen('waitingScreen');
@@ -2878,36 +2899,32 @@
 
         function selectQuestionAnswer(questionIdx, answer, btn) {
             if (hasAttempted) return;
+            if (userAnswers[questionIdx] !== null) return;
 
-            // Remove selection from other options in this question
-            const questionBlock = document.getElementById(`question-${questionIdx}`);
-            questionBlock.querySelectorAll('.option-btn').forEach(b => {
-                b.classList.remove('selected');
-                b.style.background = 'var(--bg)';
-                b.style.borderColor = 'var(--border)';
-            });
-
-            // Mark this option as selected
             btn.classList.add('selected');
             btn.style.background = 'var(--blue-lt)';
             btn.style.borderColor = 'var(--blue)';
 
-            // Store the answer and record timing
             userAnswers[questionIdx] = answer;
             questionTimes[questionIdx] = Date.now() - quizStartTime;
 
-            // Mark question block as answered
+            const questionBlock = document.getElementById(`question-${questionIdx}`);
+            questionBlock.querySelectorAll('.option-btn').forEach(b => {
+                b.style.pointerEvents = 'none';
+                if (!b.classList.contains('selected')) {
+                    b.style.opacity = '0.4';
+                }
+            });
             questionBlock.classList.add('answered');
+            questionBlock.style.opacity = '0.7';
 
-            // Enable submit button if all 4 questions are answered AND countdown is complete
-            const allAnswered = userAnswers.every(a => a !== null);
-            const submitBtn = document.getElementById('submitBtn');
-
-            // Only enable if countdown is complete (submitTimeRemaining <= 0)
-            if (submitTimeRemaining <= 0 && allAnswered) {
-                submitBtn.disabled = false;
+            const nextIdx = questionIdx + 1;
+            if (nextIdx < 4) {
+                const nextBlock = document.getElementById(`question-${nextIdx}`);
+                nextBlock.style.display = 'block';
+                nextBlock.scrollIntoView({ behavior: 'smooth', block: 'center' });
             } else {
-                submitBtn.disabled = true;
+                setTimeout(() => submitAllAnswers(), 500);
             }
         }
 
@@ -2927,7 +2944,7 @@
                     round_id: currentRound.round_id,
                     user_id: userId,
                     user_name: userName,
-                    answers: userAnswers,
+                    answers: userAnswers.map((a, i) => a ? optionMaps[i][a] : null),
                     question_times: questionTimes,
                     time_ms: tms,
                     init_data: initData
@@ -2967,7 +2984,10 @@
                         const buttons = questionBlock.querySelectorAll('.option-btn');
                         buttons.forEach(btn => {
                             const btnAnswer = btn.dataset.answer;
-                            if (btnAnswer === data.correct_answers[idx]) {
+                            const revMap = {};
+                            Object.entries(optionMaps[idx] || {}).forEach(([d, o]) => { revMap[o] = d; });
+                            const corrDisp = revMap[data.correct_answers[idx]] || data.correct_answers[idx];
+                            if (btnAnswer === corrDisp) {
                                 btn.classList.add('correct');
                             } else if (btnAnswer === userAnswers[idx] && !isCorrect) {
                                 btn.classList.add('wrong');
@@ -3371,6 +3391,7 @@
 
         // ─── PRACTICE MODE FUNCTIONS ─────────────────────
         let practiceRoundData = null;
+        const FREE_PRACTICE_LIMIT = 5;
         let practiceAnswers = [null, null, null, null];
         let practiceQuestionTimes = [null, null, null, null];
         let practiceStopwatchStart = null;
@@ -3387,7 +3408,7 @@
                     return;
                 }
 
-                container.innerHTML = data.rounds.map(round => {
+                container.innerHTML = data.rounds.map((round, index) => {
                     const date = new Date(round.date + 'Z');
                     const dateStr = date.toLocaleString('en-IN', {
                         month: 'short',
@@ -3396,6 +3417,23 @@
                         minute: '2-digit'
                     });
                     const winnerTime = round.winning_time ? (round.winning_time / 1000).toFixed(1) + 's' : 'N/A';
+                    const isLocked = index >= FREE_PRACTICE_LIMIT;
+
+                    if (isLocked) {
+                        return `
+                            <div class="practice-round-card" style="position:relative;overflow:hidden">
+                                <div style="position:absolute;inset:0;background:rgba(255,255,255,0.85);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2;border-radius:16px">
+                                    <div style="font-size:32px;margin-bottom:8px">🔒</div>
+                                    <div style="font-size:13px;font-weight:800;color:var(--txt1);margin-bottom:6px;text-align:center;padding:0 12px">Want more NEET 2025-style questions?</div>
+                                    <a href="https://play.google.com/store/apps/details?id=com.halalfire.medicneet" target="_blank" style="background:var(--green);color:#fff;font-weight:800;font-size:12px;padding:8px 16px;border-radius:10px;text-decoration:none;box-shadow:0 2px 0 var(--green-dk)">12,771 Questions on MedicNEET App →</a>
+                                </div>
+                                <div class="practice-round-header">Round #${round.round_id} - ${dateStr}</div>
+                                <div class="practice-round-info">🏆 Winner: ${round.winner_name} (${winnerTime})</div>
+                                <div class="practice-round-info">👥 ${round.total_participants} participants</div>
+                                <button class="practice-round-btn" disabled>Practice This Round</button>
+                            </div>
+                        `;
+                    }
 
                     return `
                         <div class="practice-round-card">
@@ -3426,10 +3464,10 @@
 
                 const container = document.getElementById('practiceQuestionsContainer');
                 container.innerHTML = data.questions.map((q, idx) => `
-                    <div class="question-block" id="practice-q-${idx}">
+                    <div class="question-block" id="practice-q-${idx}" style="${idx > 0 ? 'display:none' : ''}">
                         <div class="question-number">Question ${idx + 1}/4</div>
                         <div class="question-chapter">${q.chapter}</div>
-                        <div class="question-text">${q.text}</div>
+                        <div class="question-text">${formatQuestion(q.text)}</div>
                         <div class="options">
                             <button class="option-btn" onclick="selectPracticeAnswer(${idx}, 'A')">
                                 <div class="opt-letter">A</div>
@@ -3470,14 +3508,14 @@
         }
 
         function selectPracticeAnswer(questionIndex, answer) {
+            if (practiceAnswers[questionIndex] !== null) return;
+
             practiceAnswers[questionIndex] = answer;
             practiceQuestionTimes[questionIndex] = Date.now() - practiceStopwatchStart;
 
-            // Update UI
             const block = document.getElementById(`practice-q-${questionIndex}`);
             const buttons = block.querySelectorAll('.option-btn');
             buttons.forEach(btn => {
-                btn.classList.remove('correct', 'wrong');
                 const letter = btn.querySelector('.opt-letter').textContent;
                 if (letter === answer) {
                     btn.style.borderColor = 'var(--blue)';
@@ -3486,19 +3524,22 @@
                     btn.querySelector('.opt-letter').style.borderColor = 'var(--blue-dk)';
                     btn.querySelector('.opt-letter').style.color = '#fff';
                 } else {
-                    btn.style.borderColor = '';
-                    btn.style.background = '';
-                    btn.querySelector('.opt-letter').style.background = '';
-                    btn.querySelector('.opt-letter').style.borderColor = '';
-                    btn.querySelector('.opt-letter').style.color = '';
+                    btn.style.opacity = '0.4';
                 }
+                btn.style.pointerEvents = 'none';
             });
 
             block.classList.add('answered');
+            block.style.opacity = '0.7';
 
-            // Enable submit if all answered
-            const allAnswered = practiceAnswers.every(a => a !== null);
-            document.getElementById('practiceSubmitBtn').disabled = !allAnswered;
+            const nextIdx = questionIndex + 1;
+            if (nextIdx < 4) {
+                const nextBlock = document.getElementById(`practice-q-${nextIdx}`);
+                nextBlock.style.display = 'block';
+                nextBlock.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            } else {
+                setTimeout(() => submitPracticeAnswers(), 500);
+            }
         }
 
         async function submitPracticeAnswers() {
@@ -3553,7 +3594,7 @@
                         <div class="question-block ${isCorrect ? 'correct' : 'incorrect'}">
                             <div class="question-number">Question ${idx + 1}/4 ${isCorrect ? '✅' : '❌'}</div>
                             <div class="question-chapter">${q.chapter}</div>
-                            <div class="question-text">${q.text}</div>
+                            <div class="question-text">${formatQuestion(q.text)}</div>
                             <div class="options">
                                 ${['A', 'B', 'C', 'D'].map(letter => {
                                     const isUserAnswer = letter === userAnswer;
@@ -3574,7 +3615,7 @@
                             ${explanation ? `
                                 <div class="explanation-card">
                                     <div class="explanation-header">📖 Explanation</div>
-                                    <div class="explanation-text">${explanation}</div>
+                                    <div class="explanation-text">${formatQuestion(explanation)}</div>
                                 </div>
                             ` : ''}
                         </div>

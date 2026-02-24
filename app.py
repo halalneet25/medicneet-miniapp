@@ -230,7 +230,7 @@ def maybe_create_scheduled_round():
 
             # Select 4 questions with mixed correct answers (one per A,B,C,D)
             used_ids = set()
-            c.execute("SELECT question_1_id, question_2_id, question_3_id, question_4_id FROM rounds ORDER BY started_at DESC LIMIT 10")
+            c.execute("SELECT question_1_id, question_2_id, question_3_id, question_4_id FROM rounds")
             for row in c.fetchall():
                 used_ids.update([row['question_1_id'], row['question_2_id'], row['question_3_id'], row['question_4_id']])
             q_ids = []

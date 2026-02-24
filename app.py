@@ -1374,7 +1374,15 @@ async def api_withdraw_tasks(user_id: str):
     # 9. share_friends: Check referral clicks >= 3
     c.execute("SELECT COUNT(*) as cnt FROM referrals r WHERE r.referrer_id = ? AND (SELECT COUNT(DISTINCT round_id) FROM attempts WHERE user_id = r.referee_id) >= 3", (user_id,))
     referral_count = c.fetchone()["cnt"]
-    tasks["share_friends"] = {"completed": referral_count >= 3, "value": referral_count}
+    
+    # Get detailed referral progress
+    c.execute("""SELECT r.referee_id, 
+        COALESCE((SELECT user_name FROM attempts WHERE user_id = r.referee_id LIMIT 1), 'Unknown') as name,
+        (SELECT COUNT(DISTINCT round_id) FROM attempts WHERE user_id = r.referee_id) as rounds
+        FROM referrals r WHERE r.referrer_id = ?""", (user_id,))
+    referral_details = [{"name": row["name"], "rounds": row["rounds"], "qualified": row["rounds"] >= 3} for row in c.fetchall()]
+    
+    tasks["share_friends"] = {"completed": referral_count >= 3, "value": referral_count, "details": referral_details}
 
     # Generate referral link
     referral_link = f"https://t.me/Winners_neetbot/Medicneet?startapp=ref_{user_id}"

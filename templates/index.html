@@ -3892,6 +3892,7 @@
                 + '<div class="wg-task-info">'
                 + '<div class="wg-task-title">Invite 3 friends to play</div>'
                 + '<div class="wg-task-sub">' + sf.value + '/3 friends qualified</div><div class="wg-task-sub" style="font-size:11px;color:var(--txt2);margin-top:2px">Each friend must open your link AND play at least 3 rounds</div>'
+                + (sf.details && sf.details.length > 0 ? '<div style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px">' + sf.details.map(d => '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px"><span style="font-weight:700;color:var(--txt1)">' + d.name + '</span><span style="font-weight:800;color:' + (d.qualified ? 'var(--green-dk)' : 'var(--red)') + '">' + (d.qualified ? '\u2705 Qualified' : d.rounds + '/3 rounds') + '</span></div>').join('') + '</div>' : '')
                 + shareExtra
                 + '</div>'
                 + '<div class="wg-task-status">' + (sf.completed ? '<div class="wg-check">\u2713</div>' : '') + '</div>'

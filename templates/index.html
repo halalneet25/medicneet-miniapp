@@ -2321,6 +2321,7 @@
                 <div style="font-size:14px;color:var(--txt2);font-weight:600;margin-top:4px" id="practiceWinnerTime">--</div>
             </div>
             <div id="practiceQuestionsReview"></div>
+            <div id="practiceBlogCTAContainer" style="display:none"></div>
             <div style="background:var(--bg2);border:2px solid var(--border);border-radius:16px;padding:16px;margin:16px 0;text-align:center;box-shadow:0 3px 0 var(--border)"><div style="font-size:15px;font-weight:800;color:var(--txt1);margin-bottom:8px">Got doubts on any question? 🤔</div><a href="https://t.me/neetbiotraps" onclick="window.Telegram?.WebApp?.openTelegramLink('https://t.me/neetbiotraps');return false;" style="display:inline-block;background:var(--green);color:#fff;font-weight:800;font-size:14px;padding:10px 24px;border-radius:12px;text-decoration:none;box-shadow:0 3px 0 var(--green-dk)">Ask in Group — AI Bot Answers Instantly 🧬</a></div>
             <button class="duo-btn blue" onclick="switchTab('practice')" style="margin-top:16px">Back to Practice Mode</button>
         </div>
@@ -3741,6 +3742,7 @@
                     `;
                 }).join('');
 
+                buildBlogCTA('practiceBlogCTAContainer');
                 showScreen('practiceResultScreen');
 
             } catch (e) {
@@ -4888,8 +4890,8 @@
         }
 
         // ─── BLOG CTA (Result Screen) ─────────────────────
-        async function buildBlogCTA() {
-            const container = document.getElementById('blogCTAContainer');
+        async function buildBlogCTA(containerId) {
+            const container = document.getElementById(containerId || 'blogCTAContainer');
             if (!container) return;
             try {
                 const res = await fetch(API + '/api/blogs/featured');

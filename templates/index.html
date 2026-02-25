@@ -934,6 +934,108 @@
             display: none;
         }
 
+        /* ─── Blog Hero Carousel ─── */
+        .blog-hero-carousel {
+            margin-bottom: 14px;
+            background: linear-gradient(135deg, #1a1a2e 0%, #0f3460 50%, #1a1a2e 100%);
+            border-radius: 16px;
+            padding: 14px 16px;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            -webkit-tap-highlight-color: transparent;
+            border: 1px solid rgba(28,176,246,0.3);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .blog-hero-carousel::before {
+            content: '';
+            position: absolute;
+            top: -50%; left: -50%;
+            width: 200%; height: 200%;
+            background: linear-gradient(45deg, transparent 40%, rgba(28,176,246,0.08) 50%, transparent 60%);
+            animation: blogShimmer 3s infinite;
+        }
+        @keyframes blogShimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+        .blog-hero-header {
+            display: flex; align-items: center; gap: 8px;
+            margin-bottom: 8px; position: relative; z-index: 1;
+        }
+        .blog-hero-badge {
+            display: inline-flex; align-items: center; gap: 4px;
+            background: #1cb0f6; color: #fff;
+            font-size: 10px; font-weight: 900;
+            padding: 2px 8px; border-radius: 6px;
+            letter-spacing: 0.5px; text-transform: uppercase;
+        }
+        .blog-hero-title { color: #fff; font-size: 12px; font-weight: 800; position: relative; z-index: 1; }
+        .blog-hero-items {
+            position: relative; z-index: 1;
+            height: 44px; overflow: hidden;
+        }
+        .blog-hero-scroll {
+            display: flex; flex-direction: column;
+        }
+        .blog-hero-item {
+            height: 44px; display: flex; align-items: center; gap: 8px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            cursor: pointer;
+        }
+        .blog-hero-item-emoji { font-size: 20px; flex-shrink: 0; }
+        .blog-hero-item-text {
+            color: rgba(255,255,255,0.9); font-size: 13px; font-weight: 700;
+            overflow: hidden; text-overflow: ellipsis;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+            white-space: normal; line-height: 1.3;
+        }
+        .blog-hero-cta {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-top: 10px; position: relative; z-index: 1;
+        }
+        .blog-hero-cta-text { color: #1cb0f6; font-size: 11px; font-weight: 800; }
+        .blog-hero-cta-arrow { color: #1cb0f6; font-size: 16px; animation: arrowBounce 1.5s infinite; }
+
+        /* ─── Blog CTA Banner (Result Screen) ─── */
+        .blog-cta-banner {
+            margin: 16px 0;
+            background: linear-gradient(135deg, #16213e 0%, #1a1a2e 40%, #0f3460 100%);
+            border-radius: 18px; padding: 16px;
+            position: relative; overflow: hidden;
+            border: 2px solid rgba(28,176,246,0.25);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            cursor: pointer; -webkit-tap-highlight-color: transparent;
+        }
+        .blog-cta-banner::after {
+            content: ''; position: absolute;
+            top: -2px; right: -2px; bottom: -2px; left: -2px;
+            border-radius: 18px;
+            background: linear-gradient(60deg, transparent 40%, rgba(28,176,246,0.15) 50%, transparent 60%);
+            animation: pyqShine 4s ease-in-out infinite;
+        }
+        .blog-cta-inner { position: relative; z-index: 1; }
+        .blog-cta-badge {
+            display: inline-flex; align-items: center; gap: 4px;
+            background: #1cb0f6; color: #fff;
+            font-size: 10px; font-weight: 900; padding: 3px 10px;
+            border-radius: 8px; letter-spacing: 0.5px;
+            text-transform: uppercase; margin-bottom: 10px;
+        }
+        .blog-cta-excerpt {
+            color: #fff; font-size: 16px; font-weight: 900;
+            margin-bottom: 10px; line-height: 1.3;
+        }
+        .blog-cta-btn {
+            display: flex; align-items: center; justify-content: center; gap: 6px;
+            background: #1cb0f6; color: #fff; border: none;
+            border-radius: 12px; padding: 10px 16px;
+            font-size: 13px; font-weight: 900; font-family: inherit;
+            cursor: pointer; width: 100%;
+            box-shadow: 0 3px 0 #0d8ecf; transition: transform 0.1s;
+        }
+        .blog-cta-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #0d8ecf; }
+
         /* ─── Study Material Styles ─── */
         .study-link-item {
             display: flex;
@@ -2136,6 +2238,7 @@
             <div id="questionsReviewContainer"></div>
             <div style="background:var(--bg2);border:2px solid var(--border);border-radius:16px;padding:16px;margin:16px 0;text-align:center;box-shadow:0 3px 0 var(--border)"><div style="font-size:15px;font-weight:800;color:var(--txt1);margin-bottom:8px">Got doubts on any question? 🤔</div><a href="https://t.me/neetbiotraps" onclick="window.Telegram?.WebApp?.openTelegramLink('https://t.me/neetbiotraps');return false;" style="display:inline-block;background:var(--green);color:#fff;font-weight:800;font-size:14px;padding:10px 24px;border-radius:12px;text-decoration:none;box-shadow:0 3px 0 var(--green-dk)">Ask in Group — AI Bot Answers Instantly 🧬</a></div>
             <div id="pyqCTAContainer" style="display:none"></div>
+            <div id="blogCTAContainer" style="display:none"></div>
             <div id="top10Notification" style="display:none;background:var(--green-lt);border:2px solid var(--green);border-radius:18px;padding:16px;margin-bottom:16px;text-align:center;box-shadow:0 3px 0 var(--green-dk)">
                 <div style="font-size:32px;margin-bottom:8px">🎉</div>
                 <div style="font-size:18px;font-weight:900;color:var(--green-dk);margin-bottom:4px" id="top10Title">You're in Top 10!</div>
@@ -2234,6 +2337,21 @@
 
         <div class="screen" id="studyScreen">
             <h2 style="font-size:22px;font-weight:900;margin-bottom:12px">📖 STUDY MATERIAL</h2>
+
+            <!-- Blog Hero Carousel -->
+            <div class="blog-hero-carousel" id="blogHeroCarousel" style="display:none">
+                <div class="blog-hero-header">
+                    <span class="blog-hero-badge">NEW</span>
+                    <span class="blog-hero-title">📖 NEET STUDY BLOG</span>
+                </div>
+                <div class="blog-hero-items">
+                    <div class="blog-hero-scroll" id="blogHeroScroll"></div>
+                </div>
+                <div class="blog-hero-cta">
+                    <span class="blog-hero-cta-text">Read on medicneet.com →</span>
+                    <span class="blog-hero-cta-arrow">›</span>
+                </div>
+            </div>
 
             <!-- Flash News Banner -->
             <div class="flash-news-banner" id="flashNewsBanner" onclick="openFlashNews()" style="display:none">
@@ -2630,7 +2748,7 @@
             else if (tab === 'leaderboard') { showScreen('leaderboardScreen'); loadAllTimeLeaderboard() }
             else if (tab === 'history') { showScreen('historyScreen'); loadHistory() }
             else if (tab === 'practice') { showScreen('practiceScreen'); loadPracticeRounds() }
-            else if (tab === 'study') { showScreen('studyScreen'); renderStudyLinks(); }
+            else if (tab === 'study') { showScreen('studyScreen'); renderStudyLinks(); loadBlogCarousel(); }
         }
 
         let nextRoundCountdownInterval = null;
@@ -3215,6 +3333,7 @@
 
             buildCTA('appCTA');
             buildPyqCTA();
+            buildBlogCTA();
             buildRoundLeaderboard(data.leaderboard);
 
             // Wallet balance updates at round end, not on submit
@@ -3255,7 +3374,7 @@
             document.getElementById('resultIcon').textContent = '⏰'; document.getElementById('resultTitle').textContent = 'Already Played';
             document.getElementById('resultTitle').className = 'result-title'; document.getElementById('resultSub').textContent = 'Next question coming soon!';
             document.getElementById('resultTime').textContent = '--'; document.getElementById('top10Notification').style.display = 'none';
-            document.getElementById('explanationCard').style.display = 'none'; document.getElementById('roundLeaderboard').innerHTML = ''; buildCTA('appCTA'); showScreen('resultScreen')
+            document.getElementById('explanationCard').style.display = 'none'; document.getElementById('roundLeaderboard').innerHTML = ''; buildCTA('appCTA'); buildBlogCTA(); showScreen('resultScreen')
         }
 
         function buildRoundLeaderboard(lb) {
@@ -4768,6 +4887,31 @@
             container.style.display = 'block';
         }
 
+        // ─── BLOG CTA (Result Screen) ─────────────────────
+        async function buildBlogCTA() {
+            const container = document.getElementById('blogCTAContainer');
+            if (!container) return;
+            try {
+                const res = await fetch(API + '/api/blogs/featured');
+                if (!res.ok) { container.style.display = 'none'; return; }
+                const blog = await res.json();
+                container.innerHTML = `
+                    <div class="blog-cta-banner" onclick="window.open('${blog.site_url}', '_blank')">
+                        <div class="blog-cta-inner">
+                            <div class="blog-cta-badge">${blog.thumbnail_emoji} MUST READ</div>
+                            <div class="blog-cta-excerpt">${blog.title}</div>
+                            <button class="blog-cta-btn" onclick="event.stopPropagation(); window.open('${blog.site_url}', '_blank')">
+                                Read Article <span style="font-size:16px;animation:arrowBounce 1.5s infinite">→</span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+                container.style.display = 'block';
+            } catch(e) {
+                container.style.display = 'none';
+            }
+        }
+
         // ─── FLASH NEWS BANNER ─────────────────────────────
         const CATEGORY_EMOJI = {
             registration: '📝', exam_date: '📅', admit_card: '🎫',
@@ -4821,6 +4965,54 @@
 
         // Load flash news on page load
         loadFlashNews();
+
+        // ─── BLOG HERO CAROUSEL ─────────────────────────────
+        let blogCarouselLoaded = false;
+        async function loadBlogCarousel() {
+            if (blogCarouselLoaded) return;
+            try {
+                const res = await fetch(API + '/api/blogs');
+                if (!res.ok) return;
+                const data = await res.json();
+                const carousel = document.getElementById('blogHeroCarousel');
+                const scroll = document.getElementById('blogHeroScroll');
+                if (!data.blogs || data.blogs.length === 0) {
+                    carousel.style.display = 'none'; return;
+                }
+                blogCarouselLoaded = true;
+                scroll.innerHTML = '';
+                const count = Math.min(data.blogs.length, 5);
+                data.blogs.slice(0, count).forEach(blog => {
+                    const div = document.createElement('div');
+                    div.className = 'blog-hero-item';
+                    div.innerHTML = '<span class="blog-hero-item-emoji">' + blog.thumbnail_emoji + '</span>' +
+                        '<span class="blog-hero-item-text">' + blog.title + '</span>';
+                    div.onclick = function() { window.open(blog.site_url, '_blank'); };
+                    scroll.appendChild(div);
+                });
+                // For single blog, no animation needed
+                if (count === 1) {
+                    carousel.style.display = 'block';
+                    return;
+                }
+                scroll.style.setProperty('--blog-scroll-duration', (count * 3) + 's');
+                // Generate dynamic keyframes
+                let keyframes = '@keyframes blogScroll { ';
+                for (let i = 0; i < count; i++) {
+                    const start = Math.round((i / count) * 100);
+                    const hold = Math.round(((i + 0.5) / count) * 100);
+                    keyframes += start + '%, ' + hold + '% { transform: translateY(-' + (i * 44) + 'px); } ';
+                }
+                keyframes += '100% { transform: translateY(0); } }';
+                const styleEl = document.createElement('style');
+                styleEl.textContent = keyframes;
+                document.head.appendChild(styleEl);
+                scroll.style.animation = 'blogScroll ' + (count * 3) + 's infinite';
+                carousel.style.display = 'block';
+            } catch(e) {
+                console.log('Blog carousel load error:', e);
+            }
+        }
 
     </script>
 </body>

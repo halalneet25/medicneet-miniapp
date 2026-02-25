@@ -136,7 +136,17 @@ def init_db():
             referrer_id TEXT NOT NULL,
             referee_id TEXT NOT NULL,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(referrer_id, referee_id))"""
+            UNIQUE(referrer_id, referee_id))""",
+        """CREATE TABLE IF NOT EXISTS blogs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            slug TEXT NOT NULL UNIQUE,
+            excerpt TEXT NOT NULL,
+            thumbnail_emoji TEXT DEFAULT '📝',
+            medium_url TEXT NOT NULL,
+            category TEXT DEFAULT 'strategy',
+            is_featured INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP)"""
     ]:
         c.execute(sql)
     # Migrate: add chain_parent_id to challenges if missing (for existing DBs)
@@ -159,6 +169,22 @@ def init_db():
 
 def get_db():
     conn = sqlite3.connect(DB_PATH); conn.row_factory = sqlite3.Row; return conn
+
+def seed_initial_blogs():
+    conn = get_db(); c = conn.cursor()
+    c.execute("SELECT COUNT(*) as cnt FROM blogs")
+    if c.fetchone()["cnt"] == 0:
+        c.execute("""INSERT INTO blogs (title, slug, excerpt, thumbnail_emoji, medium_url, category, is_featured)
+                     VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                  ("The NEET Biology Strategy Nobody Talks About: How to Use PYQs the Right Way",
+                   "pyq-strategy-neet-biology",
+                   "Most NEET aspirants solve PYQs. Very few actually learn from them. Here's the difference — and how it can change your score by 40-80 marks.",
+                   "🎯",
+                   "https://medium.com/@medicneet.team/the-neet-biology-strategy-nobody-talks-about-how-to-use-previous-year-questions-the-right-way-c6cc71027584",
+                   "strategy",
+                   1))
+        conn.commit()
+    conn.close()
 
 def sync_questions_from_sheet():
     if not GOOGLE_SHEET_ID: return 0
@@ -450,7 +476,7 @@ async def round_manager():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    init_db(); sync_questions_from_sheet(); maybe_create_scheduled_round()
+    init_db(); seed_initial_blogs(); sync_questions_from_sheet(); maybe_create_scheduled_round()
     task = asyncio.create_task(round_manager()); yield; task.cancel()
 
 app = FastAPI(lifespan=lifespan)
@@ -1862,3 +1888,57 @@ async def api_rounds_practice_submit(request: Request):
         "round_winner_name": rnd["winner_name"],
         "round_winner_time_ms": rnd["winner_time_ms"]
     }
+
+# ─── BLOG API ───────────────────────────────────────────────────────
+
+@app.get("/api/blogs")
+async def api_blogs():
+    conn = get_db(); c = conn.cursor()
+    c.execute("SELECT id, title, slug, excerpt, thumbnail_emoji, medium_url, category, is_featured, created_at FROM blogs ORDER BY created_at DESC")
+    blogs = [dict(r) for r in c.fetchall()]
+    conn.close()
+    for b in blogs:
+        b["site_url"] = f"https://www.medicneet.com/blog/{b['slug']}"
+    return {"blogs": blogs}
+
+@app.get("/api/blogs/featured")
+async def api_blogs_featured():
+    conn = get_db(); c = conn.cursor()
+    c.execute("SELECT id, title, slug, excerpt, thumbnail_emoji, medium_url, category, created_at FROM blogs WHERE is_featured = 1 LIMIT 1")
+    blog = c.fetchone()
+    conn.close()
+    if not blog:
+        return JSONResponse({"error": "No featured blog"}, status_code=404)
+    result = dict(blog)
+    result["site_url"] = f"https://www.medicneet.com/blog/{result['slug']}"
+    return result
+
+@app.post("/api/blogs/featured")
+async def api_set_featured_blog(request: Request):
+    data = await request.json()
+    blog_id = data.get("blog_id")
+    if not blog_id:
+        raise HTTPException(400, "blog_id required")
+    conn = get_db(); c = conn.cursor()
+    c.execute("UPDATE blogs SET is_featured = 0")
+    c.execute("UPDATE blogs SET is_featured = 1 WHERE id = ?", (blog_id,))
+    conn.commit(); conn.close()
+    return {"success": True}
+
+@app.post("/api/blogs")
+async def api_add_blog(request: Request):
+    data = await request.json()
+    title = data.get("title", "")
+    slug = data.get("slug", "")
+    excerpt = data.get("excerpt", "")
+    thumbnail_emoji = data.get("thumbnail_emoji", "📝")
+    medium_url = data.get("medium_url", "")
+    category = data.get("category", "strategy")
+    if not all([title, slug, excerpt, medium_url]):
+        raise HTTPException(400, "title, slug, excerpt, medium_url required")
+    conn = get_db(); c = conn.cursor()
+    c.execute("INSERT INTO blogs (title, slug, excerpt, thumbnail_emoji, medium_url, category) VALUES (?,?,?,?,?,?)",
+              (title, slug, excerpt, thumbnail_emoji, medium_url, category))
+    blog_id = c.lastrowid
+    conn.commit(); conn.close()
+    return {"success": True, "blog_id": blog_id}

@@ -445,7 +445,7 @@ def send_withdrawal_request_email(user_id, user_name, amount, upi_id, balance, t
             f"— MedicNEET Bot", "plain"
         )
         msg["From"] = SMTP_USER
-        msg["To"] = "shahulhameedp49@gmail.com"
+        msg["To"] = "medicneet.team@gmail.com"
         msg["Subject"] = f"💰 Withdrawal Request - {user_name}"
         with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as s:
             s.starttls(); s.login(SMTP_USER, SMTP_PASS); s.send_message(msg)

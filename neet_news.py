@@ -210,13 +210,8 @@ def build_telegram_teaser(data):
     today = now.strftime("%d %B %Y")
 
     if not data.get("has_news") or not data.get("items"):
-        tip = data.get("tip", "Aaj koi major NEET UG news nahi hai. Focus on your preparation!")
-        msg = f"📰 *NEET FLASH NEWS* — {today}\n\n"
-        msg += f"🔹 Aaj koi badi NEET UG update nahi aayi.\n\n"
-        msg += f"💡 *Tip:* {tip}\n\n"
-        msg += f"Stay updated. Stay focused. 🧬\n"
-        msg += f"📱 MedicNEET App: https://play.google.com/store/apps/details?id=com.halalfire.medicneet"
-        return msg
+        print("No NEET UG news found. Skipping Telegram post.")
+        return None
 
     items = data["items"]
     # Sort by importance
@@ -338,6 +333,10 @@ def main():
     # Step 4: Build and send Telegram teaser
     print("\n--- Step 4: Sending Telegram teaser ---")
     teaser = build_telegram_teaser(news_data)
+    if teaser is None:
+        print("No news — skipping Telegram post.")
+        print("\nDone! No post today.")
+        return
     print(f"Teaser ({len(teaser)} chars):\n{teaser}\n---")
 
     success = send_telegram(teaser)

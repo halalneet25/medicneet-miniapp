@@ -1942,3 +1942,14 @@ async def api_add_blog(request: Request):
     blog_id = c.lastrowid
     conn.commit(); conn.close()
     return {"success": True, "blog_id": blog_id}
+
+@app.delete("/api/blogs/{blog_id}")
+async def api_delete_blog(blog_id: int):
+    conn = get_db(); c = conn.cursor()
+    c.execute("SELECT id FROM blogs WHERE id = ?", (blog_id,))
+    if not c.fetchone():
+        conn.close()
+        raise HTTPException(404, "Blog not found")
+    c.execute("DELETE FROM blogs WHERE id = ?", (blog_id,))
+    conn.commit(); conn.close()
+    return {"success": True, "deleted_id": blog_id}

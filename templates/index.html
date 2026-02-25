@@ -2568,6 +2568,9 @@
             if (startParam.startsWith('challenge_')) {
                 activeChallengeCode = startParam.replace('challenge_', '');
                 loadChallengeInfo(activeChallengeCode);
+            } else if (startParam === 'study' || startParam.startsWith('study_')) {
+                // Deep link to Study tab (e.g., from Telegram channel blog posts)
+                setTimeout(() => { switchTab('study'); }, 500);
             } else if (startParam.startsWith('ref_')) {
                 const referrerId = startParam.replace('ref_', '');
                 if (referrerId && referrerId !== userId) {

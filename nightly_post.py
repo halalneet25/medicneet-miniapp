@@ -112,7 +112,7 @@ def get_db_data():
     return {"night_number": night_number, "tonight_rounds": round_summaries, "tonight_attempts": tonight_attempts, "tonight_winners": tonight_winners, "tonight_disqualifications": tonight_dqs, "player_histories": player_histories, "unique_players_tonight": len(tonight_player_ids), "all_time_users": all_time_users, "all_time_attempts": all_time_attempts}
 
 def call_claude(data):
-    payload = {"model": "claude-sonnet-4-20250514", "max_tokens": 1500, "system": SYSTEM_PROMPT, "messages": [{"role": "user", "content": f"Here is tonight's data. Rant about it. Get angry at the brutal rounds. Roast the cheaters. Hype the grinders. Make every player feel something when they read this.\n\n{json.dumps(data, default=str)}"}]}
+    payload = {"model": "claude-haiku-4-5-20251001", "max_tokens": 1500, "system": SYSTEM_PROMPT, "messages": [{"role": "user", "content": f"Here is tonight's data. Rant about it. Get angry at the brutal rounds. Roast the cheaters. Hype the grinders. Make every player feel something when they read this.\n\n{json.dumps(data, default=str)}"}]}
     headers = {"Content-Type": "application/json", "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01"}
     req = urllib.request.Request("https://api.anthropic.com/v1/messages", data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST")
     try:

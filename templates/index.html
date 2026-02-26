@@ -2887,21 +2887,6 @@
                 container.innerHTML = '';
 
                 data.questions.forEach((q, idx) => {
-                    const letters = ['A','B','C','D'];
-                    const opts = [
-                        {orig: 'A', text: q.option_a},
-                        {orig: 'B', text: q.option_b},
-                        {orig: 'C', text: q.option_c},
-                        {orig: 'D', text: q.option_d}
-                    ];
-                    for (let i = opts.length - 1; i > 0; i--) {
-                        const j = Math.floor(Math.random() * (i + 1));
-                        [opts[i], opts[j]] = [opts[j], opts[i]];
-                    }
-                    const map = {};
-                    opts.forEach((o, i) => { map[letters[i]] = o.orig; });
-                    optionMaps[idx] = map;
-
                     const qBlock = document.createElement('div');
                     qBlock.className = 'question-block';
                     qBlock.id = `question-${idx}`;
@@ -2911,11 +2896,22 @@
                         <div class="question-chapter">${q.chapter || 'NEET Biology'}</div>
                         <div class="question-text">${formatQuestion(q.text)}</div>
                         <div class="options">
-                            ${opts.map((o, i) => `
-                            <button class="option-btn" data-question="${idx}" data-answer="${letters[i]}" onclick="selectQuestionAnswer(${idx}, '${letters[i]}', this)">
-                                <div class="opt-letter">${letters[i]}</div>
-                                <div>${o.text}</div>
-                            </button>`).join('')}
+                            <button class="option-btn" data-question="${idx}" data-answer="A" onclick="selectQuestionAnswer(${idx}, 'A', this)">
+                                <div class="opt-letter">A</div>
+                                <div>${q.option_a}</div>
+                            </button>
+                            <button class="option-btn" data-question="${idx}" data-answer="B" onclick="selectQuestionAnswer(${idx}, 'B', this)">
+                                <div class="opt-letter">B</div>
+                                <div>${q.option_b}</div>
+                            </button>
+                            <button class="option-btn" data-question="${idx}" data-answer="C" onclick="selectQuestionAnswer(${idx}, 'C', this)">
+                                <div class="opt-letter">C</div>
+                                <div>${q.option_c}</div>
+                            </button>
+                            <button class="option-btn" data-question="${idx}" data-answer="D" onclick="selectQuestionAnswer(${idx}, 'D', this)">
+                                <div class="opt-letter">D</div>
+                                <div>${q.option_d}</div>
+                            </button>
                         </div>
                     `;
                     container.appendChild(qBlock);
@@ -3066,7 +3062,7 @@
                     round_id: currentRound.round_id,
                     user_id: userId,
                     user_name: userName,
-                    answers: userAnswers.map((a, i) => a ? optionMaps[i][a] : null),
+                    answers: userAnswers,
                     question_times: questionTimes,
                     time_ms: tms,
                     init_data: initData
@@ -3106,10 +3102,7 @@
                         const buttons = questionBlock.querySelectorAll('.option-btn');
                         buttons.forEach(btn => {
                             const btnAnswer = btn.dataset.answer;
-                            const revMap = {};
-                            Object.entries(optionMaps[idx] || {}).forEach(([d, o]) => { revMap[o] = d; });
-                            const corrDisp = revMap[data.correct_answers[idx]] || data.correct_answers[idx];
-                            if (btnAnswer === corrDisp) {
+                            if (btnAnswer === data.correct_answers[idx]) {
                                 btn.classList.add('correct');
                             } else if (btnAnswer === userAnswers[idx] && !isCorrect) {
                                 btn.classList.add('wrong');

@@ -784,6 +784,12 @@ async def api_submit(request: Request):
         if w:
             wallet_balance = w["balance"]
 
+    # Track played_at for reminder funnel
+    try:
+        c.execute("UPDATE reminder_logs SET played_at = ? WHERE user_id = ? AND played_at IS NULL AND date(sent_at) >= date(?, '-3 days')", (now, uid, now))
+    except:
+        pass
+
     conn.commit()
     conn.close()
 

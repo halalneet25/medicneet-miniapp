@@ -2756,7 +2756,7 @@
             else if (tab === 'leaderboard') { showScreen('leaderboardScreen'); loadAllTimeLeaderboard() }
             else if (tab === 'history') { showScreen('historyScreen'); loadHistory() }
             else if (tab === 'practice') { showScreen('practiceScreen'); loadPracticeRounds() }
-            else if (tab === 'study') { showScreen('studyScreen'); renderStudyLinks(); loadBlogCarousel(); }
+            else if (tab === 'study') { showScreen('studyScreen'); renderStudyLinks(); loadBlogCarousel(); trackStudy('tab_open','study_tab',''); }
         }
 
         let nextRoundCountdownInterval = null;
@@ -4660,7 +4660,7 @@
             // Render PYQ chapters
             let pyqHtml = '';
             STUDY_DATA.pyq.forEach((ch, i) => {
-                pyqHtml += `<a href="${BASE_URL}${ch.url}" target="_blank" rel="noopener" class="study-link-item">
+                pyqHtml += `<a href="${BASE_URL}${ch.url}" target="_blank" rel="noopener" class="study-link-item" onclick="trackStudy('pyq','${ch.name}','${ch.url}')">
                     <span class="study-link-num">${i+1}</span>
                     <span class="study-link-name">${ch.name}</span>
                     <span class="study-link-arrow">→</span>
@@ -4683,8 +4683,8 @@
                         ${hasTopics ? `<span class="study-expand-icon" id="expandIcon${i}">▼</span>` : `<span class="study-link-arrow">→</span>`}
                     </div>
                     ${hasTopics ? `<div class="study-topics-list" id="topicsList${i}" style="display:none">
-                        <a href="${BASE_URL}${ch.url}" target="_blank" rel="noopener" class="study-topic-link" style="color:var(--green-dk);font-weight:800">📖 Chapter Overview →</a>
-                        ${ch.topics.map(t => `<a href="${BASE_URL}${t.url}" target="_blank" rel="noopener" class="study-topic-link">${t.name} →</a>`).join('')}
+                        <a href="${BASE_URL}${ch.url}" target="_blank" rel="noopener" class="study-topic-link" style="color:var(--green-dk);font-weight:800" onclick="trackStudy('chapter','${ch.name}','${ch.url}')">📖 Chapter Overview →</a>
+                        ${ch.topics.map(t => `<a href="${BASE_URL}${t.url}" target="_blank" rel="noopener" class="study-topic-link" onclick="trackStudy('topic','${t.name}','${t.url}')">${t.name} →</a>`).join('')}
                     </div>` : ''}
                 </div>`;
             });
@@ -4699,7 +4699,7 @@
                 if (items.length === 0) return;
                 resHtml += `<div style="font-size:13px;font-weight:800;color:var(--txt3);text-transform:uppercase;letter-spacing:1px;margin:16px 0 8px 4px">${categoryIcons[cat] || ''} ${cat}</div>`;
                 items.forEach(r => {
-                    resHtml += `<a href="${BASE_URL}${r.url}" target="_blank" rel="noopener" class="study-link-item" style="padding:14px 16px">
+                    resHtml += `<a href="${BASE_URL}${r.url}" target="_blank" rel="noopener" class="study-link-item" style="padding:14px 16px" onclick="trackStudy('resource','${r.name}','${r.url}')">
                         <span style="font-size:20px">${r.icon}</span>
                         <span class="study-link-name">${r.name}</span>
                         <span class="study-link-arrow">→</span>
@@ -5018,6 +5018,16 @@
         }
 
     
+        
+        // --- STUDY TAB TRACKING ---
+        function trackStudy(eventType, itemName, itemUrl) {
+            fetch(API + '/api/track-study', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({user_id: userId, event_type: eventType, item_name: itemName, item_url: itemUrl})
+            }).catch(function(){});
+        }
+
         // --- COUPON BANNER (WELCOME20) ---
         let couponTimerInterval = null;
         function getCouponExpiry() {

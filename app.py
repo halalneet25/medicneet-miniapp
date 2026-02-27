@@ -1689,6 +1689,22 @@ async def api_referral(request: Request):
 
     return {"success": True}
 
+
+@app.post("/api/track-study")
+async def api_track_study(request: Request):
+    data = await request.json()
+    uid = str(data.get("user_id", ""))
+    event_type = str(data.get("event_type", ""))
+    item_name = str(data.get("item_name", ""))
+    item_url = str(data.get("item_url", ""))
+    if not uid or not event_type:
+        raise HTTPException(400, "user_id and event_type required")
+    conn = get_db(); c = conn.cursor()
+    c.execute("INSERT INTO study_events (user_id, event_type, item_name, item_url) VALUES (?,?,?,?)",
+              (uid, event_type, item_name, item_url))
+    conn.commit(); conn.close()
+    return {"success": True}
+
 @app.get("/api/stats")
 async def api_stats(user_id: str):
     """Get user's personal stats including rank and performance metrics"""

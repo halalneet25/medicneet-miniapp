@@ -2309,6 +2309,7 @@
         </div>
 
         <div class="screen" id="practiceResultScreen">
+            <div id="couponPractice"></div>
             <div class="result-card" id="practiceResultCard" style="background:var(--blue-lt);border-color:var(--blue);box-shadow:0 4px 0 var(--blue-dk)">
                 <div class="result-icon">📝</div>
                 <div class="result-title" style="color:var(--blue-dk)">Practice Complete!</div>
@@ -5071,10 +5072,10 @@
             });
         }
         function startCouponTimers() {
-            ['couponHome','couponResult','couponWallet','couponWaiting'].forEach(function(id) { renderCouponBanner(id); });
+            ['couponResult','couponWallet','couponWaiting','couponPractice'].forEach(function(id) { renderCouponBanner(id); });
             clearInterval(couponTimerInterval);
             couponTimerInterval = setInterval(function() {
-                ['couponHome','couponResult','couponWallet','couponWaiting'].forEach(function(id) { renderCouponBanner(id); });
+                ['couponResult','couponWallet','couponWaiting','couponPractice'].forEach(function(id) { renderCouponBanner(id); });
             }, 60000);
         }
 

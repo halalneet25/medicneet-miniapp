@@ -2173,7 +2173,6 @@
         </div>
         <div class="prize-badge" id="walletBadge" onclick="switchTab('wallet')">💰 Wallet: ₹<span id="walletBalance">0</span></div>
     </div>
-        <div id="couponHome"></div>
     <div class="timer-section" id="timerSection">
         <div>
             <div class="timer-label" id="timerLabel">Prize ends in</div>
@@ -5049,17 +5048,9 @@
             const timeLeft = getCouponTimeLeft();
             if (!timeLeft) { el.innerHTML = ''; el.style.display = 'none'; return; }
             el.style.display = 'block';
-            el.innerHTML = '<div style="background:linear-gradient(135deg,#1a1a2e,#16213e);border:2px solid #e94560;border-radius:16px;padding:16px;margin:12px 0;text-align:center;position:relative;overflow:hidden">'
-                + '<div style="position:absolute;top:-20px;right:-20px;width:80px;height:80px;background:#e94560;border-radius:50%;opacity:0.1"></div>'
-                + '<div style="font-size:13px;color:#e94560;font-weight:800;letter-spacing:1px;margin-bottom:6px">EXCLUSIVELY FOR YOU</div>'
-                + '<div style="font-size:15px;color:#fff;font-weight:700;margin-bottom:8px">Like our questions? Get 12,771 more with NCERT explanations</div>'
-                + '<div style="font-size:13px;color:#ccc;margin-bottom:10px">20% off MedicNEET Premium</div>'
-                + '<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px">'
-                + '<div id="couponCode_' + containerId + '" style="background:#0f3460;border:2px dashed #e94560;border-radius:10px;padding:8px 20px;font-size:18px;font-weight:900;color:#e94560;letter-spacing:3px;font-family:monospace">WELCOME20</div>'
-                + '<button onclick="copyCoupon(\'' + containerId + '\')" style="background:#e94560;color:#fff;border:none;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:800;cursor:pointer">COPY</button>'
-                + '</div>'
-                + '<div style="font-size:12px;color:#ff6b6b;font-weight:700">\u23f0 ' + timeLeft + '</div>'
-                + '<a href="https://play.google.com/store/apps/details?id=com.halalfire.medicneet" style="display:inline-block;background:#e94560;color:#fff;font-weight:800;font-size:14px;padding:10px 24px;border-radius:12px;text-decoration:none;margin-top:8px">Get MedicNEET App \u2192</a>'
+            el.innerHTML = '<div onclick="window.open(\'https://play.google.com/store/apps/details?id=com.halalfire.medicneet\')" style="background:#1a1a2e;border:1px solid #e94560;border-radius:12px;padding:10px 14px;margin:10px 0;display:flex;align-items:center;gap:10px;cursor:pointer">'
+                + '<div style="flex:1"><div style="font-size:13px;color:#fff;font-weight:700">Like our questions? Get 12,771 more</div><div style="font-size:11px;color:#999;margin-top:2px">Code <span style="color:#e94560;font-weight:900;font-family:monospace">WELCOME20</span> \u2022 20% off \u2022 \u23f0 ' + timeLeft + '</div></div>'
+                + '<div style="background:#e94560;color:#fff;font-size:11px;font-weight:800;padding:6px 10px;border-radius:8px;white-space:nowrap">GET APP</div>'
                 + '</div>';
         }
         function copyCoupon(containerId) {

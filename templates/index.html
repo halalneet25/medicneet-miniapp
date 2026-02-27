@@ -3814,7 +3814,6 @@
                 // Update header badge
                 document.getElementById('walletBalance').textContent = balance;
                 startCouponTimers();
-                startCouponTimers();
 
                 // Update wallet screen
                 document.getElementById('walletCurrentBalance').textContent = balance;
@@ -5079,66 +5078,6 @@
             }, 60000);
         }
 
-        
-        // --- COUPON BANNER (WELCOME20) ---
-        let couponTimerInterval = null;
-        function getCouponExpiry() {
-            let started = localStorage.getItem('coupon_started_' + userId);
-            if (!started) {
-                started = Date.now().toString();
-                localStorage.setItem('coupon_started_' + userId, started);
-            }
-            const expiresAt = parseInt(started) + (7 * 24 * 60 * 60 * 1000);
-            return expiresAt;
-        }
-        function getCouponTimeLeft() {
-            const expiresAt = getCouponExpiry();
-            const now = Date.now();
-            const diff = expiresAt - now;
-            if (diff <= 0) return null;
-            const days = Math.floor(diff / (24*60*60*1000));
-            const hours = Math.floor((diff % (24*60*60*1000)) / (60*60*1000));
-            const mins = Math.floor((diff % (60*60*1000)) / (60*1000));
-            if (days > 0) return days + 'd ' + hours + 'h left';
-            if (hours > 0) return hours + 'h ' + mins + 'm left';
-            return mins + 'm left';
-        }
-        function renderCouponBanner(containerId) {
-            const el = document.getElementById(containerId);
-            if (!el) return;
-            const balance = parseInt(document.getElementById('walletBalance').textContent) || 0;
-            if (balance < 5) { el.style.display = 'none'; return; }
-            const timeLeft = getCouponTimeLeft();
-            if (!timeLeft) { el.innerHTML = ''; el.style.display = 'none'; return; }
-            el.style.display = 'block';
-            el.innerHTML = '<div style="background:linear-gradient(135deg,#1a1a2e,#16213e);border:2px solid #e94560;border-radius:16px;padding:16px;margin:12px 0;text-align:center;position:relative;overflow:hidden">'
-                + '<div style="position:absolute;top:-20px;right:-20px;width:80px;height:80px;background:#e94560;border-radius:50%;opacity:0.1"></div>'
-                + '<div style="font-size:13px;color:#e94560;font-weight:800;letter-spacing:1px;margin-bottom:6px">EXCLUSIVELY FOR YOU</div>'
-                + '<div style="font-size:15px;color:#fff;font-weight:700;margin-bottom:8px">Like our questions? Get 12,771 more with NCERT explanations</div>'
-                + '<div style="font-size:13px;color:#ccc;margin-bottom:10px">20% off MedicNEET Premium</div>'
-                + '<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px">'
-                + '<div id="couponCode_' + containerId + '" style="background:#0f3460;border:2px dashed #e94560;border-radius:10px;padding:8px 20px;font-size:18px;font-weight:900;color:#e94560;letter-spacing:3px;font-family:monospace">WELCOME20</div>'
-                + '<button onclick="copyCoupon(\'' + containerId + '\')" style="background:#e94560;color:#fff;border:none;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:800;cursor:pointer">COPY</button>'
-                + '</div>'
-                + '<div style="font-size:12px;color:#ff6b6b;font-weight:700">\u23f0 ' + timeLeft + '</div>'
-                + '<a href="https://play.google.com/store/apps/details?id=com.halalfire.medicneet" style="display:inline-block;background:#e94560;color:#fff;font-weight:800;font-size:14px;padding:10px 24px;border-radius:12px;text-decoration:none;margin-top:8px">Get MedicNEET App \u2192</a>'
-                + '</div>';
-        }
-        function copyCoupon(containerId) {
-            navigator.clipboard.writeText('WELCOME20').then(function() {
-                var btn = document.querySelector('#couponCode_' + containerId).nextElementSibling;
-                btn.textContent = 'COPIED!';
-                btn.style.background = '#00b894';
-                setTimeout(function() { btn.textContent = 'COPY'; btn.style.background = '#e94560'; }, 2000);
-            });
-        }
-        function startCouponTimers() {
-            ['couponHome','couponResult','couponWallet','couponWaiting'].forEach(function(id) { renderCouponBanner(id); });
-            clearInterval(couponTimerInterval);
-            couponTimerInterval = setInterval(function() {
-                ['couponHome','couponResult','couponWallet','couponWaiting'].forEach(function(id) { renderCouponBanner(id); });
-            }, 60000);
-        }
 
         </script>
 </body>

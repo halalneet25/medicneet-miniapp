@@ -2714,7 +2714,7 @@
         function buildCTA(containerId) {
             const el = document.getElementById(containerId); if (!el) return;
             if (APP_STATUS === 'live' && PLAYSTORE_LINK) {
-                el.innerHTML = `<div class="cta-banner"><h3>🔥 Practice 2000+ Questions!</h3><p>NEET 2025 — Statement, Sequence & Match types.</p><button class="duo-btn" onclick="window.open('${PLAYSTORE_LINK}','_blank')">Download MedicNEET ⬇️</button></div>`;
+                el.innerHTML = `<div class="cta-banner"><h3>🔥 Practice 2000+ Questions!</h3><p>NEET 2025 — Statement, Sequence & Match types.</p><button class="duo-btn" onclick="trackAppClick('home_2000_cta');window.open('${PLAYSTORE_LINK}','_blank')">Download MedicNEET ⬇️</button></div>`;
             } else {
                 const uid = 'notify_' + containerId;
                 el.innerHTML = `
@@ -3545,7 +3545,7 @@
                                 <div style="position:absolute;inset:0;background:rgba(255,255,255,0.85);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2;border-radius:16px">
                                     <div style="font-size:32px;margin-bottom:8px">🔒</div>
                                     <div style="font-size:13px;font-weight:800;color:var(--txt1);margin-bottom:6px;text-align:center;padding:0 12px">Want more NEET 2025-style questions?</div>
-                                    <a href="https://play.google.com/store/apps/details?id=com.halalfire.medicneet" target="_blank" style="background:var(--green);color:#fff;font-weight:800;font-size:12px;padding:8px 16px;border-radius:10px;text-decoration:none;box-shadow:0 2px 0 var(--green-dk)">12,771 Questions on MedicNEET App →</a>
+                                    <a href="https://play.google.com/store/apps/details?id=com.halalfire.medicneet" onclick="trackAppClick('practice_result')" target="_blank" style="background:var(--green);color:#fff;font-weight:800;font-size:12px;padding:8px 16px;border-radius:10px;text-decoration:none;box-shadow:0 2px 0 var(--green-dk)">12,771 Questions on MedicNEET App →</a>
                                 </div>
                                 <div class="practice-round-header">Round #${round.round_id} - ${dateStr}</div>
                                 <div class="practice-round-info">🏆 Winner: ${round.winner_name} (${winnerTime})</div>
@@ -3976,11 +3976,11 @@
 
             // 3. install_app
             html += buildTaskRow('install_app', '\uD83D\uDCF1', 'Install MedicNEET App', null, tasks.install_app.completed,
-                tasks.install_app.completed ? null : {label: 'Install', onclick: "wgOpenLink('https://play.google.com/store/apps/details?id=com.halalfire.medicneet&hl=en', 'install_app')"});
+                tasks.install_app.completed ? null : {label: 'Install', onclick: "trackAppClick('withdraw_install');wgOpenLink('https://play.google.com/store/apps/details?id=com.halalfire.medicneet&hl=en', 'install_app')"});
 
             // 4. rate_app
             html += buildTaskRow('rate_app', '\u2B50', 'Rate us 5 stars', null, tasks.rate_app.completed,
-                tasks.rate_app.completed ? null : {label: 'Rate', onclick: "wgOpenLink('https://play.google.com/store/apps/details?id=com.halalfire.medicneet&hl=en', 'rate_app')"});
+                tasks.rate_app.completed ? null : {label: 'Rate', onclick: "trackAppClick('withdraw_rate');wgOpenLink('https://play.google.com/store/apps/details?id=com.halalfire.medicneet&hl=en', 'rate_app')"});
 
             // 5. follow_channel
             html += buildTaskRow('follow_channel', '\uD83D\uDCE2', 'Follow our Telegram Channel', null, tasks.follow_channel.completed,

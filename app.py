@@ -348,6 +348,8 @@ async def send_winner_to_channel(round_id):
 No winners this round! 😢
 Nobody scored 4/4 correct.
 
+👥 {total_participants} players attempted
+
 Better luck next time!
 🔥 Rounds daily at 7:00, 7:30, 8:00, 8:30 PM IST!"""
     else:

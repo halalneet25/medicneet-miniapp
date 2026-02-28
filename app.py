@@ -485,19 +485,19 @@ async def round_manager():
                 await send_winner_to_channel(rnd["id"])
                 c.execute("UPDATE rounds SET announced = 1 WHERE id = ?", (rnd["id"],))
             # Mid-round notifications
-            c.execute("SELECT r.id, r.started_at, r.ends_at FROM rounds r WHERE r.ends_at > ? AND r.announced = 0", (now_str,))
+            c.execute("SELECT r.id, r.started_at, r.prize_ends_at, r.ends_at FROM rounds r WHERE r.ends_at > ? AND r.announced = 0", (now_str,))
             for rnd in c.fetchall():
                 rid = rnd["id"]
                 started = datetime.fromisoformat(rnd["started_at"])
-                ends = datetime.fromisoformat(rnd["ends_at"])
+                prize_ends = datetime.fromisoformat(rnd["prize_ends_at"]) if rnd["prize_ends_at"] else started + timedelta(minutes=10)
                 elapsed = (now - started).total_seconds()
-                remaining = (ends - now).total_seconds()
+                prize_remaining = (prize_ends - now).total_seconds()
                 mid_key = f"{rid}_mid"
                 last_key = f"{rid}_last"
-                if elapsed >= 300 and mid_key not in mid_round_notified:
+                if elapsed >= 300 and prize_remaining > 0 and mid_key not in mid_round_notified:
                     await send_mid_round_notification(rid, "mid")
                     mid_round_notified.add(mid_key)
-                if remaining <= 90 and remaining > 0 and last_key not in mid_round_notified:
+                if prize_remaining <= 120 and prize_remaining > 0 and last_key not in mid_round_notified:
                     await send_mid_round_notification(rid, "last")
                     mid_round_notified.add(last_key)
             if len(mid_round_notified) > 100:

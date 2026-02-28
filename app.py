@@ -455,6 +455,26 @@ def send_withdrawal_request_email(user_id, user_name, amount, upi_id, balance, t
     except Exception as e:
         logger.error(f"❌ Withdrawal email failed: {e}")
 
+mid_round_notified = set()
+
+async def send_mid_round_notification(round_id, msg_type):
+    conn = get_db(); c = conn.cursor()
+    c.execute("SELECT COUNT(DISTINCT user_id) as cnt FROM attempts WHERE round_id = ?", (round_id,))
+    players = c.fetchone()["cnt"]
+    conn.close()
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}"
+    button = {"inline_keyboard": [[{"text": "🧠 Play Now", "url": "https://t.me/Winners_neetbot/Medicneet"}]]}
+    if msg_type == "mid":
+        text = f"⏰ <b>Round #{round_id} is LIVE!</b>\n\n👥 {players} players joined so far\n🧬 4 NEET Biology MCQs — score 4/4 to win ₹5\n\nCan you beat them? Join now!"
+    else:
+        text = f"🔥 <b>Round #{round_id} closing soon!</b>\n\n👥 {players} players attempted\n⏳ Last chance to play this round!\n\nDon't miss out!"
+    try:
+        async with httpx.AsyncClient() as client:
+            await client.post(f"{url}/sendMessage", json={"chat_id": CHANNEL_ID, "text": text, "parse_mode": "HTML", "reply_markup": button})
+        logger.info(f"Sent {msg_type} notification for round #{round_id}")
+    except Exception as e:
+        logger.error(f"Mid-round notification failed: {e}")
+
 async def round_manager():
     last_export_date = None
     while True:
@@ -464,6 +484,24 @@ async def round_manager():
             for rnd in c.fetchall():
                 await send_winner_to_channel(rnd["id"])
                 c.execute("UPDATE rounds SET announced = 1 WHERE id = ?", (rnd["id"],))
+            # Mid-round notifications
+            c.execute("SELECT r.id, r.started_at, r.ends_at FROM rounds r WHERE r.ends_at > ? AND r.announced = 0", (now_str,))
+            for rnd in c.fetchall():
+                rid = rnd["id"]
+                started = datetime.fromisoformat(rnd["started_at"])
+                ends = datetime.fromisoformat(rnd["ends_at"])
+                elapsed = (now - started).total_seconds()
+                remaining = (ends - now).total_seconds()
+                mid_key = f"{rid}_mid"
+                last_key = f"{rid}_last"
+                if elapsed >= 300 and mid_key not in mid_round_notified:
+                    await send_mid_round_notification(rid, "mid")
+                    mid_round_notified.add(mid_key)
+                if remaining <= 90 and remaining > 0 and last_key not in mid_round_notified:
+                    await send_mid_round_notification(rid, "last")
+                    mid_round_notified.add(last_key)
+            if len(mid_round_notified) > 100:
+                mid_round_notified.clear()
             # Expire old challenges (24 hours)
             c.execute("UPDATE challenges SET status = 'expired' WHERE status = 'pending' AND created_at < ?",
                      ((now - timedelta(hours=24)).isoformat(),))

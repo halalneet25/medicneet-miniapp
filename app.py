@@ -1730,6 +1730,16 @@ async def api_referral(request: Request):
     return {"success": True}
 
 
+@app.post("/api/track-click")
+async def api_track_click(request: Request):
+    data = await request.json()
+    user_id = str(data.get("user_id", ""))
+    source = data.get("source", "unknown")
+    conn = get_db(); c = conn.cursor()
+    c.execute("INSERT INTO app_clicks (user_id, source) VALUES (?, ?)", (user_id, source))
+    conn.commit(); conn.close()
+    return {"success": True}
+
 @app.post("/api/track-study")
 async def api_track_study(request: Request):
     data = await request.json()

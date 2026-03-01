@@ -806,6 +806,138 @@
             animation: arrowBounce 1.5s infinite;
         }
 
+        /* ─── NCERT PYQ Promo Section ─── */
+        .ncert-promo {
+            margin: 16px 0;
+            background: #fff;
+            border: 2px solid var(--border);
+            border-radius: 18px;
+            padding: 16px;
+            box-shadow: 0 4px 0 var(--border);
+            position: relative;
+            overflow: hidden;
+        }
+        .ncert-promo::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--green), var(--gold), var(--purple));
+        }
+        .ncert-badges {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+            margin-top: 4px;
+        }
+        .ncert-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 10px;
+            font-weight: 900;
+            letter-spacing: 0.5px;
+        }
+        .ncert-badge.green {
+            background: rgba(88,204,2,0.15);
+            color: var(--green-dk);
+            border: 1.5px solid rgba(88,204,2,0.3);
+        }
+        .ncert-badge.amber {
+            background: rgba(255,200,0,0.15);
+            color: var(--gold-dk);
+            border: 1.5px solid rgba(255,200,0,0.3);
+        }
+        .ncert-promo-title {
+            font-size: 18px;
+            font-weight: 900;
+            color: var(--txt);
+            margin-bottom: 6px;
+        }
+        .ncert-promo-desc {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--txt2);
+            line-height: 1.5;
+            margin-bottom: 12px;
+        }
+        .ncert-chips {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
+        }
+        .ncert-chip {
+            padding: 5px 10px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 800;
+        }
+        .ncert-chip.amber {
+            background: rgba(255,200,0,0.12);
+            color: var(--gold-dk);
+        }
+        .ncert-chip.green {
+            background: rgba(88,204,2,0.12);
+            color: var(--green-dk);
+        }
+        .ncert-chip.purple {
+            background: rgba(206,130,255,0.12);
+            color: #9b59b6;
+        }
+        .ncert-reader-preview {
+            background: var(--bg2);
+            border: 1.5px solid var(--border);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 14px;
+        }
+        .ncert-preview-label {
+            font-size: 10px;
+            font-weight: 800;
+            color: var(--txt3);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+        .ncert-skel {
+            height: 10px;
+            border-radius: 4px;
+            margin-bottom: 6px;
+        }
+        .ncert-skel:last-child { margin-bottom: 0; }
+        .ncert-skel.normal { background: var(--border); width: 100%; }
+        .ncert-skel.pyq { background: rgba(255,200,0,0.35); width: 100%; }
+        .ncert-skel.predicted { background: rgba(206,130,255,0.3); width: 100%; }
+        .ncert-skel.short { width: 70%; }
+        .ncert-cta-btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 14px;
+            background: var(--blue);
+            color: #fff;
+            font-size: 14px;
+            font-weight: 800;
+            font-family: inherit;
+            cursor: pointer;
+            box-shadow: 0 3px 0 var(--blue-dk);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            -webkit-tap-highlight-color: transparent;
+            transition: transform .05s;
+        }
+        .ncert-cta-btn:active {
+            transform: translateY(3px);
+            box-shadow: none;
+        }
+        .ncert-cta-arrow {
+            font-size: 16px;
+            animation: arrowBounce 1.5s infinite;
+        }
+
         /* ─── Flash News Banner ─── */
         .flash-news-banner {
             margin-bottom: 14px;
@@ -2246,6 +2378,27 @@
                 <div style="font-size:14px;font-weight:700;color:var(--txt2)" id="top10Sub">Results at round end</div>
             </div>
             <div id="appCTA"></div>
+            <div class="ncert-promo" id="ncertPromoResult">
+                <div class="ncert-badges">
+                    <span class="ncert-badge green">LAUNCHING SOON</span>
+                    <span class="ncert-badge amber">FREE</span>
+                </div>
+                <div class="ncert-promo-title">PYQ-Marked NCERT 📖</div>
+                <div class="ncert-promo-desc">Comes FREE with Biology Full Bundle in MedicNEET mini app! Read NCERT with PYQ-highlighted paragraphs & expert predictions.</div>
+                <div class="ncert-chips">
+                    <span class="ncert-chip amber">1,058 PYQs</span>
+                    <span class="ncert-chip green">32 Chapters</span>
+                    <span class="ncert-chip purple">Expert Predicted</span>
+                </div>
+                <div class="ncert-reader-preview">
+                    <div class="ncert-preview-label">Preview: NCERT Reader</div>
+                    <div class="ncert-skel normal"></div>
+                    <div class="ncert-skel pyq"></div>
+                    <div class="ncert-skel predicted"></div>
+                    <div class="ncert-skel normal short"></div>
+                </div>
+                <button class="ncert-cta-btn" onclick="window.open('https://www.medicneet.com/ncert','_blank')">Experience it here <span class="ncert-cta-arrow">→</span></button>
+            </div>
             <div class="lb-section" id="roundLeaderboard"></div>
         </div>
 
@@ -2330,6 +2483,27 @@
 
         <div class="screen" id="waitingScreen">
             <div id="couponWaiting"></div>
+            <div class="ncert-promo" id="ncertPromoWaiting">
+                <div class="ncert-badges">
+                    <span class="ncert-badge green">LAUNCHING SOON</span>
+                    <span class="ncert-badge amber">FREE</span>
+                </div>
+                <div class="ncert-promo-title">PYQ-Marked NCERT 📖</div>
+                <div class="ncert-promo-desc">Comes FREE with Biology Full Bundle in MedicNEET mini app! Read NCERT with PYQ-highlighted paragraphs & expert predictions.</div>
+                <div class="ncert-chips">
+                    <span class="ncert-chip amber">1,058 PYQs</span>
+                    <span class="ncert-chip green">32 Chapters</span>
+                    <span class="ncert-chip purple">Expert Predicted</span>
+                </div>
+                <div class="ncert-reader-preview">
+                    <div class="ncert-preview-label">Preview: NCERT Reader</div>
+                    <div class="ncert-skel normal"></div>
+                    <div class="ncert-skel pyq"></div>
+                    <div class="ncert-skel predicted"></div>
+                    <div class="ncert-skel normal short"></div>
+                </div>
+                <button class="ncert-cta-btn" onclick="window.open('https://www.medicneet.com/ncert','_blank')">Experience it here <span class="ncert-cta-arrow">→</span></button>
+            </div>
             <div id="scheduleContainer">
                 <div class="next-round-card">
                     <div style="font-size:56px">⏳</div>

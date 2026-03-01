@@ -108,6 +108,29 @@ def main():
             else:
                 failed += 1
 
+    # Group C: One-timers (played only 1 day, 2+ days ago, no reminder in 7 days)
+    if not test_user_id:
+        one_timers = conn.execute("""SELECT a.user_id, a.user_name, COALESCE(w.balance, 0) as balance,
+            COUNT(CASE WHEN a.is_correct=1 THEN 1 END) as total_wins,
+            COUNT(DISTINCT a.round_id) as total_rounds
+            FROM attempts a
+            LEFT JOIN wallets w ON a.user_id = w.user_id
+            GROUP BY a.user_id
+            HAVING COUNT(DISTINCT date(a.attempted_at)) = 1
+            AND julianday('now') - julianday(MAX(a.attempted_at)) >= 2
+            AND a.user_id NOT IN (SELECT user_id FROM reminder_logs WHERE julianday('now') - julianday(sent_at) < 7)
+        """).fetchall()
+        logger.info("Group C (one-timers): " + str(len(one_timers)) + " players")
+        for player in one_timers:
+            name = player["user_name"] or "Player"
+            msg = "\U0001f9ec Hey " + name + ", you tried the quiz once \u2014 come back tonight!\n\nEvery round = either \u20b95 in your wallet or valuable learning from mistakes. Both are wins.\n\n4 NEET Biology MCQs at 7 PM. Motivate yourself and give it a round today! \U0001f525"
+            if send_message(player["user_id"], msg):
+                conn.execute("INSERT INTO reminder_logs (user_id, user_name, balance, message_text) VALUES (?, ?, ?, ?)", (player["user_id"], player["user_name"], player["balance"], msg))
+                sent += 1
+                logger.info("Sent one-timer reminder to " + str(player["user_name"]))
+            else:
+                failed += 1
+
     conn.commit()
     conn.close()
     logger.info("Done: " + str(sent) + " sent, " + str(failed) + " failed")

@@ -3279,7 +3279,7 @@
     <script>
         const tg = window.Telegram?.WebApp; if (tg) { tg.ready(); tg.expand(); tg.setHeaderColor('#58cc02'); tg.setBackgroundColor('#ffffff'); if (tg.disableVerticalSwipes) tg.disableVerticalSwipes(); }
 
-        /* Quiz copy/screenshot protection */
+                /* Quiz copy/screenshot protection */
         document.addEventListener('contextmenu', e => e.preventDefault());
         document.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && ['c','a','u','s','p'].includes(e.key.toLowerCase())) e.preventDefault(); });
         const user = tg?.initDataUnsafe?.user || { id: 'test_' + Date.now(), first_name: 'Test' };
@@ -3668,12 +3668,46 @@
 
                 document.getElementById('submitBtn').disabled = true;
                 showScreen('quizScreen');
+                setupQuizToggle();
                 startStopwatch();
             } catch (e) {
                 console.error(e);
                 showScreen('waitingScreen');
                 buildCTA('waitCTA');
             }
+        }
+
+        function setupQuizToggle() {
+            try {
+                var blocks = document.querySelectorAll('.question-block');
+                for (var i = 0; i < blocks.length; i++) {
+                    var block = blocks[i];
+                    var qText = block.querySelector('.question-text');
+                    var opts = block.querySelector('.options');
+                    if (!qText || !opts || block.querySelector('.q-toggle-btn')) continue;
+                    opts.style.display = 'none';
+                    var btn = document.createElement('button');
+                    btn.className = 'q-toggle-btn';
+                    btn.textContent = 'View Options';
+                    btn.setAttribute('data-state', 'question');
+                    btn.onclick = (function(qt, op, b) {
+                        return function() {
+                            if (b.getAttribute('data-state') === 'question') {
+                                qt.style.display = 'none';
+                                op.style.display = '';
+                                b.textContent = 'View Question';
+                                b.setAttribute('data-state', 'options');
+                            } else {
+                                qt.style.display = '';
+                                op.style.display = 'none';
+                                b.textContent = 'View Options';
+                                b.setAttribute('data-state', 'question');
+                            }
+                        };
+                    })(qText, opts, btn);
+                    opts.parentNode.insertBefore(btn, opts);
+                }
+            } catch(e) { console.error('Toggle setup failed:', e); }
         }
 
         async function loadMyRounds(containerId) {
@@ -3694,7 +3728,7 @@
                     html += '<div style="font-size:14px;font-weight:800;color:var(--txt1)">Round #' + r.round_id + '</div>';
                     html += '<div style="font-size:12px;font-weight:700;color:var(--txt3)">' + (r.time_ms / 1000).toFixed(1) + 's</div>';
                     html += '</div>';
-                    
+
                     if (!r.prize_ended) {
                         html += '<div style="text-align:center;padding:10px;font-size:13px;color:var(--txt3);font-weight:600">Results available after prize window ends</div>';
                     } else if (r.questions) {
@@ -6154,6 +6188,28 @@
 
 
         </script>
+
+<!-- Anti-cheat toggle button styles -->
+<style>
+    .q-toggle-btn {
+        background: linear-gradient(135deg, #58cc02, #46a302);
+        color: #fff;
+        text-align: center;
+        padding: 12px;
+        border-radius: 12px;
+        font-weight: 800;
+        font-size: 15px;
+        cursor: pointer;
+        margin: 10px 0;
+        box-shadow: 0 3px 0 #3d8c02;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+        border: none;
+        width: 100%;
+    }
+    .q-toggle-btn:active { transform: translateY(2px); box-shadow: none; }
+</style>
+
 </body>
 
 </html>

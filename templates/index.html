@@ -3258,23 +3258,6 @@
     <script>
         const tg = window.Telegram?.WebApp; if (tg) { tg.ready(); tg.expand(); tg.setHeaderColor('#58cc02'); tg.setBackgroundColor('#ffffff'); if (tg.disableVerticalSwipes) tg.disableVerticalSwipes(); }
 
-        .q-toggle-btn {
-            background: linear-gradient(135deg, #58cc02, #46a302);
-            color: #fff;
-            text-align: center;
-            padding: 12px;
-            border-radius: 12px;
-            font-weight: 800;
-            font-size: 15px;
-            cursor: pointer;
-            margin: 10px 0;
-            box-shadow: 0 3px 0 #3d8c02;
-            user-select: none;
-            -webkit-tap-highlight-color: transparent;
-            border: none;
-            width: 100%;
-        }
-        .q-toggle-btn:active { transform: translateY(2px); box-shadow: none; }
                 /* Quiz copy/screenshot protection */
         document.addEventListener('contextmenu', e => e.preventDefault());
         document.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && ['c','a','u','s','p'].includes(e.key.toLowerCase())) e.preventDefault(); });
@@ -6165,6 +6148,28 @@
 
 
         </script>
+
+<!-- Anti-cheat toggle button styles -->
+<style>
+    .q-toggle-btn {
+        background: linear-gradient(135deg, #58cc02, #46a302);
+        color: #fff;
+        text-align: center;
+        padding: 12px;
+        border-radius: 12px;
+        font-weight: 800;
+        font-size: 15px;
+        cursor: pointer;
+        margin: 10px 0;
+        box-shadow: 0 3px 0 #3d8c02;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+        border: none;
+        width: 100%;
+    }
+    .q-toggle-btn:active { transform: translateY(2px); box-shadow: none; }
+</style>
+
 </body>
 
 </html>

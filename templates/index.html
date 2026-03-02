@@ -2991,6 +2991,13 @@
 
         <div class="screen" id="waitingScreen">
             <div id="couponWaiting"></div>
+            <div style="margin:16px 0">
+                <button onclick="loadMyRounds()" style="background:var(--bg2);border:2px solid var(--border);border-radius:14px;padding:14px;width:100%;cursor:pointer;box-shadow:0 3px 0 var(--border)">
+                    <div style="font-size:15px;font-weight:800;color:var(--txt1)">📋 My Rounds</div>
+                    <div style="font-size:12px;font-weight:600;color:var(--txt3);margin-top:2px">Review past questions & answers</div>
+                </button>
+                <div id="myRoundsListWaiting2"></div>
+            </div>
             <div class="ncert-promo" id="ncertPromoWaiting">
                 <div class="ncert-badges">
                     <span class="ncert-badge green">NEW</span>
@@ -3670,7 +3677,7 @@
         }
 
         async function loadMyRounds() {
-            var container = document.getElementById("myRoundsList") || document.getElementById("myRoundsListWaiting");
+            var container = document.getElementById("myRoundsList") || document.getElementById("myRoundsListWaiting") || document.getElementById("myRoundsListWaiting2");
             if (!container) return;
             container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--txt3);font-weight:700">Loading...</div>';
             try {

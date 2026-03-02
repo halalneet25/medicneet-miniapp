@@ -841,7 +841,7 @@ async def api_submit(request: Request):
         return {
             "all_correct": all_correct,
             "score": score,
-            "results": results,
+            "results": None,
             "correct_answers": None,
             "explanations": None,
             "your_time_ms": tms,

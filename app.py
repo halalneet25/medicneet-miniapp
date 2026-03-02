@@ -936,6 +936,65 @@ async def api_history():
     c.execute("SELECT r.id, r.started_at, r.winner_name, r.winner_time_ms, q.question, q.chapter FROM rounds r JOIN questions q ON q.id = r.question_1_id WHERE r.announced = 1 ORDER BY r.started_at DESC LIMIT 10")
     h = [dict(r) for r in c.fetchall()]; conn.close(); return {"history":h}
 
+@app.get("/api/my-rounds")
+async def api_my_rounds(request: Request):
+    uid = request.query_params.get("user_id", "")
+    if not uid:
+        raise HTTPException(400, "user_id required")
+    conn = get_db(); c = conn.cursor()
+    c.execute("""
+        SELECT a.round_id, a.is_correct, a.time_ms, a.selected_answers, a.attempted_at,
+            r.question_1_id, r.question_2_id, r.question_3_id, r.question_4_id,
+            r.prize_ends_at, r.started_at
+        FROM attempts a
+        JOIN rounds r ON r.id = a.round_id
+        WHERE a.user_id = ?
+        ORDER BY a.attempted_at DESC LIMIT 20
+    """, (uid,))
+    attempts = [dict(r) for r in c.fetchall()]
+    
+    now = datetime.utcnow()
+    result = []
+    for a in attempts:
+        prize_ended = not a["prize_ends_at"] or datetime.fromisoformat(a["prize_ends_at"]) <= now
+        
+        entry = {
+            "round_id": a["round_id"],
+            "score": None,
+            "time_ms": a["time_ms"],
+            "is_correct": a["is_correct"],
+            "attempted_at": a["attempted_at"],
+            "prize_ended": prize_ended,
+            "questions": None
+        }
+        
+        if prize_ended:
+            q_ids = [a["question_1_id"], a["question_2_id"], a["question_3_id"], a["question_4_id"]]
+            questions = []
+            selected = json.loads(a["selected_answers"]) if a["selected_answers"] else {}
+            for i, qid in enumerate(q_ids):
+                q = c.execute("SELECT question, option_a, option_b, option_c, option_d, correct_answer, chapter FROM questions WHERE id=?", (qid,)).fetchone()
+                if q:
+                    user_ans = selected.get(str(i), "")
+                    questions.append({
+                        "text": q["question"],
+                        "chapter": q["chapter"],
+                        "option_a": q["option_a"],
+                        "option_b": q["option_b"],
+                        "option_c": q["option_c"],
+                        "option_d": q["option_d"],
+                        "correct": q["correct_answer"],
+                        "your_answer": user_ans,
+                        "is_correct": user_ans == q["correct_answer"]
+                    })
+            entry["questions"] = questions
+            entry["score"] = sum(1 for q in questions if q["is_correct"])
+        
+        result.append(entry)
+    
+    conn.close()
+    return {"rounds": result}
+
 @app.get("/api/app-status")
 async def api_app_status():
     return {"status":APP_STATUS,"playstore_link":PLAYSTORE_LINK}

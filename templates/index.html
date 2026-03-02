@@ -2864,6 +2864,13 @@
                 <div style="font-size:14px;font-weight:700;color:var(--txt2)" id="top10Sub">Results at round end</div>
             </div>
             <div id="appCTA"></div>
+            <div id="myRoundsSection" style="margin:16px 0">
+                <button onclick="loadMyRounds()" style="background:var(--bg2);border:2px solid var(--border);border-radius:14px;padding:14px;width:100%;cursor:pointer;box-shadow:0 3px 0 var(--border)">
+                    <div style="font-size:15px;font-weight:800;color:var(--txt1)">📋 My Rounds</div>
+                    <div style="font-size:12px;font-weight:600;color:var(--txt3);margin-top:2px">Review past questions & answers</div>
+                </button>
+                <div id="myRoundsList"></div>
+            </div>
             <div onclick="openNcertHub()" style="background:linear-gradient(135deg,#0f3460,#1a1a2e);border:1px solid #e94560;border-radius:12px;padding:10px 14px;margin:10px 0;display:flex;align-items:center;gap:10px;cursor:pointer">
 <div style="flex:1"><div style="font-size:13px;color:#fff;font-weight:700">📖 Solve PYQs while reading NCERT</div><div style="font-size:11px;color:#e94560;font-weight:800;margin-top:2px">Double Dhamaka! ✨</div></div>
 <div style="background:#e94560;color:#fff;font-size:11px;font-weight:800;padding:6px 10px;border-radius:8px;white-space:nowrap">EXPLORE</div>
@@ -3655,7 +3662,48 @@
             }
         }
 
-        function startStopwatch() {
+        async function loadMyRounds() {
+            var container = document.getElementById("myRoundsList");
+            if (!container) return;
+            container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--txt3);font-weight:700">Loading...</div>';
+            try {
+                var res = await fetch(API + "/api/my-rounds?user_id=" + userId);
+                var data = await res.json();
+                if (!data.rounds || !data.rounds.length) {
+                    container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--txt3);font-weight:700">No rounds yet.</div>';
+                    return;
+                }
+                var html = "";
+                data.rounds.forEach(function(r) {
+                    html += '<div style="background:var(--bg2);border:2px solid var(--border);border-radius:14px;padding:14px;margin-top:10px;box-shadow:0 3px 0 var(--border)">';
+                    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">';
+                    html += '<div style="font-size:14px;font-weight:800;color:var(--txt1)">Round #' + r.round_id + '</div>';
+                    html += '<div style="font-size:12px;font-weight:700;color:var(--txt3)">' + (r.time_ms / 1000).toFixed(1) + 's</div>';
+                    html += '</div>';
+                    
+                    if (!r.prize_ended) {
+                        html += '<div style="text-align:center;padding:10px;font-size:13px;color:var(--txt3);font-weight:600">Results available after prize window ends</div>';
+                    } else if (r.questions) {
+                        r.questions.forEach(function(q, i) {
+                            var icon = q.is_correct ? "\u2705" : "\u274C";
+                            html += '<div style="background:var(--bg1);border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:6px">';
+                            html += '<div style="font-size:12px;font-weight:800;color:var(--txt1);margin-bottom:4px">' + icon + ' Q' + (i+1) + ' <span style="color:var(--txt3);font-weight:600">' + (q.chapter || "") + '</span></div>';
+                            html += '<div style="font-size:12px;font-weight:600;color:var(--txt2);margin-bottom:6px">' + (q.text.length > 100 ? q.text.substring(0,100) + "..." : q.text) + '</div>';
+                            html += '<div style="font-size:11px;color:var(--txt3)">Your answer: <strong>' + (q.your_answer || "None") + '</strong>';
+                            if (!q.is_correct) html += ' | Correct: <strong style="color:var(--green-dk)">' + q.correct + '</strong>';
+                            html += '</div></div>';
+                        });
+                        html += '<div style="text-align:center;font-size:14px;font-weight:800;color:' + (r.is_correct ? 'var(--green-dk)' : 'var(--red)') + ';margin-top:6px">' + (r.score || 0) + '/4</div>';
+                    }
+                    html += '</div>';
+                });
+                container.innerHTML = html;
+            } catch(e) {
+                container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--red);font-weight:700">Failed to load. Try again.</div>';
+            }
+        }
+
+                function startStopwatch() {
             stopwatchStart = performance.now(); quizStartTime = Date.now(); clearInterval(stopwatchInterval);
             stopwatchInterval = setInterval(() => { document.getElementById('stopwatch').textContent = ((performance.now() - stopwatchStart) / 1000).toFixed(2) }, 50)
         }
@@ -3912,7 +3960,8 @@
                 expCard.style.display = 'none';
                 reviewContainer.innerHTML = `<div style="background:var(--bg2);border:2px solid var(--border);border-radius:16px;padding:18px;margin-bottom:10px;box-shadow:0 3px 0 var(--border);text-align:center">
                     <div style="font-size:15px;font-weight:800;color:var(--txt);margin-bottom:6px">You got ${correctCount}/4 correct</div>
-                    <div style="font-size:13px;font-weight:600;color:var(--txt2)">Detailed results and explanations will be available after the prize window ends.</div>
+                    <div style="font-size:13px;font-weight:600;color:var(--txt2)">Full question breakdown with correct answers will appear here after the prize window ends.</div>
+                    <div style="margin-top:10px;font-size:12px;color:var(--txt3)">You can also review all your past rounds anytime in <strong>My Rounds</strong> below.</div>
                 </div>`;
             } else {
                 // Prize window ended: show full breakdown

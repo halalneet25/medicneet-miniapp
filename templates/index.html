@@ -938,6 +938,492 @@
             animation: arrowBounce 1.5s infinite;
         }
 
+        /* ─── NCERT In-App Reader ─── */
+        .ncert-hub-header {
+            text-align: center;
+            padding: 8px 0 16px;
+        }
+        .ncert-hub-header h2 {
+            font-size: 22px;
+            font-weight: 900;
+            margin-bottom: 4px;
+        }
+        .ncert-hub-stats {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 8px;
+            flex-wrap: wrap;
+        }
+        .ncert-hub-stat {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 800;
+        }
+        .ncert-section-label {
+            font-size: 13px;
+            font-weight: 800;
+            color: var(--txt3);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin: 16px 0 8px 4px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .ncert-section-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .ncert-ch-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 16px;
+            background: var(--bg);
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: transform .05s, border-color .2s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .ncert-ch-card:active { transform: translateY(2px); }
+        .ncert-ch-card.free:active { border-color: var(--green); }
+        .ncert-ch-card.locked {
+            opacity: 0.6;
+        }
+        .ncert-ch-card.locked:active { border-color: var(--txt3); }
+        .ncert-ch-info {
+            flex: 1;
+            min-width: 0;
+        }
+        .ncert-ch-meta {
+            font-size: 11px;
+            color: var(--txt3);
+            font-weight: 700;
+            margin-bottom: 2px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .ncert-ch-free-tag {
+            display: inline-block;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 900;
+            background: var(--green);
+            color: #fff;
+        }
+        .ncert-ch-lock-tag {
+            display: inline-block;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 900;
+            background: var(--bg2);
+            color: var(--txt3);
+        }
+        .ncert-ch-name {
+            font-size: 15px;
+            font-weight: 800;
+            color: var(--txt);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .ncert-ch-card.locked .ncert-ch-name { color: var(--txt2); }
+        .ncert-ch-pyqs {
+            text-align: right;
+            flex-shrink: 0;
+            margin-left: 12px;
+        }
+        .ncert-ch-pyq-num {
+            font-size: 16px;
+            font-weight: 900;
+            color: var(--gold-dk);
+        }
+        .ncert-ch-card.locked .ncert-ch-pyq-num { color: var(--txt3); }
+        .ncert-ch-pyq-label {
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--txt3);
+        }
+        .ncert-bottom-cta {
+            margin-top: 16px;
+            background: linear-gradient(135deg, #58cc02, #46a302);
+            border-radius: 16px;
+            padding: 20px 16px;
+            text-align: center;
+            box-shadow: 0 4px 0 #3a8a02;
+        }
+        .ncert-bottom-cta h3 {
+            font-size: 18px;
+            font-weight: 900;
+            color: #fff;
+            margin-bottom: 4px;
+        }
+        .ncert-bottom-cta p {
+            font-size: 13px;
+            color: rgba(255,255,255,0.85);
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+        .ncert-app-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 24px;
+            background: #fff;
+            color: var(--green-dk);
+            border: none;
+            border-radius: 30px;
+            font-size: 14px;
+            font-weight: 800;
+            font-family: inherit;
+            cursor: pointer;
+            box-shadow: 0 3px 0 rgba(0,0,0,0.1);
+            transition: transform .05s;
+        }
+        .ncert-app-btn:active { transform: translateY(3px); box-shadow: none; }
+
+        /* Reader screen */
+        .ncert-reader-header {
+            padding: 0 0 12px;
+        }
+        .ncert-back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: none;
+            border: none;
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--txt2);
+            cursor: pointer;
+            padding: 4px 0;
+            font-family: inherit;
+            margin-bottom: 8px;
+        }
+        .ncert-reader-title {
+            font-size: 20px;
+            font-weight: 900;
+            color: var(--txt);
+            margin-bottom: 2px;
+        }
+        .ncert-reader-sub {
+            font-size: 12px;
+            color: var(--txt3);
+            font-weight: 700;
+        }
+        .ncert-reader-stats {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+        }
+        .ncert-reader-stat {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 800;
+        }
+        .ncert-mode-tabs {
+            display: flex;
+            gap: 4px;
+            padding: 4px;
+            background: var(--bg2);
+            border: 2px solid var(--border);
+            border-radius: 30px;
+            margin: 12px 0;
+        }
+        .ncert-mode-tab {
+            flex: 1;
+            padding: 8px 4px;
+            border: none;
+            border-radius: 26px;
+            font-size: 12px;
+            font-weight: 800;
+            font-family: inherit;
+            cursor: pointer;
+            background: transparent;
+            color: var(--txt2);
+            transition: all .2s;
+            text-align: center;
+        }
+        .ncert-mode-tab.active {
+            background: var(--green);
+            color: #fff;
+            box-shadow: 0 2px 0 var(--green-dk);
+        }
+        .ncert-para {
+            padding: 12px 0 12px 14px;
+            border-left: 4px solid transparent;
+            margin-bottom: 2px;
+            transition: all .2s;
+        }
+        .ncert-para.has-pyq { border-left-color: var(--gold); }
+        .ncert-para.has-pred { border-left-color: var(--purple); }
+        .ncert-para.has-both { border-left-color: var(--gold); }
+        .ncert-para-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-bottom: 6px;
+            align-items: center;
+        }
+        .ncert-year-badge {
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-size: 10px;
+            font-weight: 800;
+            background: var(--gold-lt);
+            color: var(--gold-dk);
+        }
+        .ncert-pred-badge {
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-size: 10px;
+            font-weight: 800;
+            background: rgba(206,130,255,0.15);
+            color: #9b59b6;
+        }
+        .ncert-expand-icon {
+            margin-left: auto;
+            font-size: 12px;
+            color: var(--txt3);
+            transition: transform .2s;
+        }
+        .ncert-expand-icon.open { transform: rotate(180deg); }
+        .ncert-para-text {
+            font-size: 14px;
+            line-height: 1.8;
+            color: var(--txt);
+            font-weight: 600;
+        }
+        .ncert-para-interactive { cursor: pointer; }
+        .ncert-expanded {
+            margin-top: 10px;
+        }
+        .ncert-mcq-card {
+            background: var(--bg);
+            border: 2px solid var(--gold-lt);
+            border-radius: 14px;
+            padding: 14px;
+            margin-bottom: 10px;
+        }
+        .ncert-mcq-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        .ncert-mcq-year {
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 800;
+            background: var(--gold-lt);
+            color: var(--gold-dk);
+        }
+        .ncert-mcq-count {
+            font-size: 11px;
+            color: var(--txt3);
+            font-weight: 700;
+        }
+        .ncert-mcq-question {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--txt);
+            margin-bottom: 10px;
+            line-height: 1.5;
+        }
+        .ncert-mcq-option {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            background: var(--bg);
+            margin-bottom: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--txt);
+            font-family: inherit;
+            text-align: left;
+            transition: all .15s;
+        }
+        .ncert-mcq-option:active { transform: scale(0.98); }
+        .ncert-mcq-option.correct {
+            border-color: var(--green);
+            background: var(--green-lt);
+            color: var(--green-dk);
+        }
+        .ncert-mcq-option.wrong {
+            border-color: var(--red);
+            background: var(--red-lt);
+            color: #c0392b;
+        }
+        .ncert-mcq-option.dimmed {
+            opacity: 0.5;
+        }
+        .ncert-mcq-option.answered { cursor: default; pointer-events: none; }
+        .ncert-opt-letter {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--bg2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 900;
+            flex-shrink: 0;
+        }
+        .ncert-mcq-option.correct .ncert-opt-letter { background: var(--green); color: #fff; }
+        .ncert-mcq-option.wrong .ncert-opt-letter { background: var(--red); color: #fff; }
+        .ncert-explanation {
+            margin-top: 10px;
+            padding: 12px;
+            border-radius: 12px;
+            background: var(--green-lt);
+            border: 1.5px solid rgba(88,204,2,0.3);
+        }
+        .ncert-explanation-label {
+            font-size: 10px;
+            font-weight: 900;
+            color: var(--green-dk);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+        }
+        .ncert-explanation-text {
+            font-size: 13px;
+            color: #2d6a00;
+            font-weight: 600;
+            line-height: 1.5;
+        }
+        .ncert-pred-card {
+            margin-top: 10px;
+            padding: 14px;
+            border-radius: 14px;
+            background: rgba(206,130,255,0.08);
+            border: 1.5px solid rgba(206,130,255,0.25);
+        }
+        .ncert-pred-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        .ncert-pred-conf {
+            font-size: 11px;
+            color: #9b59b6;
+            font-weight: 700;
+        }
+        .ncert-pred-bar {
+            width: 100%;
+            height: 6px;
+            background: rgba(206,130,255,0.15);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+        .ncert-pred-bar-fill {
+            height: 100%;
+            border-radius: 4px;
+            background: linear-gradient(90deg, #a855f7, #7c3aed);
+        }
+        .ncert-pred-reason {
+            font-size: 13px;
+            color: #7c3aed;
+            font-weight: 600;
+            line-height: 1.5;
+        }
+        .ncert-reader-sticky {
+            position: fixed;
+            bottom: 60px;
+            left: 0;
+            right: 0;
+            background: rgba(255,255,255,0.95);
+            backdrop-filter: blur(10px);
+            border-top: 2px solid var(--border);
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 90;
+        }
+        .ncert-sticky-text {
+            font-size: 12px;
+            color: var(--txt2);
+            font-weight: 700;
+        }
+        .ncert-sticky-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            background: var(--green);
+            color: #fff;
+            border: none;
+            border-radius: 30px;
+            font-size: 12px;
+            font-weight: 800;
+            font-family: inherit;
+            cursor: pointer;
+            box-shadow: 0 3px 0 var(--green-dk);
+            transition: transform .05s;
+        }
+        .ncert-sticky-btn:active { transform: translateY(3px); box-shadow: none; }
+        .ncert-empty {
+            text-align: center;
+            padding: 40px 16px;
+            color: var(--txt3);
+        }
+        .ncert-empty-icon { font-size: 40px; margin-bottom: 8px; }
+        .ncert-empty-text { font-size: 15px; font-weight: 700; }
+        .ncert-empty-sub { font-size: 13px; font-weight: 600; margin-top: 4px; }
+        .ncert-locked-modal {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 200;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .ncert-locked-box {
+            background: #fff;
+            border-radius: 20px;
+            padding: 28px 24px;
+            text-align: center;
+            max-width: 340px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+        }
+        .ncert-locked-icon { font-size: 48px; margin-bottom: 12px; }
+        .ncert-locked-title { font-size: 18px; font-weight: 900; color: var(--txt); margin-bottom: 8px; }
+        .ncert-locked-desc { font-size: 13px; color: var(--txt2); font-weight: 600; line-height: 1.5; margin-bottom: 16px; }
+        .ncert-locked-close {
+            margin-top: 12px;
+            background: none;
+            border: none;
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--txt3);
+            cursor: pointer;
+            font-family: inherit;
+        }
+
         /* ─── Flash News Banner ─── */
         .flash-news-banner {
             margin-bottom: 14px;
@@ -2380,11 +2866,11 @@
             <div id="appCTA"></div>
             <div class="ncert-promo" id="ncertPromoResult">
                 <div class="ncert-badges">
-                    <span class="ncert-badge green">LAUNCHING SOON</span>
+                    <span class="ncert-badge green">NEW</span>
                     <span class="ncert-badge amber">FREE</span>
                 </div>
                 <div class="ncert-promo-title">PYQ-Marked NCERT 📖</div>
-                <div class="ncert-promo-desc">Comes FREE with Biology Full Bundle in MedicNEET mini app! Read NCERT with PYQ-highlighted paragraphs & expert predictions.</div>
+                <div class="ncert-promo-desc">Read NCERT with PYQ-highlighted paragraphs & expert predictions — right here in the mini app!</div>
                 <div class="ncert-chips">
                     <span class="ncert-chip amber">1,058 PYQs</span>
                     <span class="ncert-chip green">32 Chapters</span>
@@ -2397,7 +2883,7 @@
                     <div class="ncert-skel predicted"></div>
                     <div class="ncert-skel normal short"></div>
                 </div>
-                <button class="ncert-cta-btn" onclick="window.open('https://www.medicneet.com/ncert','_blank')">Experience it here <span class="ncert-cta-arrow">→</span></button>
+                <button class="ncert-cta-btn" onclick="openNcertHub()">Open NCERT Reader <span class="ncert-cta-arrow">→</span></button>
             </div>
             <div class="lb-section" id="roundLeaderboard"></div>
         </div>
@@ -2485,11 +2971,11 @@
             <div id="couponWaiting"></div>
             <div class="ncert-promo" id="ncertPromoWaiting">
                 <div class="ncert-badges">
-                    <span class="ncert-badge green">LAUNCHING SOON</span>
+                    <span class="ncert-badge green">NEW</span>
                     <span class="ncert-badge amber">FREE</span>
                 </div>
                 <div class="ncert-promo-title">PYQ-Marked NCERT 📖</div>
-                <div class="ncert-promo-desc">Comes FREE with Biology Full Bundle in MedicNEET mini app! Read NCERT with PYQ-highlighted paragraphs & expert predictions.</div>
+                <div class="ncert-promo-desc">Read NCERT with PYQ-highlighted paragraphs & expert predictions — right here in the mini app!</div>
                 <div class="ncert-chips">
                     <span class="ncert-chip amber">1,058 PYQs</span>
                     <span class="ncert-chip green">32 Chapters</span>
@@ -2502,7 +2988,7 @@
                     <div class="ncert-skel predicted"></div>
                     <div class="ncert-skel normal short"></div>
                 </div>
-                <button class="ncert-cta-btn" onclick="window.open('https://www.medicneet.com/ncert','_blank')">Experience it here <span class="ncert-cta-arrow">→</span></button>
+                <button class="ncert-cta-btn" onclick="openNcertHub()">Open NCERT Reader <span class="ncert-cta-arrow">→</span></button>
             </div>
             <div id="scheduleContainer">
                 <div class="next-round-card">
@@ -2684,6 +3170,59 @@
             <button class="wg-back-btn" onclick="switchTab('wallet')">Back to Wallet</button>
         </div>
     </div>
+
+        <!-- NCERT Hub Screen -->
+        <div class="screen" id="ncertHubScreen">
+            <div class="ncert-hub-header">
+                <h2>📖 PYQ-Marked NCERT</h2>
+                <div style="font-size:13px;color:var(--txt2);font-weight:600">Read NCERT with PYQ-highlighted paragraphs</div>
+                <div class="ncert-hub-stats" id="ncertHubStats"></div>
+            </div>
+            <div id="ncertHubLoading" style="text-align:center;padding:20px">
+                <div style="font-size:32px;margin-bottom:8px">⏳</div>
+                <div style="font-size:14px;font-weight:700;color:var(--txt2)">Loading chapters...</div>
+            </div>
+            <div id="ncertFreeSection"></div>
+            <div id="ncertLockedSection"></div>
+            <div id="ncertHubBottomCta"></div>
+            <div style="height:20px"></div>
+        </div>
+
+        <!-- NCERT Reader Screen -->
+        <div class="screen" id="ncertReaderScreen">
+            <div class="ncert-reader-header">
+                <button class="ncert-back-btn" onclick="openNcertHub()">← All Chapters</button>
+                <div class="ncert-reader-title" id="ncertReaderTitle"></div>
+                <div class="ncert-reader-sub" id="ncertReaderSub"></div>
+                <div class="ncert-reader-stats" id="ncertReaderStats"></div>
+                <div class="ncert-mode-tabs" id="ncertModeTabs">
+                    <button class="ncert-mode-tab active" onclick="setNcertMode('padho')">📖 Padho</button>
+                    <button class="ncert-mode-tab" onclick="setNcertMode('pyqs')">🎯 PYQs</button>
+                    <button class="ncert-mode-tab" onclick="setNcertMode('2026')">🧠 2026</button>
+                </div>
+            </div>
+            <div id="ncertReaderLoading" style="text-align:center;padding:20px;display:none">
+                <div style="font-size:32px;margin-bottom:8px">⏳</div>
+                <div style="font-size:14px;font-weight:700;color:var(--txt2)">Loading chapter...</div>
+            </div>
+            <div id="ncertReaderContent"></div>
+            <div class="ncert-reader-sticky" id="ncertReaderSticky" style="display:none">
+                <span class="ncert-sticky-text">All 32 chapters in app</span>
+                <button class="ncert-sticky-btn" onclick="window.open('{{ playstore_link }}','_blank')">📱 Download App</button>
+            </div>
+            <div style="height:80px"></div>
+        </div>
+
+        <!-- NCERT Locked Chapter Modal -->
+        <div class="ncert-locked-modal" id="ncertLockedModal" style="display:none" onclick="closeNcertLockedModal(event)">
+            <div class="ncert-locked-box">
+                <div class="ncert-locked-icon">🔒</div>
+                <div class="ncert-locked-title">Unlock All 32 Chapters</div>
+                <div class="ncert-locked-desc" id="ncertLockedDesc">This chapter is available in the MedicNEET app. Download to access all PYQ-marked NCERT chapters!</div>
+                <button class="ncert-app-btn" onclick="window.open('{{ playstore_link }}','_blank')" style="width:100%;justify-content:center">📱 Download MedicNEET App</button>
+                <button class="ncert-locked-close" onclick="document.getElementById('ncertLockedModal').style.display='none'">Maybe later</button>
+            </div>
+        </div>
 
     <div class="bottom-nav">
         <div class="nav-item active" onclick="switchTab('quiz')">
@@ -2925,6 +3464,9 @@
         function switchTab(tab) {
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
             if (event && event.currentTarget) event.currentTarget.classList.add('active');
+            // Hide NCERT reader sticky when switching away
+            const ncertSticky = document.getElementById('ncertReaderSticky');
+            if (ncertSticky) ncertSticky.style.display = 'none';
             if (tab === 'quiz') { if (currentRound && !hasAttempted) showScreen('quizScreen'); else if (hasAttempted) showScreen('resultScreen'); else { showScreen('waitingScreen'); loadSchedule() } }
             else if (tab === 'wallet') { showScreen('walletScreen'); loadWallet() }
             else if (tab === 'leaderboard') { showScreen('leaderboardScreen'); loadAllTimeLeaderboard() }
@@ -5265,6 +5807,301 @@
             couponTimerInterval = setInterval(function() {
                 ['couponResult','couponWallet','couponWaiting','couponPractice'].forEach(function(id) { renderCouponBanner(id); });
             }, 60000);
+        }
+
+        // ─── NCERT IN-APP READER ──────────────────────────────────────
+        let ncertChaptersData = null;
+        let ncertCurrentChapter = null;
+        let ncertCurrentMode = 'padho';
+        let ncertHubLoaded = false;
+
+        function openNcertHub() {
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            showScreen('ncertHubScreen');
+            if (!ncertHubLoaded) loadNcertHub();
+            document.getElementById('ncertReaderSticky').style.display = 'none';
+        }
+
+        async function loadNcertHub() {
+            try {
+                const res = await fetch(API + '/api/ncert/chapters');
+                if (!res.ok) throw new Error('Failed');
+                ncertChaptersData = await res.json();
+                ncertHubLoaded = true;
+                renderNcertHub();
+            } catch(e) {
+                document.getElementById('ncertHubLoading').innerHTML = '<div style="font-size:32px;margin-bottom:8px">😕</div><div style="font-size:14px;font-weight:700;color:var(--txt2)">Failed to load. Tap to retry.</div>';
+                document.getElementById('ncertHubLoading').onclick = function() {
+                    this.innerHTML = '<div style="font-size:32px;margin-bottom:8px">⏳</div><div style="font-size:14px;font-weight:700;color:var(--txt2)">Loading chapters...</div>';
+                    this.onclick = null;
+                    loadNcertHub();
+                };
+            }
+        }
+
+        function renderNcertHub() {
+            const data = ncertChaptersData;
+            document.getElementById('ncertHubLoading').style.display = 'none';
+
+            // Stats
+            document.getElementById('ncertHubStats').innerHTML =
+                '<span class="ncert-hub-stat" style="background:var(--green-lt);color:var(--green-dk)">' + data.total_chapters + ' Chapters</span>' +
+                '<span class="ncert-hub-stat" style="background:var(--gold-lt);color:var(--gold-dk)">' + data.total_pyqs.toLocaleString() + ' PYQs</span>' +
+                '<span class="ncert-hub-stat" style="background:rgba(206,130,255,0.15);color:#9b59b6">Expert Predicted</span>';
+
+            const free = data.chapters.filter(c => c.is_free);
+            const locked = data.chapters.filter(c => !c.is_free);
+
+            // Free chapters
+            let freeHtml = '<div class="ncert-section-label"><span class="ncert-section-dot" style="background:var(--green)"></span> Free Chapters</div>';
+            free.forEach(ch => {
+                freeHtml += '<div class="ncert-ch-card free" onclick="openNcertChapter(\'' + ch.id + '\')">' +
+                    '<div class="ncert-ch-info">' +
+                    '<div class="ncert-ch-meta"><span class="ncert-ch-free-tag">FREE</span> ' + ch.class + ' · Ch ' + ch.chapter_number + '</div>' +
+                    '<div class="ncert-ch-name">' + ch.chapter_name + '</div>' +
+                    '</div>' +
+                    '<div class="ncert-ch-pyqs"><div class="ncert-ch-pyq-num">' + ch.total_pyqs + '</div><div class="ncert-ch-pyq-label">PYQs</div></div>' +
+                    '</div>';
+            });
+            document.getElementById('ncertFreeSection').innerHTML = freeHtml;
+
+            // Locked chapters
+            let lockedHtml = '<div class="ncert-section-label"><span class="ncert-section-dot" style="background:var(--txt3)"></span> More Chapters — App Only</div>';
+            locked.forEach(ch => {
+                lockedHtml += '<div class="ncert-ch-card locked" onclick="showNcertLockedModal(\'' + ch.chapter_name.replace(/'/g, "\\'") + '\')">' +
+                    '<div class="ncert-ch-info">' +
+                    '<div class="ncert-ch-meta"><span class="ncert-ch-lock-tag">🔒 Locked</span> ' + ch.class + ' · Ch ' + ch.chapter_number + '</div>' +
+                    '<div class="ncert-ch-name">' + ch.chapter_name + '</div>' +
+                    '</div>' +
+                    '<div class="ncert-ch-pyqs"><div class="ncert-ch-pyq-num">' + ch.total_pyqs + '</div><div class="ncert-ch-pyq-label">PYQs</div></div>' +
+                    '</div>';
+            });
+            document.getElementById('ncertLockedSection').innerHTML = lockedHtml;
+
+            // Bottom CTA
+            document.getElementById('ncertHubBottomCta').innerHTML =
+                '<div class="ncert-bottom-cta">' +
+                '<h3>Want all 32 chapters?</h3>' +
+                '<p>Download MedicNEET for PYQ-marked NCERT, expert predictions & more.</p>' +
+                '<button class="ncert-app-btn" onclick="window.open(\'' + '{{ playstore_link }}' + '\',\'_blank\')">📱 Download MedicNEET App</button>' +
+                '</div>';
+        }
+
+        function showNcertLockedModal(chapterName) {
+            document.getElementById('ncertLockedDesc').textContent = '"' + chapterName + '" is available in the MedicNEET app. Download to access all PYQ-marked NCERT chapters!';
+            document.getElementById('ncertLockedModal').style.display = 'flex';
+        }
+
+        function closeNcertLockedModal(e) {
+            if (e.target === e.currentTarget) {
+                document.getElementById('ncertLockedModal').style.display = 'none';
+            }
+        }
+
+        async function openNcertChapter(chapterId) {
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            showScreen('ncertReaderScreen');
+            document.getElementById('ncertReaderLoading').style.display = 'block';
+            document.getElementById('ncertReaderContent').innerHTML = '';
+            document.getElementById('ncertReaderSticky').style.display = 'flex';
+            ncertCurrentMode = 'padho';
+            // Reset mode tabs
+            document.querySelectorAll('.ncert-mode-tab').forEach((t, i) => t.classList.toggle('active', i === 0));
+
+            try {
+                const res = await fetch(API + '/api/ncert/chapter/' + chapterId);
+                if (!res.ok) throw new Error('Failed');
+                const data = await res.json();
+
+                if (data.locked) {
+                    showNcertLockedModal(data.chapter_name);
+                    openNcertHub();
+                    return;
+                }
+
+                ncertCurrentChapter = data;
+                document.getElementById('ncertReaderLoading').style.display = 'none';
+                renderNcertReader();
+            } catch(e) {
+                document.getElementById('ncertReaderLoading').innerHTML = '<div style="font-size:32px;margin-bottom:8px">😕</div><div style="font-size:14px;font-weight:700;color:var(--txt2)">Failed to load chapter.</div><button class="duo-btn blue" style="margin-top:12px" onclick="openNcertChapter(\'' + chapterId + '\')">Retry</button>';
+            }
+        }
+
+        function renderNcertReader() {
+            const ch = ncertCurrentChapter;
+            if (!ch) return;
+
+            document.getElementById('ncertReaderTitle').textContent = ch.chapter_name;
+            document.getElementById('ncertReaderSub').textContent = ch.class + ' · Chapter ' + ch.chapter_number;
+
+            document.getElementById('ncertReaderStats').innerHTML =
+                '<span class="ncert-reader-stat" style="background:var(--bg2);color:var(--txt2)">' + ch.total_paragraphs + ' paras</span>' +
+                '<span class="ncert-reader-stat" style="background:var(--gold-lt);color:var(--gold-dk)">🎯 ' + ch.total_pyqs + ' PYQs</span>' +
+                '<span class="ncert-reader-stat" style="background:rgba(206,130,255,0.15);color:#9b59b6">🧠 ' + ch.total_predicted + ' predicted</span>';
+
+            // Update mode tab counts
+            const tabs = document.querySelectorAll('.ncert-mode-tab');
+            tabs[0].textContent = '📖 Padho ' + ch.total_paragraphs;
+            tabs[1].textContent = '🎯 PYQs ' + ch.total_pyqs;
+            tabs[2].textContent = '🧠 2026 ' + ch.total_predicted;
+
+            renderNcertParagraphs();
+        }
+
+        function setNcertMode(mode) {
+            ncertCurrentMode = mode;
+            document.querySelectorAll('.ncert-mode-tab').forEach(t => t.classList.remove('active'));
+            const idx = mode === 'padho' ? 0 : mode === 'pyqs' ? 1 : 2;
+            document.querySelectorAll('.ncert-mode-tab')[idx].classList.add('active');
+            renderNcertParagraphs();
+            // Scroll to top of reader content
+            document.getElementById('ncertReaderContent').scrollIntoView({behavior: 'smooth'});
+        }
+
+        function renderNcertParagraphs() {
+            const ch = ncertCurrentChapter;
+            if (!ch) return;
+
+            let paragraphs = ch.paragraphs;
+            if (ncertCurrentMode === 'pyqs') {
+                paragraphs = paragraphs.filter(p => p.has_pyq);
+            } else if (ncertCurrentMode === '2026') {
+                paragraphs = paragraphs.filter(p => p.predicted);
+            }
+
+            if (paragraphs.length === 0) {
+                document.getElementById('ncertReaderContent').innerHTML =
+                    '<div class="ncert-empty"><div class="ncert-empty-icon">📭</div>' +
+                    '<div class="ncert-empty-text">No paragraphs in this mode</div>' +
+                    '<div class="ncert-empty-sub">Try switching to a different reading mode</div></div>';
+                return;
+            }
+
+            let html = '';
+            paragraphs.forEach((p, idx) => {
+                const hasPyq = p.has_pyq && p.pyqs && p.pyqs.length > 0;
+                const hasPred = p.predicted && p.prediction;
+                const isInteractive = hasPyq || hasPred;
+
+                let paraClass = 'ncert-para';
+                if (hasPyq && hasPred) paraClass += ' has-both';
+                else if (hasPyq) paraClass += ' has-pyq';
+                else if (hasPred) paraClass += ' has-pred';
+                if (isInteractive) paraClass += ' ncert-para-interactive';
+
+                html += '<div class="' + paraClass + '" id="ncertPara' + idx + '">';
+
+                // Badges
+                if (hasPyq || hasPred) {
+                    html += '<div class="ncert-para-badges">';
+                    if (hasPyq) {
+                        const years = [...new Set(p.pyqs.map(q => q.year))].sort();
+                        years.forEach(y => {
+                            html += '<span class="ncert-year-badge">' + y + '</span>';
+                        });
+                    }
+                    if (hasPred) {
+                        html += '<span class="ncert-pred-badge">' + p.prediction.badge + '</span>';
+                    }
+                    if (isInteractive) {
+                        html += '<span class="ncert-expand-icon" id="ncertExpIcon' + idx + '">▼</span>';
+                    }
+                    html += '</div>';
+                }
+
+                // Text
+                if (isInteractive) {
+                    html += '<div class="ncert-para-text" onclick="toggleNcertPara(' + idx + ')">' + escapeHtml(p.text) + '</div>';
+                } else {
+                    html += '<div class="ncert-para-text">' + escapeHtml(p.text) + '</div>';
+                }
+
+                // Expandable content (hidden by default)
+                if (isInteractive) {
+                    html += '<div class="ncert-expanded" id="ncertExp' + idx + '" style="display:none">';
+
+                    // MCQ cards
+                    if (hasPyq) {
+                        p.pyqs.forEach((pyq, qi) => {
+                            const qId = 'ncertMcq' + idx + '_' + qi;
+                            html += '<div class="ncert-mcq-card">';
+                            html += '<div class="ncert-mcq-header"><span class="ncert-mcq-year">NEET ' + pyq.year + '</span>';
+                            if (p.pyqs.length > 1) html += '<span class="ncert-mcq-count">Q' + (qi+1) + '/' + p.pyqs.length + '</span>';
+                            html += '</div>';
+                            html += '<div class="ncert-mcq-question">' + escapeHtml(pyq.question) + '</div>';
+                            ['a','b','c','d'].forEach(key => {
+                                html += '<button class="ncert-mcq-option" id="' + qId + '_' + key + '" onclick="answerNcertMcq(\'' + qId + '\',\'' + key + '\',\'' + pyq.answer + '\')">' +
+                                    '<span class="ncert-opt-letter">' + key.toUpperCase() + '</span>' +
+                                    '<span>' + escapeHtml(pyq.options[key]) + '</span></button>';
+                            });
+                            html += '<div id="' + qId + '_exp" style="display:none" class="ncert-explanation">' +
+                                '<div class="ncert-explanation-label">Explanation</div>' +
+                                '<div class="ncert-explanation-text">' + escapeHtml(pyq.explanation_en || 'Correct answer: ' + pyq.answer.toUpperCase()) + '</div></div>';
+                            html += '</div>';
+                        });
+                    }
+
+                    // Prediction card
+                    if (hasPred) {
+                        html += '<div class="ncert-pred-card">' +
+                            '<div class="ncert-pred-top"><span class="ncert-pred-badge">' + p.prediction.badge + '</span>' +
+                            '<span class="ncert-pred-conf">' + p.prediction.confidence + '% confidence</span></div>' +
+                            '<div class="ncert-pred-bar"><div class="ncert-pred-bar-fill" style="width:' + p.prediction.confidence + '%"></div></div>' +
+                            '<div class="ncert-pred-reason">' + escapeHtml(p.prediction.reason) + '</div></div>';
+                    }
+
+                    html += '</div>';
+                }
+
+                html += '</div>';
+            });
+
+            document.getElementById('ncertReaderContent').innerHTML = html;
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function toggleNcertPara(idx) {
+            const exp = document.getElementById('ncertExp' + idx);
+            const icon = document.getElementById('ncertExpIcon' + idx);
+            if (!exp) return;
+            if (exp.style.display === 'none') {
+                exp.style.display = 'block';
+                if (icon) { icon.textContent = '▲'; icon.classList.add('open'); }
+            } else {
+                exp.style.display = 'none';
+                if (icon) { icon.textContent = '▼'; icon.classList.remove('open'); }
+            }
+        }
+
+        function answerNcertMcq(qId, selected, correct) {
+            // Check if already answered
+            const firstOpt = document.getElementById(qId + '_a');
+            if (firstOpt && firstOpt.classList.contains('answered')) return;
+
+            ['a','b','c','d'].forEach(key => {
+                const btn = document.getElementById(qId + '_' + key);
+                if (!btn) return;
+                btn.classList.add('answered');
+                if (key === correct) {
+                    btn.classList.add('correct');
+                    btn.querySelector('.ncert-opt-letter').textContent = '✓';
+                } else if (key === selected && key !== correct) {
+                    btn.classList.add('wrong');
+                    btn.querySelector('.ncert-opt-letter').textContent = '✗';
+                } else {
+                    btn.classList.add('dimmed');
+                }
+            });
+
+            // Show explanation
+            const expEl = document.getElementById(qId + '_exp');
+            if (expEl) expEl.style.display = 'block';
         }
 
 

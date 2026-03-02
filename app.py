@@ -2025,3 +2025,80 @@ async def api_delete_blog(blog_id: int):
     c.execute("DELETE FROM blogs WHERE id = ?", (blog_id,))
     conn.commit(); conn.close()
     return {"success": True, "deleted_id": blog_id}
+
+# ─── NCERT PYQ-MARKED READER ──────────────────────────────────────
+NCERT_JSON_PATH = os.path.join("static", "ncert", "ncert_pyq_highlighted_v3.json")
+_ncert_cache = None
+
+FREE_CHAPTERS = [
+    {"class": "Class 11", "chapter": 5},
+    {"class": "Class 11", "chapter": 10},
+    {"class": "Class 12", "chapter": 2},
+    {"class": "Class 12", "chapter": 5},
+]
+
+def _load_ncert():
+    global _ncert_cache
+    if _ncert_cache is None:
+        with open(NCERT_JSON_PATH, "r", encoding="utf-8") as f:
+            _ncert_cache = json.load(f)
+    return _ncert_cache
+
+def _is_chapter_free(ch):
+    return any(fc["class"] == ch["class"] and fc["chapter"] == ch["chapter_number"] for fc in FREE_CHAPTERS)
+
+@app.get("/api/ncert/chapters")
+async def api_ncert_chapters():
+    """Return lightweight chapter list with metadata (no content)."""
+    data = _load_ncert()
+    chapters = []
+    for ch in data["chapters"]:
+        chapter_id = f"class{ch['class'].replace('Class ', '')}-ch{ch['chapter_number']}"
+        chapters.append({
+            "id": chapter_id,
+            "chapter_number": ch["chapter_number"],
+            "chapter_name": ch["chapter_name"],
+            "class": ch["class"],
+            "total_pyqs": ch["total_pyqs"],
+            "total_paragraphs": ch["total_paragraphs"],
+            "is_free": _is_chapter_free(ch),
+        })
+    return {
+        "total_chapters": data["total_chapters"],
+        "total_pyqs": data["total_pyqs"],
+        "total_predicted": data["total_predicted"],
+        "chapters": chapters,
+    }
+
+@app.get("/api/ncert/chapter/{chapter_id}")
+async def api_ncert_chapter(chapter_id: str):
+    """Return full content for a single chapter. Only free chapters served."""
+    import re
+    m = re.match(r"^class(\d+)-ch(\d+)$", chapter_id)
+    if not m:
+        raise HTTPException(400, "Invalid chapter ID format. Use class11-ch5")
+    class_num, ch_num = m.group(1), int(m.group(2))
+    data = _load_ncert()
+    for ch in data["chapters"]:
+        if ch["class"] == f"Class {class_num}" and ch["chapter_number"] == ch_num:
+            if not _is_chapter_free(ch):
+                return {"locked": True, "chapter_name": ch["chapter_name"], "chapter_id": chapter_id}
+            paragraphs = []
+            for page in ch["pages"]:
+                for item in page["content"]:
+                    if item["type"] == "paragraph":
+                        paragraphs.append(item)
+            pyq_count = sum(1 for p in paragraphs if p.get("has_pyq"))
+            predicted_count = sum(1 for p in paragraphs if p.get("predicted"))
+            return {
+                "locked": False,
+                "chapter_id": chapter_id,
+                "chapter_number": ch["chapter_number"],
+                "chapter_name": ch["chapter_name"],
+                "class": ch["class"],
+                "total_pyqs": pyq_count,
+                "total_predicted": predicted_count,
+                "total_paragraphs": len(paragraphs),
+                "paragraphs": paragraphs,
+            }
+    raise HTTPException(404, "Chapter not found")

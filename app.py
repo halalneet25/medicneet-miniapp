@@ -975,7 +975,7 @@ async def api_my_rounds(request: Request):
             for i, qid in enumerate(q_ids):
                 q = c.execute("SELECT question, option_a, option_b, option_c, option_d, correct_answer, chapter FROM questions WHERE id=?", (qid,)).fetchone()
                 if q:
-                    user_ans = selected.get(str(i), "")
+                    user_ans = selected[i] if isinstance(selected, list) and i < len(selected) else (selected.get(str(i), "") if isinstance(selected, dict) else "")
                     questions.append({
                         "text": q["question"],
                         "chapter": q["chapter"],

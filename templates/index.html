@@ -2864,7 +2864,7 @@
                 <div style="font-size:14px;font-weight:700;color:var(--txt2)" id="top10Sub">Results at round end</div>
             </div>
             <div id="appCTA"></div>
-            <div onclick="document.querySelector('#studyTabBtn').click()" style="background:linear-gradient(135deg,#0f3460,#1a1a2e);border:1px solid #e94560;border-radius:12px;padding:10px 14px;margin:10px 0;display:flex;align-items:center;gap:10px;cursor:pointer">
+            <div onclick="switchTab('study')" style="background:linear-gradient(135deg,#0f3460,#1a1a2e);border:1px solid #e94560;border-radius:12px;padding:10px 14px;margin:10px 0;display:flex;align-items:center;gap:10px;cursor:pointer">
 <div style="flex:1"><div style="font-size:13px;color:#fff;font-weight:700">📖 Solve PYQs while reading NCERT</div><div style="font-size:11px;color:#e94560;font-weight:800;margin-top:2px">Double Dhamaka! ✨</div></div>
 <div style="background:#e94560;color:#fff;font-size:11px;font-weight:800;padding:6px 10px;border-radius:8px;white-space:nowrap">EXPLORE</div>
 </div>
@@ -2953,7 +2953,7 @@
 
         <div class="screen" id="practiceResultScreen">
             <div id="couponPractice"></div>
-            <div onclick="document.querySelector('#studyTabBtn').click()" style="background:linear-gradient(135deg,#0f3460,#1a1a2e);border:1px solid #e94560;border-radius:12px;padding:10px 14px;margin:10px 0;display:flex;align-items:center;gap:10px;cursor:pointer">
+            <div onclick="switchTab('study')" style="background:linear-gradient(135deg,#0f3460,#1a1a2e);border:1px solid #e94560;border-radius:12px;padding:10px 14px;margin:10px 0;display:flex;align-items:center;gap:10px;cursor:pointer">
 <div style="flex:1"><div style="font-size:13px;color:#fff;font-weight:700">📖 Solve PYQs while reading NCERT</div><div style="font-size:11px;color:#e94560;font-weight:800;margin-top:2px">Double Dhamaka! ✨</div></div>
 <div style="background:#e94560;color:#fff;font-size:11px;font-weight:800;padding:6px 10px;border-radius:8px;white-space:nowrap">EXPLORE</div>
 </div>
@@ -4467,7 +4467,7 @@
                 }).join('');
 
                 buildBlogCTA('practiceBlogCTAContainer');
-                showScreen('practiceResultScreen');
+                showScreen('practiceResultScreen'); window.scrollTo(0, 0);
 
             } catch (e) {
                 console.error('Practice submit error:', e);

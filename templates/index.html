@@ -4493,38 +4493,15 @@
                 const reviewContainer = document.getElementById('practiceQuestionsReview');
                 reviewContainer.innerHTML = practiceRoundData.questions.map((q, idx) => {
                     const userAnswer = practiceAnswers[idx];
-                    const correctAnswer = data.correct_answers[idx];
                     const isCorrect = data.results[idx];
-                    const explanation = data.explanations[idx];
 
                     return `
                         <div class="question-block ${isCorrect ? 'correct' : 'incorrect'}">
                             <div class="question-number">Question ${idx + 1}/4 ${isCorrect ? '✅' : '❌'}</div>
                             <div class="question-chapter">${q.chapter}</div>
                             <div class="question-text">${formatQuestion(q.text)}</div>
-                            <div class="options">
-                                ${['A', 'B', 'C', 'D'].map(letter => {
-                                    const isUserAnswer = letter === userAnswer;
-                                    const isCorrectAnswer = letter === correctAnswer;
-                                    let className = 'option-btn';
-                                    if (isCorrectAnswer) className += ' correct';
-                                    else if (isUserAnswer && !isCorrect) className += ' wrong';
-
-                                    const optionText = q[`option_${letter.toLowerCase()}`];
-                                    return `
-                                        <div class="${className}">
-                                            <div class="opt-letter">${letter}</div>
-                                            <div>${optionText}</div>
-                                        </div>
-                                    `;
-                                }).join('')}
-                            </div>
-                            ${explanation ? `
-                                <div class="explanation-card">
-                                    <div class="explanation-header">📖 Explanation</div>
-                                    <div class="explanation-text">${formatQuestion(explanation)}</div>
-                                </div>
-                            ` : ''}
+                            <div style="font-size:13px;font-weight:700;color:var(--txt2);padding:8px 0">Your answer: <strong>${userAnswer || 'None'}</strong></div>
+                            <a href="https://play.google.com/store/apps/details?id=com.halalfire.medicneet&hl=en" onclick="trackAppClick('practice_result_cta')" style="display:block;text-align:center;background:linear-gradient(135deg,#0f3460,#1a1a2e);color:#fff;font-weight:800;font-size:13px;padding:10px;border-radius:10px;text-decoration:none;margin-top:6px">View Explanation & Correct Answer → App</a>
                         </div>
                     `;
                 }).join('');

@@ -3753,7 +3753,7 @@
                             html += '<div style="font-size:12px;font-weight:600;color:var(--txt2);margin-bottom:6px">' + (q.text.length > 100 ? q.text.substring(0,100) + "..." : q.text) + '</div>';
                             html += '<div style="font-size:11px;color:var(--txt3)">Your answer: <strong>' + (q.your_answer || "None") + '</strong>';
                             if (!q.is_correct) html += ' | Correct: <strong style="color:var(--green-dk)">' + q.correct + '</strong>';
-                            html += '</div><div style="text-align:right;margin-top:4px"><a href="https://play.google.com/store/apps/details?id=com.halalfire.medicneet&hl=en" onclick="trackAppClick(\x27my_rounds_q_cta\x27);trackEvent(\x27explanation_cta_click\x27)" style="font-size:11px;color:var(--blue-dk);font-weight:700;text-decoration:none">View Explanation \u2192 App</a></div></div>';
+                            html += '</div><div style="text-align:right;margin-top:4px"><a href="#" onclick="trackAppClick(\x27my_rounds_q_cta\x27);trackEvent(\x27explanation_cta_click\x27)" style="font-size:11px;color:var(--blue-dk);font-weight:700;text-decoration:none">View Explanation \u2192 App</a></div></div>';
                         });
                         html += '<div style="text-align:center;font-size:14px;font-weight:800;color:' + (r.is_correct ? 'var(--green-dk)' : 'var(--red)') + ';margin-top:6px">' + (r.score || 0) + '/4</div>';
                     }
@@ -4380,7 +4380,7 @@
                                 <div style="position:absolute;inset:0;background:rgba(255,255,255,0.85);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2;border-radius:16px">
                                     <div style="font-size:32px;margin-bottom:8px">🔒</div>
                                     <div style="font-size:13px;font-weight:800;color:var(--txt1);margin-bottom:6px;text-align:center;padding:0 12px">Want more NEET 2025-style questions?</div>
-                                    <a href="https://play.google.com/store/apps/details?id=com.halalfire.medicneet" onclick="trackAppClick('practice_result')" target="_blank" style="background:var(--green);color:#fff;font-weight:800;font-size:12px;padding:8px 16px;border-radius:10px;text-decoration:none;box-shadow:0 2px 0 var(--green-dk)">12,771 Questions on MedicNEET App →</a>
+                                    <a href="#" onclick="openPlayStore('practice_result');return false;" style="background:var(--green);color:#fff;font-weight:800;font-size:12px;padding:8px 16px;border-radius:10px;text-decoration:none;box-shadow:0 2px 0 var(--green-dk)">12,771 Questions on MedicNEET App →</a>
                                 </div>
                                 <div class="practice-round-header">Round #${round.round_id} - ${dateStr}</div>
                                 <div class="practice-round-info">🏆 Winner: ${round.winner_name} (${winnerTime})</div>
@@ -4551,7 +4551,7 @@
                             <div class="question-chapter">${q.chapter}</div>
                             <div class="question-text">${formatQuestion(q.text)}</div>
                             <div style="font-size:13px;font-weight:700;color:var(--txt2);padding:8px 0">Your answer: <strong>${userAnswer || 'None'}</strong></div>
-                            <a href="https://play.google.com/store/apps/details?id=com.halalfire.medicneet&hl=en" onclick="trackAppClick('practice_result_cta');trackEvent('explanation_cta_click')" style="display:block;text-align:center;background:linear-gradient(135deg,#0f3460,#1a1a2e);color:#fff;font-weight:800;font-size:13px;padding:10px;border-radius:10px;text-decoration:none;margin-top:6px">View Explanation & Correct Answer → App</a>
+                            <a href="#" onclick="openPlayStore('practice_result_cta');return false;" style="display:block;text-align:center;background:linear-gradient(135deg,#0f3460,#1a1a2e);color:#fff;font-weight:800;font-size:13px;padding:10px;border-radius:10px;text-decoration:none;margin-top:6px">View Explanation & Correct Answer → App</a>
                         </div>
                     `;
                 }).join('');
@@ -5844,6 +5844,17 @@
         }
 
         
+        function openPlayStore(source) {
+            if (source) trackAppClick(source);
+            trackEvent('explanation_cta_click');
+            var url = 'https://play.google.com/store/apps/details?id=com.halalfire.medicneet&hl=en';
+            if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.openLink) {
+                window.Telegram.WebApp.openLink(url);
+            } else {
+                window.open(url, '_blank');
+            }
+        }
+
         function trackAppClick(source) {
             fetch(API + '/api/track-click', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({user_id:userId, source:source})}).catch(function(){});
         }
@@ -5889,7 +5900,7 @@
                 + '<div style="position:absolute;top:0;left:-100%;width:50%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.1),transparent);animation:couponShine 3s infinite"></div>'
                 + '</div>'
                 + '<div style="font-size:12px;color:#ff6b6b;font-weight:700;margin:8px 0">\u23f0 ' + timeLeft + '</div>'
-                + '<a href="https://play.google.com/store/apps/details?id=com.halalfire.medicneet" onclick="trackAppClick(\x27coupon_banner\x27)" style="display:inline-block;background:linear-gradient(135deg,#e94560,#c0392b);color:#fff;font-weight:800;font-size:14px;padding:10px 28px;border-radius:12px;text-decoration:none;box-shadow:0 4px 15px #e9456066">Get MedicNEET App \u2192</a>'
+                + '<a href="#" onclick="trackAppClick(\x27coupon_banner\x27)" style="display:inline-block;background:linear-gradient(135deg,#e94560,#c0392b);color:#fff;font-weight:800;font-size:14px;padding:10px 28px;border-radius:12px;text-decoration:none;box-shadow:0 4px 15px #e9456066">Get MedicNEET App \u2192</a>'
                 + '</div>';
         }
         function copyCoupon(containerId) {

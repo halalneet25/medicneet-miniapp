@@ -1,120 +1,109 @@
 #!/usr/bin/env python3
 """
-validate_questions.py — Structural validator for MedicNEET question sheet.
+validate_questions.py — Structural validator for MedicNEET questions.
 
-Reads questions from Google Sheet (same credentials as app.py sync) and flags
-structural problems: format errors, statement-count mismatches, broken
-assertion-reason format, match-the-following column mismatches, and option
-coverage gaps (via Claude Haiku).
+Reads questions from the local SQLite database and flags structural problems:
+format errors, empty/duplicate options, statement-count mismatches,
+assertion-reason format issues, and match-the-following column mismatches.
 
 Usage:
-    python validate_questions.py              # validate all rows
-    python validate_questions.py --rows 2-50  # validate specific range
-    python validate_questions.py --dry-run    # print flags, don't save
+    python validate_questions.py                # validate all questions
+    python validate_questions.py --ids 1-50     # validate ID range
+    python validate_questions.py --dry-run      # print flags, don't save
 
-Output: /home/opc/medicneet-miniapp/flagged_questions.json
+Output: flagged_questions.json (same directory as the script)
 """
 
-import os, re, sys, json, argparse, logging
-from dotenv import load_dotenv
-
-load_dotenv()
+import os, re, sys, json, sqlite3, argparse, logging
+from datetime import datetime
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 # ─── CONFIG ──────────────────────────────────────────────────────────
-GOOGLE_SHEET_ID = os.getenv("GOOGLE_SHEET_ID", "")
-GOOGLE_CREDS_FILE = os.getenv("GOOGLE_CREDS_FILE", "credentials.json")
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-OUTPUT_PATH = "/home/opc/medicneet-miniapp/flagged_questions.json"
-
-
-# ─── SHEET READER ────────────────────────────────────────────────────
-def read_sheet():
-    """Read all rows from Google Sheet, returning list of dicts + row numbers."""
-    if not GOOGLE_SHEET_ID:
-        logger.error("GOOGLE_SHEET_ID not set")
-        sys.exit(1)
-
-    import gspread
-    from google.oauth2.service_account import Credentials
-
-    creds = Credentials.from_service_account_file(
-        GOOGLE_CREDS_FILE,
-        scopes=[
-            "https://www.googleapis.com/auth/spreadsheets.readonly",
-            "https://www.googleapis.com/auth/drive.readonly",
-        ],
-    )
-    sheet = gspread.authorize(creds).open_by_key(GOOGLE_SHEET_ID).sheet1
-    rows = sheet.get_all_records()
-    # tag each row with its sheet row number (header is row 1)
-    for i, row in enumerate(rows):
-        row["_sheet_row"] = i + 2
-    return rows
-
-
-# ─── STRUCTURAL CHECKS (pure Python, no API) ────────────────────────
+DB_PATH = os.getenv("DB_PATH", "/home/opc/medicneet-miniapp/medicneet.db")
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+OUTPUT_PATH = os.path.join(SCRIPT_DIR, "flagged_questions.json")
 
 VALID_ANSWERS = {"A", "B", "C", "D"}
 
 
+# ─── DB READER ───────────────────────────────────────────────────────
+
+def read_questions(id_range=None):
+    """Read questions from SQLite, returning list of dicts."""
+    if not os.path.exists(DB_PATH):
+        logger.error(f"Database not found: {DB_PATH}")
+        sys.exit(1)
+
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+
+    if id_range:
+        c.execute(
+            "SELECT * FROM questions WHERE id BETWEEN ? AND ? ORDER BY id",
+            (id_range[0], id_range[1]),
+        )
+    else:
+        c.execute("SELECT * FROM questions ORDER BY id")
+
+    rows = [dict(r) for r in c.fetchall()]
+    conn.close()
+    return rows
+
+
+# ─── STRUCTURAL CHECKS ──────────────────────────────────────────────
+
 def check_format(row):
-    """Check 2: Format issues — empty/duplicate options, answer validity, short question."""
+    """Empty/duplicate options, answer validity, short question text."""
     flags = []
-    q = str(row.get("Question", "")).strip()
+    q = (row.get("question") or "").strip()
+
     if not q:
         flags.append("Question text is empty")
     elif len(q) < 20:
         flags.append(f"Question text too short ({len(q)} chars, minimum 20)")
 
     options = {
-        "A": str(row.get("Option A", "")).strip(),
-        "B": str(row.get("Option B", "")).strip(),
-        "C": str(row.get("Option C", "")).strip(),
-        "D": str(row.get("Option D", "")).strip(),
+        "A": (row.get("option_a") or "").strip(),
+        "B": (row.get("option_b") or "").strip(),
+        "C": (row.get("option_c") or "").strip(),
+        "D": (row.get("option_d") or "").strip(),
     }
 
-    # empty options
     for label, text in options.items():
         if not text:
             flags.append(f"Option {label} is empty")
 
-    # duplicate options
     seen = {}
     for label, text in options.items():
         if text:
-            lower = text.lower().strip()
-            if lower in seen:
-                flags.append(f"Option {label} duplicates Option {seen[lower]}")
+            normalized = text.lower().strip()
+            if normalized in seen:
+                flags.append(f"Option {label} duplicates Option {seen[normalized]}")
             else:
-                seen[lower] = label
+                seen[normalized] = label
 
-    # correct answer validity
-    answer = str(row.get("Correct Answer", "")).upper().strip()
+    answer = (row.get("correct_answer") or "").upper().strip()
     if answer not in VALID_ANSWERS:
-        flags.append(f"Correct Answer '{answer}' not in [A, B, C, D]")
+        flags.append(f"Correct answer '{answer}' is not in [A, B, C, D]")
 
     return flags
 
 
 def _extract_statement_labels(text):
-    """Pull statement labels like S1, S2, 1., 2., (i), (ii) etc. from text."""
+    """Pull statement labels like S1, S2, 1., 2., (i), (ii) from text."""
     labels = set()
+    labels.update(re.findall(r"\bS(\d+)\b", text, re.IGNORECASE))
+    labels.update(re.findall(r"\bStatement\s+(\d+)\b", text, re.IGNORECASE))
+    labels.update(re.findall(r"(?:^|\n)\s*(\d+)\s*[.)\-:]", text))
 
-    # S1, S2 ... or Statement 1, Statement 2 ...
-    labels.update(re.findall(r'\bS(\d+)\b', text, re.IGNORECASE))
-    labels.update(re.findall(r'\bStatement\s+(\d+)\b', text, re.IGNORECASE))
-
-    # Numbered statements: "1." "2." at start of lines or after newlines
-    labels.update(re.findall(r'(?:^|\n)\s*(\d+)\s*[.)\-:]', text))
-
-    # Roman numerals in parentheses: (i), (ii), (iii), (iv), (v)
-    roman = re.findall(r'\(([ivxl]+)\)', text, re.IGNORECASE)
-    roman_map = {"i": "1", "ii": "2", "iii": "3", "iv": "4", "v": "5",
-                 "vi": "6", "vii": "7", "viii": "8", "ix": "9", "x": "10"}
-    for r in roman:
+    roman_map = {
+        "i": "1", "ii": "2", "iii": "3", "iv": "4", "v": "5",
+        "vi": "6", "vii": "7", "viii": "8", "ix": "9", "x": "10",
+    }
+    for r in re.findall(r"\(([ivxl]+)\)", text, re.IGNORECASE):
         if r.lower() in roman_map:
             labels.add(roman_map[r.lower()])
 
@@ -122,36 +111,32 @@ def _extract_statement_labels(text):
 
 
 def check_statement_count(row):
-    """Check 3: If question mentions S1-S5 but options only reference S1-S3, flag it."""
+    """Flag when question references statements that never appear in options."""
     flags = []
-    q = str(row.get("Question", ""))
-    options_text = " ".join(
-        str(row.get(f"Option {x}", "")) for x in "ABCD"
+    q = row.get("question") or ""
+    opts_text = " ".join(
+        (row.get(f"option_{x}") or "") for x in ["a", "b", "c", "d"]
     )
 
     q_labels = _extract_statement_labels(q)
     if len(q_labels) < 2:
-        return flags  # not a multi-statement question
+        return flags
 
-    opt_labels = _extract_statement_labels(options_text)
+    opt_labels = _extract_statement_labels(opts_text)
     if not opt_labels:
         return flags
 
-    # statements referenced in question but never in any option
     missing = q_labels - opt_labels
     if missing:
-        sorted_missing = sorted(missing)
         flags.append(
-            f"Statements {sorted_missing} appear in question but are never "
-            f"referenced in options (question has {sorted(q_labels)}, "
+            f"Statements {sorted(missing)} in question but never referenced "
+            f"in options (question has {sorted(q_labels)}, "
             f"options reference {sorted(opt_labels)})"
         )
-
     return flags
 
 
-# Standard assertion-reason option patterns (case-insensitive keywords)
-_AR_KEYWORDS = [
+_AR_PATTERNS = [
     r"both.*true.*explains",
     r"both.*true.*does\s*not\s*explain",
     r"true.*false",
@@ -162,265 +147,160 @@ _AR_KEYWORDS = [
 ]
 
 
-def _is_ar_question(q):
-    """Detect assertion-reason format questions."""
-    q_lower = q.lower()
-    return bool(
-        re.search(r'\bassertion\b.*\breason\b', q_lower)
-        or re.search(r'\b(a)\b\s*[:.].*\b(r)\b\s*[:.]\s', q_lower)
-    )
-
-
 def check_assertion_reason(row):
-    """Check 4: If it's an A/R question, verify options follow standard format."""
+    """If it's an assertion-reason question, verify options follow standard format."""
     flags = []
-    q = str(row.get("Question", ""))
-    if not _is_ar_question(q):
+    q = (row.get("question") or "").lower()
+
+    is_ar = bool(
+        re.search(r"\bassertion\b.*\breason\b", q)
+        or re.search(r"\bassertion\s*\(a\).*\breason\s*\(r\)", q)
+    )
+    if not is_ar:
         return flags
 
-    options = [str(row.get(f"Option {x}", "")).lower().strip() for x in "ABCD"]
-    matched = 0
-    for opt in options:
-        for pattern in _AR_KEYWORDS:
-            if re.search(pattern, opt, re.IGNORECASE):
-                matched += 1
-                break
+    options = [(row.get(f"option_{x}") or "").lower() for x in ["a", "b", "c", "d"]]
+    matched = sum(
+        1 for opt in options
+        if any(re.search(p, opt, re.IGNORECASE) for p in _AR_PATTERNS)
+    )
 
     if matched < 3:
         flags.append(
             f"Assertion-Reason question but only {matched}/4 options follow "
-            f"standard A/R format (expected patterns like 'Both true and R "
-            f"explains A', 'A true but R false', etc.)"
+            f"standard A/R format"
         )
-
     return flags
 
 
-def _extract_column_items(text, col_label):
-    """Count items under a column label like 'Column I' or 'Column II'."""
-    # Try to find the section for this column
-    pattern = rf'{col_label}\s*[:\-]?\s*(.*?)(?:Column\s|$)'
-    match = re.search(pattern, text, re.IGNORECASE | re.DOTALL)
+def _count_column_items(text, col_label):
+    """Count items listed under a column label."""
+    match = re.search(
+        rf"{col_label}\s*[:\-]?\s*(.*?)(?:Column\s|$)",
+        text, re.IGNORECASE | re.DOTALL,
+    )
     if not match:
         return 0
-
     section = match.group(1)
-    # Count lettered items: (a) (b) (c) or a. b. c. or A) B) C)
-    lettered = re.findall(r'(?:\(([a-z])\)|([a-z])\s*[.)\-:])', section, re.IGNORECASE)
+
+    lettered = re.findall(r"(?:\(([a-z])\)|([a-z])\s*[.)\-:])", section, re.IGNORECASE)
     if lettered:
         return len(lettered)
-
-    # Count roman numerals: (i) (ii) or i. ii.
-    roman = re.findall(r'\(([ivxl]+)\)', section, re.IGNORECASE)
+    roman = re.findall(r"\(([ivxl]+)\)", section, re.IGNORECASE)
     if roman:
         return len(roman)
-
-    # Count numbered: 1. 2. 3.
-    numbered = re.findall(r'(\d+)\s*[.)\-:]', section)
+    numbered = re.findall(r"(\d+)\s*[.)\-:]", section)
     if numbered:
         return len(numbered)
-
     return 0
 
 
 def check_match_following(row):
-    """Check 5: Match-the-following — column item counts should match."""
+    """Match-the-following: column item counts should be equal."""
     flags = []
-    q = str(row.get("Question", ""))
-    q_lower = q.lower()
+    q = (row.get("question") or "").lower()
 
-    if "match" not in q_lower or "following" not in q_lower:
-        # also check for "match the" / "match column"
-        if not re.search(r'match\s+(the|column)', q_lower):
-            return flags
+    if not ("match" in q and "following" in q) and not re.search(r"match\s+(the|column)", q):
+        return flags
 
-    col1_count = _extract_column_items(q, r"Column\s*I(?!\s*I)")
-    col2_count = _extract_column_items(q, r"Column\s*II")
+    q_full = row.get("question") or ""
+    col1 = _count_column_items(q_full, r"Column\s*I(?!\s*I)")
+    col2 = _count_column_items(q_full, r"Column\s*II")
 
-    if col1_count > 0 and col2_count > 0 and col1_count != col2_count:
+    if col1 > 0 and col2 > 0 and col1 != col2:
         flags.append(
-            f"Match-the-following: Column I has {col1_count} items but "
-            f"Column II has {col2_count} items"
+            f"Match-the-following: Column I has {col1} items but "
+            f"Column II has {col2} items"
         )
-
     return flags
 
 
-# ─── OPTION COVERAGE CHECK (Claude Haiku) ───────────────────────────
+# ─── ORCHESTRATOR ────────────────────────────────────────────────────
 
-def _is_coverage_question(q):
-    """Detect questions about which statements are correct/incorrect."""
-    q_lower = q.lower()
-    patterns = [
-        r'which.*(statement|assertion)s?\s+(is|are)\s+(not\s+)?(correct|true|incorrect|false|wrong)',
-        r'(correct|incorrect|true|false)\s+statement',
-        r'how\s+many.*statements?\s+(is|are)\s+(correct|true|incorrect|false)',
-        r'select\s+the\s+(correct|incorrect)',
-        r'which.*(?:of\s+the\s+)?(above|following)\s+(is|are)\s+(correct|true|incorrect|false)',
-    ]
-    return any(re.search(p, q_lower) for p in patterns)
-
-
-def check_option_coverage_batch(rows):
-    """Check 1: Use Claude Haiku to analyze statement-vs-option logic.
-
-    Batches eligible questions and makes one API call per question.
-    Returns dict mapping sheet_row -> list of flags.
-    """
-    if not ANTHROPIC_API_KEY:
-        logger.warning("ANTHROPIC_API_KEY not set — skipping option coverage checks")
-        return {}
-
-    try:
-        import anthropic
-    except ImportError:
-        logger.warning("anthropic package not installed — skipping option coverage checks")
-        return {}
-
-    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-    results = {}
-
-    eligible = [(r, r["_sheet_row"]) for r in rows if _is_coverage_question(str(r.get("Question", "")))]
-
-    if not eligible:
-        return results
-
-    logger.info(f"Running option coverage check on {len(eligible)} questions via Claude Haiku...")
-
-    for row, sheet_row in eligible:
-        q = str(row.get("Question", ""))
-        opts = {x: str(row.get(f"Option {x}", "")) for x in "ABCD"}
-        correct = str(row.get("Correct Answer", "")).upper().strip()
-
-        prompt = f"""You are a structural question validator. You do NOT need domain knowledge.
-
-Analyze this multiple-choice question ONLY for structural/logical consistency:
-
-QUESTION: {q}
-
-OPTIONS:
-A: {opts['A']}
-B: {opts['B']}
-C: {opts['C']}
-D: {opts['D']}
-
-MARKED ANSWER: {correct}
-
-Check ONLY these structural issues (NOT whether the biology/science is correct):
-1. If the question asks "which statements are correct/incorrect", do the options cover a reasonable range of combinations? Or are some statement numbers missing from ALL options?
-2. Are there obvious logical contradictions in the option structure? (e.g., question asks about 4 statements but options only cover combinations of 3)
-3. Does the marked answer option actually exist and make structural sense?
-
-Respond with EXACTLY one line:
-- If no structural issues: "OK"
-- If issues found: "FLAG: <brief description of the structural issue>"
-
-Do NOT comment on scientific accuracy. Only structural/logical problems."""
-
-        try:
-            response = client.messages.create(
-                model="claude-haiku-4-5-20251001",
-                max_tokens=150,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            answer = response.content[0].text.strip()
-            if answer.upper().startswith("FLAG"):
-                reason = answer.split(":", 1)[1].strip() if ":" in answer else answer
-                results[sheet_row] = [f"Option coverage: {reason}"]
-        except Exception as e:
-            logger.error(f"Haiku API error for row {sheet_row}: {e}")
-
-    return results
-
-
-# ─── MAIN ORCHESTRATOR ───────────────────────────────────────────────
-
-def validate_all(rows, row_range=None):
-    """Run all checks on rows. Returns list of flagged question dicts."""
-    if row_range:
-        start, end = row_range
-        rows = [r for r in rows if start <= r["_sheet_row"] <= end]
-
+def validate(rows):
+    """Run all checks. Returns list of flagged question dicts."""
     logger.info(f"Validating {len(rows)} questions...")
+    flagged = []
 
-    # Phase 1: pure-Python structural checks (2-5)
-    flagged = {}  # sheet_row -> {info + flags list}
+    checks = [
+        check_format,
+        check_statement_count,
+        check_assertion_reason,
+        check_match_following,
+    ]
+
     for row in rows:
-        sr = row["_sheet_row"]
         all_flags = []
-        all_flags.extend(check_format(row))
-        all_flags.extend(check_statement_count(row))
-        all_flags.extend(check_assertion_reason(row))
-        all_flags.extend(check_match_following(row))
+        for check in checks:
+            all_flags.extend(check(row))
 
         if all_flags:
-            flagged[sr] = {
-                "sheet_row": sr,
-                "question": str(row.get("Question", ""))[:120],
-                "correct_answer": str(row.get("Correct Answer", "")).upper().strip(),
+            flagged.append({
+                "id": row.get("id"),
+                "sheet_row": row.get("sheet_row"),
+                "question": ((row.get("question") or "")[:120]),
+                "correct_answer": (row.get("correct_answer") or "").upper().strip(),
+                "chapter": row.get("chapter") or "",
                 "flags": all_flags,
-            }
+            })
 
-    # Phase 2: Claude Haiku option-coverage check (1)
-    coverage_flags = check_option_coverage_batch(rows)
-    for sr, flags in coverage_flags.items():
-        if sr in flagged:
-            flagged[sr]["flags"].extend(flags)
-        else:
-            row = next((r for r in rows if r["_sheet_row"] == sr), None)
-            if row:
-                flagged[sr] = {
-                    "sheet_row": sr,
-                    "question": str(row.get("Question", ""))[:120],
-                    "correct_answer": str(row.get("Correct Answer", "")).upper().strip(),
-                    "flags": flags,
-                }
-
-    return sorted(flagged.values(), key=lambda x: x["sheet_row"])
+    return flagged
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Validate MedicNEET question sheet structure")
-    parser.add_argument("--rows", help="Row range to validate, e.g. 2-50", default=None)
-    parser.add_argument("--dry-run", action="store_true", help="Print flags but don't save to file")
+    parser = argparse.ArgumentParser(
+        description="Validate MedicNEET questions for structural issues"
+    )
+    parser.add_argument("--ids", help="ID range to validate, e.g. 1-50", default=None)
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Print flags but don't save to file")
+    parser.add_argument("--db", help="Path to SQLite database", default=None)
     args = parser.parse_args()
 
-    row_range = None
-    if args.rows:
-        parts = args.rows.split("-")
-        row_range = (int(parts[0]), int(parts[1]))
+    if args.db:
+        global DB_PATH
+        DB_PATH = args.db
 
-    rows = read_sheet()
-    logger.info(f"Read {len(rows)} rows from sheet")
+    id_range = None
+    if args.ids:
+        parts = args.ids.split("-")
+        id_range = (int(parts[0]), int(parts[1]))
 
-    results = validate_all(rows, row_range=row_range)
+    rows = read_questions(id_range)
+    logger.info(f"Read {len(rows)} questions from {DB_PATH}")
 
-    # Summary
+    if not rows:
+        print("No questions found in database.")
+        return
+
+    results = validate(rows)
+
     total_flags = sum(len(r["flags"]) for r in results)
     print(f"\n{'='*60}")
     print(f"VALIDATION COMPLETE")
-    print(f"  Questions checked : {len(rows) if not row_range else row_range[1]-row_range[0]+1}")
+    print(f"  Questions checked : {len(rows)}")
     print(f"  Questions flagged : {len(results)}")
     print(f"  Total flags       : {total_flags}")
     print(f"{'='*60}\n")
 
     for r in results:
-        print(f"  Row {r['sheet_row']}: {r['question'][:80]}...")
+        label = f"ID {r['id']}" if r["id"] else f"sheet_row {r['sheet_row']}"
+        print(f"  {label}: {r['question'][:80]}...")
         for f in r["flags"]:
             print(f"    -> {f}")
         print()
 
     if not args.dry_run and results:
         output = {
-            "validated_at": __import__("datetime").datetime.utcnow().isoformat() + "Z",
+            "validated_at": datetime.utcnow().isoformat() + "Z",
+            "db_path": DB_PATH,
             "total_checked": len(rows),
             "total_flagged": len(results),
             "total_flags": total_flags,
             "flagged_questions": results,
         }
-        os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
-        with open(OUTPUT_PATH, "w") as f:
-            json.dump(output, f, indent=2)
+        with open(OUTPUT_PATH, "w") as fp:
+            json.dump(output, fp, indent=2)
         print(f"Saved to {OUTPUT_PATH}")
     elif not results:
         print("No issues found!")

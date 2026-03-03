@@ -146,6 +146,12 @@ def init_db():
             medium_url TEXT NOT NULL,
             category TEXT DEFAULT 'strategy',
             is_featured INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP)""",
+        """CREATE TABLE IF NOT EXISTS analytics (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT,
+            event TEXT NOT NULL,
+            data TEXT,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP)"""
     ]:
         c.execute(sql)
@@ -1813,6 +1819,24 @@ async def api_track_study(request: Request):
               (uid, event_type, item_name, item_url))
     conn.commit(); conn.close()
     return {"success": True}
+
+@app.post("/api/track")
+async def api_track(request: Request, user_id: str = ""):
+    try:
+        data = await request.json()
+        event = str(data.get("event", ""))
+        if not event:
+            raise HTTPException(400, "event required")
+        evt_data = json.dumps(data.get("data", {}))
+        conn = get_db(); c = conn.cursor()
+        c.execute("INSERT INTO analytics (user_id, event, data) VALUES (?, ?, ?)",
+                  (user_id, event, evt_data))
+        conn.commit(); conn.close()
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception:
+        return {"success": False}
 
 @app.get("/api/stats")
 async def api_stats(user_id: str):

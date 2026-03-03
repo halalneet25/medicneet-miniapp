@@ -2878,7 +2878,7 @@
                 </button>
                 <div id="myRoundsList"></div>
             </div>
-            <div onclick="openNcertHub()" style="background:linear-gradient(135deg,#0f3460,#1a1a2e);border:1px solid #e94560;border-radius:12px;padding:10px 14px;margin:10px 0;display:flex;align-items:center;gap:10px;cursor:pointer">
+            <div onclick="trackEvent('ncert_banner_click',{source:'result'});openNcertHub()" style="background:linear-gradient(135deg,#0f3460,#1a1a2e);border:1px solid #e94560;border-radius:12px;padding:10px 14px;margin:10px 0;display:flex;align-items:center;gap:10px;cursor:pointer">
 <div style="flex:1"><div style="font-size:13px;color:#fff;font-weight:700">📖 Solve PYQs while reading NCERT</div><div style="font-size:11px;color:#e94560;font-weight:800;margin-top:2px">Double Dhamaka! ✨</div></div>
 <div style="background:#e94560;color:#fff;font-size:11px;font-weight:800;padding:6px 10px;border-radius:8px;white-space:nowrap">EXPLORE</div>
 </div>
@@ -2967,7 +2967,7 @@
 
         <div class="screen" id="practiceResultScreen">
             <div id="couponPractice"></div>
-            <div onclick="openNcertHub()" style="background:linear-gradient(135deg,#0f3460,#1a1a2e);border:1px solid #e94560;border-radius:12px;padding:10px 14px;margin:10px 0;display:flex;align-items:center;gap:10px;cursor:pointer">
+            <div onclick="trackEvent('ncert_banner_click',{source:'practice_result'});openNcertHub()" style="background:linear-gradient(135deg,#0f3460,#1a1a2e);border:1px solid #e94560;border-radius:12px;padding:10px 14px;margin:10px 0;display:flex;align-items:center;gap:10px;cursor:pointer">
 <div style="flex:1"><div style="font-size:13px;color:#fff;font-weight:700">📖 Solve PYQs while reading NCERT</div><div style="font-size:11px;color:#e94560;font-weight:800;margin-top:2px">Double Dhamaka! ✨</div></div>
 <div style="background:#e94560;color:#fff;font-size:11px;font-weight:800;padding:6px 10px;border-radius:8px;white-space:nowrap">EXPLORE</div>
 </div>
@@ -3304,6 +3304,14 @@
         let submitCountdownInterval = null, submitTimeRemaining = 60;  // 60 second countdown timer
         const API = '';
 
+        function trackEvent(event, data) {
+            fetch(API + '/api/track?user_id=' + userId, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({event: event, data: data || {}})
+            }).catch(function(){});
+        }
+
         // Challenge system
         let activeChallengeCode = null;
         let challengeInfo = null;
@@ -3381,6 +3389,7 @@
         }
 
         async function challengeFriend() {
+            trackEvent('share_click', {type: 'challenge'});
             const btn = document.getElementById('challengeFriendBtn');
             btn.disabled = true;
             btn.textContent = 'Creating challenge...';
@@ -3491,6 +3500,7 @@
 
         function showScreen(id) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); document.getElementById(id)?.classList.add('active') }
         function switchTab(tab) {
+            trackEvent('tab_switch', {tab: tab});
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
             if (event && event.currentTarget) event.currentTarget.classList.add('active');
             // Hide NCERT reader sticky when switching away
@@ -3669,6 +3679,7 @@
                 document.getElementById('submitBtn').disabled = true;
                 showScreen('quizScreen');
                 setupQuizToggle();
+                trackEvent('quiz_start', {round_id: currentRound.round_id});
                 startStopwatch();
             } catch (e) {
                 console.error(e);
@@ -3690,9 +3701,11 @@
                     btn.className = 'q-toggle-btn';
                     btn.textContent = 'View Options';
                     btn.setAttribute('data-state', 'question');
-                    btn.onclick = (function(qt, op, b) {
+                    btn.onclick = (function(qt, op, b, idx) {
                         return function() {
-                            if (b.getAttribute('data-state') === 'question') {
+                            var fromState = b.getAttribute('data-state');
+                            trackEvent('quiz_toggle', {from: fromState, question: idx});
+                            if (fromState === 'question') {
                                 qt.style.display = 'none';
                                 op.style.display = '';
                                 b.textContent = 'View Question';
@@ -3704,13 +3717,14 @@
                                 b.setAttribute('data-state', 'question');
                             }
                         };
-                    })(qText, opts, btn);
+                    })(qText, opts, btn, i);
                     opts.parentNode.insertBefore(btn, opts);
                 }
             } catch(e) { console.error('Toggle setup failed:', e); }
         }
 
         async function loadMyRounds(containerId) {
+            trackEvent('my_rounds_open');
             var container = document.getElementById(containerId);
             if (!container) return;
             container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--txt3);font-weight:700">Loading...</div>';
@@ -3739,7 +3753,7 @@
                             html += '<div style="font-size:12px;font-weight:600;color:var(--txt2);margin-bottom:6px">' + (q.text.length > 100 ? q.text.substring(0,100) + "..." : q.text) + '</div>';
                             html += '<div style="font-size:11px;color:var(--txt3)">Your answer: <strong>' + (q.your_answer || "None") + '</strong>';
                             if (!q.is_correct) html += ' | Correct: <strong style="color:var(--green-dk)">' + q.correct + '</strong>';
-                            html += '</div><div style="text-align:right;margin-top:4px"><a href="https://play.google.com/store/apps/details?id=com.halalfire.medicneet&hl=en" onclick="trackAppClick(\x27my_rounds_q_cta\x27)" style="font-size:11px;color:var(--blue-dk);font-weight:700;text-decoration:none">View Explanation \u2192 App</a></div></div>';
+                            html += '</div><div style="text-align:right;margin-top:4px"><a href="https://play.google.com/store/apps/details?id=com.halalfire.medicneet&hl=en" onclick="trackAppClick(\x27my_rounds_q_cta\x27);trackEvent(\x27explanation_cta_click\x27)" style="font-size:11px;color:var(--blue-dk);font-weight:700;text-decoration:none">View Explanation \u2192 App</a></div></div>';
                         });
                         html += '<div style="text-align:center;font-size:14px;font-weight:800;color:' + (r.is_correct ? 'var(--green-dk)' : 'var(--red)') + ';margin-top:6px">' + (r.score || 0) + '/4</div>';
                     }
@@ -4392,6 +4406,7 @@
         }
 
         async function startPracticeRound(roundId) {
+            trackEvent('practice_start', {round_id: roundId});
             try {
                 showScreen('loadingScreen');
                 const res = await fetch(`${API}/api/rounds/practice?round_id=${roundId}`);
@@ -4508,6 +4523,7 @@
 
                 const data = await res.json();
 
+                trackEvent('practice_submit', {score: data.score});
                 // Show results
                 document.getElementById('practiceScore').textContent = data.score;
                 document.getElementById('practiceResultSub').innerHTML = `Your Score: <span style="font-weight:900;color:var(--blue-dk)">${data.score}/4</span>`;
@@ -4535,7 +4551,7 @@
                             <div class="question-chapter">${q.chapter}</div>
                             <div class="question-text">${formatQuestion(q.text)}</div>
                             <div style="font-size:13px;font-weight:700;color:var(--txt2);padding:8px 0">Your answer: <strong>${userAnswer || 'None'}</strong></div>
-                            <a href="https://play.google.com/store/apps/details?id=com.halalfire.medicneet&hl=en" onclick="trackAppClick('practice_result_cta')" style="display:block;text-align:center;background:linear-gradient(135deg,#0f3460,#1a1a2e);color:#fff;font-weight:800;font-size:13px;padding:10px;border-radius:10px;text-decoration:none;margin-top:6px">View Explanation & Correct Answer → App</a>
+                            <a href="https://play.google.com/store/apps/details?id=com.halalfire.medicneet&hl=en" onclick="trackAppClick('practice_result_cta');trackEvent('explanation_cta_click')" style="display:block;text-align:center;background:linear-gradient(135deg,#0f3460,#1a1a2e);color:#fff;font-weight:800;font-size:13px;padding:10px;border-radius:10px;text-decoration:none;margin-top:6px">View Explanation & Correct Answer → App</a>
                         </div>
                     `;
                 }).join('');
@@ -4553,6 +4569,7 @@
         let lastTime = '0.00';
 
         async function shareChallenge() {
+            trackEvent('share_click', {type: 'share'});
             const shareText = `🧠 I scored ${lastScore}/4 in ${lastTime}s on MedicNEET Quiz! Can you beat me? 👉 https://t.me/Winners_neetbot/Medicneet`;
 
             // Try using navigator.share() for mobile
@@ -5898,6 +5915,7 @@
         let ncertHubLoaded = false;
 
         function openNcertHub() {
+            trackEvent('ncert_hub_open');
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
             showScreen('ncertHubScreen');
             if (!ncertHubLoaded) loadNcertHub();
@@ -6002,6 +6020,7 @@
                 }
 
                 ncertCurrentChapter = data;
+                trackEvent('ncert_chapter_open', {chapter: data.chapter_name || chapterId});
                 document.getElementById('ncertReaderLoading').style.display = 'none';
                 renderNcertReader();
             } catch(e) {
@@ -6031,6 +6050,7 @@
         }
 
         function setNcertMode(mode) {
+            trackEvent('ncert_mode', {mode: mode, chapter: ncertCurrentChapter ? (ncertCurrentChapter.chapter_name || '') : ''});
             ncertCurrentMode = mode;
             document.querySelectorAll('.ncert-mode-tab').forEach(t => t.classList.remove('active'));
             const idx = mode === 'padho' ? 0 : mode === 'pyqs' ? 1 : 2;

@@ -2114,10 +2114,10 @@ NCERT_JSON_PATH = os.path.join("static", "ncert", "ncert_pyq_highlighted_v3.json
 _ncert_cache = None
 
 FREE_CHAPTERS = [
-    {"class": "Class 11", "chapter": 5},
-    {"class": "Class 11", "chapter": 10},
-    {"class": "Class 12", "chapter": 2},
-    {"class": "Class 12", "chapter": 5},
+    {"class": "Class 11", "chapter": 1},
+    {"class": "Class 11", "chapter": 6},
+    {"class": "Class 11", "chapter": 7},
+    {"class": "Class 11", "chapter": 18},
 ]
 
 def _load_ncert():

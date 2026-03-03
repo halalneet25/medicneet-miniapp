@@ -2171,7 +2171,7 @@ async def api_ncert_chapter(chapter_id: str):
                 for item in page["content"]:
                     if item["type"] == "paragraph":
                         paragraphs.append(item)
-            pyq_count = sum(1 for p in paragraphs if p.get("has_pyq"))
+            pyq_count = sum(len(p.get("pyqs", [])) for p in paragraphs)
             predicted_count = sum(1 for p in paragraphs if p.get("predicted"))
             return {
                 "locked": False,

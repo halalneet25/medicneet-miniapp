@@ -3465,7 +3465,7 @@
         function buildCTA(containerId) {
             const el = document.getElementById(containerId); if (!el) return;
             if (APP_STATUS === 'live' && PLAYSTORE_LINK) {
-                el.innerHTML = `<div class="cta-banner"><h3>🔥 🌟🍏 Win iPad + Apple Pencil!</h3><p>12,000+ NEET questions. Earn Medic Points. Top scorer wins iPad!</p><button class="duo-btn" onclick="trackAppClick('home_2000_cta');window.open('${PLAYSTORE_LINK}','_blank')">🌟🍏 Get App — Win iPad!</button></div>`;
+                el.innerHTML = `<div class="cta-banner"><h3>🔥 🌟🍏 Win iPad + Apple Pencil!</h3><p>12,000+ NEET questions. Earn Medic Points. Top scorer wins iPad!</p><button class="duo-btn" onclick="openPlayStore('home_2000_cta');return false;">🌟🍏 Get App — Win iPad!</button></div>`;
             } else {
                 const uid = 'notify_' + containerId;
                 el.innerHTML = `

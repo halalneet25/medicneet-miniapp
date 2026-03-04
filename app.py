@@ -921,24 +921,39 @@ async def api_leaderboard():
     return {"leaderboard": lb}
 
 @app.get("/api/leaderboard/alltime")
-async def api_leaderboard_alltime(user_id: str = None):
-    """Get top 100 players by total earnings from wallets table"""
+async def api_leaderboard_alltime(user_id: str = None, sort: str = "earnings"):
+    """Get top 100 players by total earnings or avg speed"""
     conn = get_db(); c = conn.cursor()
 
-    # Get top 100 players sorted by total_earned
-    c.execute("""
-        SELECT
-            w.user_id,
-            w.user_name,
-            w.total_earned,
-            CAST(AVG(winners.time_ms) AS INTEGER) as best_time
-        FROM wallets w
-        LEFT JOIN winners ON winners.user_id = w.user_id
-        WHERE w.total_earned > 0
-        GROUP BY w.user_id
-        ORDER BY w.total_earned DESC, best_time ASC
-        LIMIT 100
-    """)
+    if sort == "speed":
+        c.execute("""
+            SELECT
+                w.user_id,
+                w.user_name,
+                w.total_earned,
+                CAST(AVG(winners.time_ms) AS INTEGER) as best_time
+            FROM wallets w
+            INNER JOIN winners ON winners.user_id = w.user_id
+            WHERE w.total_earned > 0
+            GROUP BY w.user_id
+            HAVING best_time IS NOT NULL
+            ORDER BY best_time ASC
+            LIMIT 100
+        """)
+    else:
+        c.execute("""
+            SELECT
+                w.user_id,
+                w.user_name,
+                w.total_earned,
+                CAST(AVG(winners.time_ms) AS INTEGER) as best_time
+            FROM wallets w
+            LEFT JOIN winners ON winners.user_id = w.user_id
+            WHERE w.total_earned > 0
+            GROUP BY w.user_id
+            ORDER BY w.total_earned DESC, best_time ASC
+            LIMIT 100
+        """)
 
     leaderboard = []
     user_rank = None

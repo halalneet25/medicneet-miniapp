@@ -4320,7 +4320,11 @@
                     return;
                 }
 
-                let h = '<div style="text-align:center;margin-bottom:16px;font-size:28px;font-weight:900">🏆 ALL-TIME LEADERBOARD</div>';
+                let h = '<div style="text-align:center;margin-bottom:12px;font-size:28px;font-weight:900">🏆 ALL-TIME LEADERBOARD</div>';
+                h += '<div style="display:flex;gap:8px;justify-content:center;margin-bottom:12px">';
+                h += '<button onclick="sortLeaderboard(\'earnings\')" id="sortEarningsBtn" style="padding:8px 16px;border-radius:10px;font-weight:800;font-size:12px;border:2px solid var(--green);background:var(--green);color:#fff;cursor:pointer">💰 By Earnings</button>';
+                h += '<button onclick="sortLeaderboard(\'speed\')" id="sortSpeedBtn" style="padding:8px 16px;border-radius:10px;font-weight:800;font-size:12px;border:2px solid var(--border);background:var(--bg2);color:var(--txt2);cursor:pointer">⚡ By Avg Speed</button>';
+                h += '</div>';
 
                 data.leaderboard.forEach((e, i) => {
                     const cls = i === 0 ? 'first' : i === 1 ? 'second' : i === 2 ? 'third' : '';
@@ -4328,13 +4332,13 @@
                     const isCurrentUser = e.user_id === userId;
                     const userCls = isCurrentUser ? 'user-row' : '';
                     const userBadge = isCurrentUser ? '<span class="user-badge">YOU</span>' : '';
-                    const bestTime = e.best_time ? (e.best_time / 1000).toFixed(1) + 's' : '--';
+                    const avgTime = e.best_time ? (e.best_time / 1000).toFixed(1) + 's' : '--';
 
                     h += `<div class="lb-row ${cls} ${userCls}">
                         ${medal ? `<span class="medal-icon">${medal}</span>` : `<div class="lb-rank">${e.rank}</div>`}
                         <div class="lb-name">${e.user_name}${userBadge}</div>
                         <div class="lb-time" style="margin-left:auto;margin-right:10px">₹${e.total_earned}</div>
-                        <div class="lb-time" style="color:var(--txt3)">${bestTime}</div>
+                        <div class="lb-time" style="color:var(--txt3)">⚡${avgTime}</div>
                     </div>`;
                 });
 

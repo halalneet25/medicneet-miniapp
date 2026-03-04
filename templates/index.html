@@ -4332,9 +4332,9 @@
                 }
 
                 let h = '<div style="text-align:center;margin-bottom:12px;font-size:28px;font-weight:900">🏆 ALL-TIME LEADERBOARD</div>';
-                h += '<div style="display:flex;gap:8px;justify-content:center;margin-bottom:12px">';
-                h += '<button onclick="sortLeaderboard(\'earnings\')" id="sortEarningsBtn" style="padding:8px 16px;border-radius:10px;font-weight:800;font-size:12px;border:2px solid var(--green);background:var(--green);color:#fff;cursor:pointer">💰 By Earnings</button>';
-                h += '<button onclick="sortLeaderboard(\'speed\')" id="sortSpeedBtn" style="padding:8px 16px;border-radius:10px;font-weight:800;font-size:12px;border:2px solid var(--border);background:var(--bg2);color:var(--txt2);cursor:pointer">⚡ By Avg Speed</button>';
+                h += '<div style="display:flex;justify-content:flex-end;gap:16px;margin-bottom:8px;padding:0 8px">';
+                h += '<span style="font-size:11px;font-weight:800;color:var(--txt3)">💰 Earned</span>';
+                h += '<span style="font-size:11px;font-weight:800;color:var(--txt3)">⚡ Avg Speed</span>';
                 h += '</div>';
 
                 data.leaderboard.forEach((e, i) => {

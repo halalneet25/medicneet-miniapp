@@ -3248,7 +3248,7 @@
                 <div class="ncert-locked-icon">🔒</div>
                 <div class="ncert-locked-title">Unlock All 32 Chapters</div>
                 <div class="ncert-locked-desc" id="ncertLockedDesc">This chapter is available in the MedicNEET app. Download to access all PYQ-marked NCERT chapters!</div>
-                <button class="ncert-app-btn" onclick="window.open('{{ playstore_link }}','_blank')" style="width:100%;justify-content:center">📱 Download MedicNEET App</button>
+                <button class="ncert-app-btn" onclick="window.open('{{ playstore_link }}','_blank')" style="width:100%;justify-content:center">🌟🍏 Get App — Top Scorer Wins iPad!</button>
                 <button class="ncert-locked-close" onclick="document.getElementById('ncertLockedModal').style.display='none'">Maybe later</button>
             </div>
         </div>
@@ -3465,7 +3465,7 @@
         function buildCTA(containerId) {
             const el = document.getElementById(containerId); if (!el) return;
             if (APP_STATUS === 'live' && PLAYSTORE_LINK) {
-                el.innerHTML = `<div class="cta-banner"><h3>🔥 Practice 2000+ Questions!</h3><p>NEET 2025 — Statement, Sequence & Match types.</p><button class="duo-btn" onclick="trackAppClick('home_2000_cta');window.open('${PLAYSTORE_LINK}','_blank')">Download MedicNEET ⬇️</button></div>`;
+                el.innerHTML = `<div class="cta-banner"><h3>🔥 🌟🍏 Win iPad + Apple Pencil!</h3><p>12,000+ NEET questions. Earn Medic Points. Top scorer wins iPad!</p><button class="duo-btn" onclick="trackAppClick('home_2000_cta');window.open('${PLAYSTORE_LINK}','_blank')">🌟🍏 Get App — Win iPad!</button></div>`;
             } else {
                 const uid = 'notify_' + containerId;
                 el.innerHTML = `
@@ -4380,7 +4380,7 @@
                                 <div style="position:absolute;inset:0;background:rgba(255,255,255,0.85);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2;border-radius:16px">
                                     <div style="font-size:32px;margin-bottom:8px">🔒</div>
                                     <div style="font-size:13px;font-weight:800;color:var(--txt1);margin-bottom:6px;text-align:center;padding:0 12px">Want more NEET 2025-style questions?</div>
-                                    <a href="#" onclick="openPlayStore('practice_result');return false;" style="background:var(--green);color:#fff;font-weight:800;font-size:12px;padding:8px 16px;border-radius:10px;text-decoration:none;box-shadow:0 2px 0 var(--green-dk)">12,771 Questions on MedicNEET App →</a>
+                                    <a href="#" onclick="openPlayStore('practice_result');return false;" style="background:var(--green);color:#fff;font-weight:800;font-size:12px;padding:8px 16px;border-radius:10px;text-decoration:none;box-shadow:0 2px 0 var(--green-dk)">🌟🍏 12,771 Questions — Top Scorer Wins iPad!</a>
                                 </div>
                                 <div class="practice-round-header">Round #${round.round_id} - ${dateStr}</div>
                                 <div class="practice-round-info">🏆 Winner: ${round.winner_name} (${winnerTime})</div>
@@ -4551,7 +4551,7 @@
                             <div class="question-chapter">${q.chapter}</div>
                             <div class="question-text">${formatQuestion(q.text)}</div>
                             <div style="font-size:13px;font-weight:700;color:var(--txt2);padding:8px 0">Your answer: <strong>${userAnswer || 'None'}</strong></div>
-                            <a href="#" onclick="openPlayStore('practice_result_cta');return false;" style="display:block;text-align:center;background:linear-gradient(135deg,#0f3460,#1a1a2e);color:#fff;font-weight:800;font-size:13px;padding:10px;border-radius:10px;text-decoration:none;margin-top:6px">View Explanation & Correct Answer → App</a>
+                            <a href="#" onclick="openPlayStore('practice_result_cta');return false;" style="display:block;text-align:center;background:linear-gradient(135deg,#0f3460,#1a1a2e);color:#fff;font-weight:800;font-size:13px;padding:10px;border-radius:10px;text-decoration:none;margin-top:6px">🌟🍏 Get Explanation + Win iPad + Apple Pencil!</a>
                         </div>
                     `;
                 }).join('');
@@ -5993,8 +5993,8 @@
             document.getElementById('ncertHubBottomCta').innerHTML =
                 '<div class="ncert-bottom-cta">' +
                 '<h3>Want all 32 chapters?</h3>' +
-                '<p>Download MedicNEET for PYQ-marked NCERT, expert predictions & more.</p>' +
-                '<button class="ncert-app-btn" onclick="window.open(\'' + '{{ playstore_link }}' + '\',\'_blank\')">📱 Download MedicNEET App</button>' +
+                '<p>🌟🍏 12,000+ questions. Earn Medic Points. Top scorer wins iPad + Apple Pencil!</p>' +
+                '<button class="ncert-app-btn" onclick="window.open(\'' + '{{ playstore_link }}' + '\',\'_blank\')">🌟🍏 Get App — Top Scorer Wins iPad!</button>' +
                 '</div>';
         }
 

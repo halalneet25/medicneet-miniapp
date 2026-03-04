@@ -310,7 +310,7 @@ async def send_winner_to_channel(round_id):
     c.execute("SELECT user_id, user_name, time_ms, prize_amount FROM winners WHERE round_id = ? ORDER BY time_ms ASC", (round_id,))
     all_entries = [dict(r) for r in c.fetchall()]
 
-    speed_winners = all_entries[:5]
+    speed_winners = all_entries[:2]
     pool = all_entries[5:]
 
     # Step 2: Mark and credit speed winners
@@ -321,9 +321,37 @@ async def send_winner_to_channel(round_id):
         c.execute("INSERT INTO transactions (user_id, amount, type, round_id, status, created_at) VALUES (?,?,?,?,?,?)",
                  (sw["user_id"], 5, "win", round_id, "completed", now))
 
-    # Step 3: Run lucky draw — pick min(5, len(pool)) from remaining
-    lucky_count = min(5, len(pool))
-    lucky_winners = random.sample(pool, lucky_count) if lucky_count > 0 else []
+    # Step 3: Run weighted lucky draw — newcomers get higher chance
+    lucky_count = min(8, len(pool))
+    if lucky_count > 0 and pool:
+        # Weight by earnings: less earned = higher chance
+        weights = []
+        for p in pool:
+            earned = 0
+            ce = conn.cursor()
+            ce.execute("SELECT total_earned FROM wallets WHERE user_id=?", (p["user_id"],))
+            row = ce.fetchone()
+            if row: earned = row["total_earned"] or 0
+            if earned < 30: weights.append(5)
+            elif earned < 100: weights.append(2)
+            else: weights.append(1)
+        # Weighted sampling without replacement
+        lucky_winners = []
+        temp_pool = list(pool)
+        temp_weights = list(weights)
+        for _ in range(lucky_count):
+            if not temp_pool: break
+            total = sum(temp_weights)
+            r = random.uniform(0, total)
+            cumulative = 0
+            for i, w in enumerate(temp_weights):
+                cumulative += w
+                if r <= cumulative:
+                    lucky_winners.append(temp_pool.pop(i))
+                    temp_weights.pop(i)
+                    break
+    else:
+        lucky_winners = []
 
     # Step 4: Credit ₹5 to each lucky winner's wallet
     for lw in lucky_winners:
@@ -367,7 +395,7 @@ Better luck next time!
                 name = w["user_name"] or "Anonymous"
                 time_sec = w["time_ms"] / 1000
                 speed_lines.append(f"{i}. {name} — {time_sec:.1f}s — ₹{CASH_PRIZE} ✅")
-            sections.append("⚡ <b>Speed Winners (Top 5):</b>\n" + "\n".join(speed_lines))
+            sections.append("⚡ <b>Speed Winners (Top 2):</b>\n" + "\n".join(speed_lines))
 
         if lucky_winners:
             lucky_lines = []
@@ -395,7 +423,7 @@ async def send_new_round_to_channel():
     """Post new question alert with quiz button to channel"""
     text = f"""🚨 <b>NEET 2026 - 4 High Level Biology Questions Posted!</b>
 
-⚡ Top 5 fastest win ₹{CASH_PRIZE} + 🎲 5 lucky winners drawn randomly!
+⚡ Top 2 fastest win ₹{CASH_PRIZE} + 🎲 8 lucky winners from all 4/4 scorers!
 💰 ₹50 total prize pool
 ⏱ Prize window: {PRIZE_WINDOW_MINUTES} minutes only!
 
@@ -903,7 +931,7 @@ async def api_leaderboard_alltime(user_id: str = None):
             w.user_id,
             w.user_name,
             w.total_earned,
-            MIN(winners.time_ms) as best_time
+            CAST(AVG(winners.time_ms) AS INTEGER) as best_time
         FROM wallets w
         LEFT JOIN winners ON winners.user_id = w.user_id
         WHERE w.total_earned > 0

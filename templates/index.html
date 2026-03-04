@@ -3753,7 +3753,7 @@
                             html += '<div style="font-size:12px;font-weight:600;color:var(--txt2);margin-bottom:6px">' + (q.text.length > 100 ? q.text.substring(0,100) + "..." : q.text) + '</div>';
                             html += '<div style="font-size:11px;color:var(--txt3)">Your answer: <strong>' + (q.your_answer || "None") + '</strong>';
                             if (!q.is_correct) html += ' | Correct: <strong style="color:var(--green-dk)">' + q.correct + '</strong>';
-                            html += '</div><div style="text-align:right;margin-top:4px"><a href="#" onclick="trackAppClick(\x27my_rounds_q_cta\x27);trackEvent(\x27explanation_cta_click\x27)" style="font-size:11px;color:var(--blue-dk);font-weight:700;text-decoration:none">View Explanation \u2192 App</a></div></div>';
+                            html += '</div><div style="text-align:right;margin-top:4px"><a href="#" onclick="openPlayStore(\x27my_rounds_q_cta\x27);return false;" style="font-size:11px;color:var(--blue-dk);font-weight:700;text-decoration:none;cursor:pointer">📝 Explanation + Win iPad → App</a></div></div>';
                         });
                         html += '<div style="text-align:center;font-size:14px;font-weight:800;color:' + (r.is_correct ? 'var(--green-dk)' : 'var(--red)') + ';margin-top:6px">' + (r.score || 0) + '/4</div>';
                     }

@@ -4308,9 +4308,20 @@
             }
         }
 
-        async function loadAllTimeLeaderboard() {
+        function sortLeaderboard(mode) {
+            document.getElementById('sortEarningsBtn').style.background = mode === 'earnings' ? 'var(--green)' : 'var(--bg2)';
+            document.getElementById('sortEarningsBtn').style.color = mode === 'earnings' ? '#fff' : 'var(--txt2)';
+            document.getElementById('sortEarningsBtn').style.borderColor = mode === 'earnings' ? 'var(--green)' : 'var(--border)';
+            document.getElementById('sortSpeedBtn').style.background = mode === 'speed' ? 'var(--green)' : 'var(--bg2)';
+            document.getElementById('sortSpeedBtn').style.color = mode === 'speed' ? '#fff' : 'var(--txt2)';
+            document.getElementById('sortSpeedBtn').style.borderColor = mode === 'speed' ? 'var(--green)' : 'var(--border)';
+            loadAllTimeLeaderboard(mode);
+        }
+
+        async function loadAllTimeLeaderboard(sort) {
+            sort = sort || 'earnings';
             try {
-                const res = await fetch(`${API}/api/leaderboard/alltime?user_id=${userId}`);
+                const res = await fetch(`${API}/api/leaderboard/alltime?user_id=${userId}&sort=${sort}`);
                 const data = await res.json();
                 const c = document.getElementById('allTimeLeaderboard');
 

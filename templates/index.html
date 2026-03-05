@@ -4071,8 +4071,8 @@
                                 <div style="font-size:13px;font-weight:600;color:var(--txt2);margin-bottom:4px">
                                     Your answer: <strong>${userAnswer || 'None'}</strong>
                                 </div>
-                                ${!isCorrect ? `<div style="font-size:13px;font-weight:700;color:var(--green-dk)">
-                                    Correct answer: <strong>${correctAnswer}</strong>
+                                ${!isCorrect ? `<div style="font-size:12px;font-weight:700;color:var(--blue-dk)">
+                                    <a href="#" onclick="openPlayStore('result_q_cta');return false;" style="color:var(--blue-dk);text-decoration:none">📝 View Correct Answer + Explanation → App</a>
                                 </div>` : ''}
                             </div>
                         `;

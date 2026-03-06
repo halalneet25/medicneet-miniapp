@@ -2875,13 +2875,7 @@
                 <div class="explanation-text" id="explanationText"></div>
             </div>
             <div id="questionsReviewContainer"></div>
-            <div style="margin:16px 0">
-                <button onclick="loadMyRounds('myRoundsListWaiting')" style="background:var(--bg2);border:2px solid var(--border);border-radius:14px;padding:14px;width:100%;cursor:pointer;box-shadow:0 3px 0 var(--border)">
-                    <div style="font-size:15px;font-weight:800;color:var(--txt1)">📋 My Rounds</div>
-                    <div style="font-size:12px;font-weight:600;color:var(--txt3);margin-top:2px">Review past questions & answers</div>
-                </button>
-                <div id="myRoundsListWaiting"></div>
-            </div>
+
             <div style="background:var(--bg2);border:2px solid var(--border);border-radius:16px;padding:16px;margin:16px 0;text-align:center;box-shadow:0 3px 0 var(--border)"><div style="font-size:15px;font-weight:800;color:var(--txt1);margin-bottom:8px">Got doubts on any question? 🤔</div><a href="https://t.me/neetbiotraps" onclick="window.Telegram?.WebApp?.openTelegramLink('https://t.me/neetbiotraps');return false;" style="display:inline-block;background:var(--green);color:#fff;font-weight:800;font-size:14px;padding:10px 24px;border-radius:12px;text-decoration:none;box-shadow:0 3px 0 var(--green-dk)">Ask in Group — AI Bot Answers Instantly 🧬</a></div>
             <div id="pyqCTAContainer" style="display:none"></div>
             <div id="couponResult"></div>
@@ -4226,7 +4220,7 @@
                 shareBtn.style.display = 'none';
             } else if (!allCorrect && !data.challenge_result) {
                 challengeBtn.style.display = 'none';
-                shareBtn.style.display = 'block';
+                shareBtn.style.display = 'none';
             } else {
                 // Challenge result present - buttons managed by challenge result logic below
                 challengeBtn.style.display = 'none';

@@ -14,6 +14,7 @@ from contextlib import asynccontextmanager
 from urllib.parse import parse_qsl
 import httpx
 from fastapi import FastAPI, Request, HTTPException
+from medicpoints import preload_points_for_email, get_claim_status, init_medicpoints_table
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -171,6 +172,7 @@ def init_db():
     except:
         pass
     conn.commit(); conn.close()
+    init_medicpoints_table()
     logger.info("Database initialized")
 
 def get_db():
@@ -869,6 +871,10 @@ async def api_submit(request: Request):
 
     score = sum(1 for r in results if r)
 
+    # Check if user qualifies for MedicPoints offer:
+    # Got 4/4 correct but NOT a speed winner and NOT in lucky pool (no cash prize)
+    eligible_for_medicpoints = all_correct and not iw and not in_lucky_pool and not disqualified
+
     # Anti-cheat: hide correct answers and per-question results during prize window
     # so users can't use one account to see answers and another to submit them
     if in_prize_window:
@@ -885,7 +891,10 @@ async def api_submit(request: Request):
             "leaderboard": lb,
             "prize_window_active": True,
             "challenge_result": challenge_result,
-            "wallet_balance": wallet_balance
+            "wallet_balance": wallet_balance,
+            "eligible_for_medicpoints": eligible_for_medicpoints,
+            "medicpoints_amount": 20 if eligible_for_medicpoints else 0,
+            "round_id": rid
         }
 
     return {
@@ -902,7 +911,10 @@ async def api_submit(request: Request):
         "leaderboard": lb,
         "prize_window_active": False,
         "challenge_result": challenge_result,
-        "wallet_balance": wallet_balance
+        "wallet_balance": wallet_balance,
+        "eligible_for_medicpoints": eligible_for_medicpoints,
+        "medicpoints_amount": 20 if eligible_for_medicpoints else 0,
+        "round_id": rid
     }
 
 @app.get("/api/leaderboard")
@@ -2229,3 +2241,43 @@ async def api_ncert_chapter(chapter_id: str):
                 "paragraphs": paragraphs,
             }
     raise HTTPException(404, "Chapter not found")
+
+
+# ─── MEDICPOINTS API ─────────────────────────────────────────────
+
+@app.post("/api/medicpoints/claim")
+async def api_medicpoints_claim(request: Request):
+    """
+    Claim MedicPoints by entering email.
+    Called when user gets 4/4 but no cash prize.
+    Preloads 20 points into their Firebase account (or pending if new user).
+    """
+    data = await request.json()
+    email = data.get("email", "").strip()
+    uid = str(data.get("user_id", ""))
+    un = data.get("user_name", "Anon")
+    round_id = data.get("round_id")
+
+    if not email or "@" not in email:
+        raise HTTPException(400, "Valid email required")
+    if not uid or not round_id:
+        raise HTTPException(400, "user_id and round_id required")
+
+    result = preload_points_for_email(
+        email=email,
+        telegram_id=uid,
+        telegram_name=un,
+        round_id=round_id,
+    )
+
+    return result
+
+
+@app.get("/api/medicpoints/status")
+async def api_medicpoints_status(request: Request):
+    """Check if user already claimed MedicPoints for a round."""
+    uid = request.query_params.get("user_id", "")
+    round_id = request.query_params.get("round_id")
+    if not uid or not round_id:
+        raise HTTPException(400, "user_id and round_id required")
+    return get_claim_status(uid, int(round_id))

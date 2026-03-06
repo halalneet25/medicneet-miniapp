@@ -2789,7 +2789,7 @@
             <div class="logo-icon">🦉</div>
             <div class="logo-text">MedicNEET</div>
         </div>
-        <div class="prize-badge" id="walletBadge" onclick="switchTab('wallet')">💰 Wallet: ₹<span id="walletBalance">0</span></div>
+        <div class="prize-badge" id="walletBadge" onclick="switchTab('wallet')">💰 ₹<span id="walletBalance">0</span></div>
     </div>
     <div class="timer-section" id="timerSection">
         <div>
@@ -2840,6 +2840,27 @@
                 <div class="result-sub" id="resultSub"></div>
                 <div class="result-time" id="resultTime"></div>
                 <div class="result-time-label">seconds</div>
+            </div>
+            <!-- MedicPoints CTA: shown when 4/4 correct but no cash prize -->
+            <div id="medicPointsCTA" style="display:none;margin:16px 0;background:linear-gradient(135deg,#1a1a2e,#16213e);border:2px solid #f59e0b;border-radius:18px;padding:20px;text-align:center;box-shadow:0 4px 0 #92400e">
+                <div style="font-size:36px;margin-bottom:8px">🏅</div>
+                <div style="font-size:18px;font-weight:900;color:#fde68a;margin-bottom:6px">You were AMAZING!</div>
+                <div style="font-size:13px;font-weight:700;color:#fbbf24;margin-bottom:12px">You didn't qualify for the cash prize this time, but here's something BIGGER...</div>
+                <div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border-radius:14px;padding:14px;margin-bottom:14px">
+                    <div style="font-size:28px;font-weight:900;color:#d97706">+20 MedicPoints</div>
+                    <div style="font-size:12px;font-weight:700;color:#92400e;margin-top:4px">MedicPoints are earned by solving questions regularly from the MedicNEET app</div>
+                    <div style="font-size:14px;font-weight:900;color:#b45309;margin-top:8px">🏆 Top MedicPoints winner gets an Apple iPad + Apple Pencil!</div>
+                </div>
+                <div id="mpEmailForm">
+                    <div style="font-size:13px;font-weight:700;color:#e2e8f0;margin-bottom:8px">Enter your email to get the install link & 20 points preloaded in your account:</div>
+                    <input type="email" id="mpEmailInput" placeholder="your.email@gmail.com" style="width:100%;box-sizing:border-box;padding:12px 16px;border:2px solid #f59e0b;border-radius:12px;font-size:15px;font-weight:700;background:#0f172a;color:#fde68a;text-align:center;outline:none;margin-bottom:10px">
+                    <button id="mpClaimBtn" onclick="claimMedicPoints()" style="width:100%;padding:14px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:15px;font-weight:900;border:none;border-radius:14px;cursor:pointer;box-shadow:0 3px 0 #92400e">Claim 20 MedicPoints & Get App Link</button>
+                </div>
+                <div id="mpClaimSuccess" style="display:none">
+                    <div style="font-size:15px;font-weight:800;color:#34d399;margin-bottom:8px">20 MedicPoints loaded! ✅</div>
+                    <div style="font-size:13px;font-weight:700;color:#e2e8f0;margin-bottom:12px">Download MedicNEET app and sign in with <strong id="mpClaimedEmail" style="color:#fde68a"></strong> — your 20 points are already waiting!</div>
+                    <a id="mpAppLink" href="" target="_blank" style="display:inline-block;background:linear-gradient(135deg,#34d399,#059669);color:#fff;font-size:14px;font-weight:900;padding:12px 24px;border-radius:12px;text-decoration:none;box-shadow:0 3px 0 #047857">Download MedicNEET App</a>
+                </div>
             </div>
             <div id="challengeResultContainer" style="display:none"></div>
             <div id="challengeShareContainer" style="display:none"></div>
@@ -4021,6 +4042,20 @@
 
             document.getElementById('resultTime').textContent = ts;
 
+            // Show MedicPoints CTA for 4/4 users who didn't win cash
+            const mpCTA = document.getElementById('medicPointsCTA');
+            if (data.eligible_for_medicpoints) {
+                mpCTA.style.display = 'block';
+                // Store round_id for claim
+                mpCTA.dataset.roundId = data.round_id;
+                // Reset form state
+                document.getElementById('mpEmailForm').style.display = 'block';
+                document.getElementById('mpClaimSuccess').style.display = 'none';
+                document.getElementById('mpEmailInput').value = '';
+            } else {
+                mpCTA.style.display = 'none';
+            }
+
             // During prize window, hide explanations and per-question breakdown
             // to prevent multi-account cheating
             const expCard = document.getElementById('explanationCard');
@@ -4640,6 +4675,41 @@
                 alert('Could not copy. Please share manually.');
             }
             document.body.removeChild(textarea);
+        }
+
+        async function claimMedicPoints() {
+            const email = document.getElementById('mpEmailInput').value.trim();
+            if (!email || !email.includes('@')) {
+                document.getElementById('mpEmailInput').style.borderColor = '#ef4444';
+                return;
+            }
+            const btn = document.getElementById('mpClaimBtn');
+            btn.disabled = true;
+            btn.textContent = 'Loading...';
+            try {
+                const roundId = document.getElementById('medicPointsCTA').dataset.roundId;
+                const res = await fetch(`${API}/api/medicpoints/claim`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({email: email, user_id: userId, user_name: userName, round_id: parseInt(roundId)})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('mpEmailForm').style.display = 'none';
+                    document.getElementById('mpClaimSuccess').style.display = 'block';
+                    document.getElementById('mpClaimedEmail').textContent = email;
+                    document.getElementById('mpAppLink').href = '{{ playstore_link }}';
+                    trackEvent('medicpoints_claimed', {email: email, round_id: roundId, points: 20});
+                } else {
+                    btn.disabled = false;
+                    btn.textContent = 'Claim 20 MedicPoints & Get App Link';
+                    alert(data.reason || 'Something went wrong. Try again.');
+                }
+            } catch(e) {
+                btn.disabled = false;
+                btn.textContent = 'Claim 20 MedicPoints & Get App Link';
+                console.error('MedicPoints claim failed:', e);
+            }
         }
 
         async function loadWallet() {

@@ -4200,11 +4200,9 @@
                                 <div style="font-size:13px;font-weight:600;color:var(--txt2);margin-bottom:4px">
                                     Your answer: <strong>${userAnswer || 'None'}</strong>
                                 </div>
-                                ${!isCorrect ? `<div style="font-size:12px;font-weight:700;color:var(--blue-dk)">
-                                    <a href="#" onclick="openPlayStore('result_q_cta');return false;" style="color:var(--blue-dk);text-decoration:none">📝 View Correct Answer + Explanation → App</a>
-                                </div>` : ''}
-                            </div>
-                        `;
+                                <div style="font-size:12px;font-weight:700;margin-top:4px">
+                                    <a href="#" onclick="openPlayStore('result_q_cta');return false;" style="color:var(--blue-dk);text-decoration:none">${isCorrect ? '📱 Read Full Explanation → Install App' : '📝 View Correct Answer + Explanation → Install App'}</a>
+                                </div>
                     });
                     reviewHTML += '</div>';
                     reviewContainer.innerHTML = reviewHTML;

@@ -3291,7 +3291,7 @@
             <div class="nav-icon">🏆</div>
             <div class="nav-label">Top</div>
         </div>
-        <div class="nav-item" onclick="switchTab('practice')">
+        <div class="nav-item" onclick="handlePracticeTap()">
             <div class="nav-icon">📚</div>
             <div class="nav-label">Practice</div>
         </div>
@@ -3647,6 +3647,78 @@
             }, 1000);
         }
 
+        // ─── Hidden Test Mode: tap Practice 5x fast ───
+        let _practiceTapCount = 0;
+        let _practiceTapTimer = null;
+        let _isTestMode = false;
+
+        function handlePracticeTap() {
+            _practiceTapCount++;
+            clearTimeout(_practiceTapTimer);
+            _practiceTapTimer = setTimeout(() => { _practiceTapCount = 0; }, 1500);
+            if (_practiceTapCount >= 5) {
+                _practiceTapCount = 0;
+                launchTestMode();
+            } else {
+                switchTab('practice');
+            }
+        }
+
+        function launchTestMode() {
+            _isTestMode = true;
+            // Create a fake round with 4 dummy questions, all correct answer = A
+            currentRound = {
+                round_id: 99999,
+                prize_ends_at: null,
+                ends_at: new Date(Date.now() + 25 * 60 * 1000).toISOString(),
+                stats: { attempts: 0, fastest_time_ms: null },
+                questions: [
+                    { text: '[TEST] Which organelle is the powerhouse of the cell?', chapter: 'Cell Biology', option_a: 'Mitochondria', option_b: 'Ribosome', option_c: 'Golgi body', option_d: 'Lysosome' },
+                    { text: '[TEST] DNA replication is which type of process?', chapter: 'Molecular Biology', option_a: 'Semi-conservative', option_b: 'Conservative', option_c: 'Dispersive', option_d: 'Random' },
+                    { text: '[TEST] The basic unit of classification is?', chapter: 'Taxonomy', option_a: 'Species', option_b: 'Genus', option_c: 'Family', option_d: 'Order' },
+                    { text: '[TEST] Which vitamin is also known as ascorbic acid?', chapter: 'Biomolecules', option_a: 'Vitamin C', option_b: 'Vitamin D', option_c: 'Vitamin B12', option_d: 'Vitamin K' }
+                ]
+            };
+            hasAttempted = false;
+            userAnswers = [null, null, null, null];
+            questionTimes = [null, null, null, null];
+            optionMaps = [{},{},{},{}];
+
+            document.getElementById('statAttempts').textContent = '0';
+            document.getElementById('statFastest').textContent = '--';
+
+            // Render questions
+            const container = document.getElementById('questionsContainer');
+            container.innerHTML = '';
+            currentRound.questions.forEach((q, idx) => {
+                const qBlock = document.createElement('div');
+                qBlock.className = 'question-block';
+                qBlock.id = `question-${idx}`;
+                if (idx > 0) qBlock.style.display = 'none';
+                qBlock.innerHTML = `
+                    <div class="question-number">Question ${idx + 1}</div>
+                    <div class="question-chapter">${q.chapter}</div>
+                    <div class="question-text">${formatQuestion(q.text)}</div>
+                    <div class="options">
+                        <button class="option-btn" data-question="${idx}" data-answer="A" onclick="selectQuestionAnswer(${idx}, 'A', this)"><div class="opt-letter">A</div><div>${q.option_a}</div></button>
+                        <button class="option-btn" data-question="${idx}" data-answer="B" onclick="selectQuestionAnswer(${idx}, 'B', this)"><div class="opt-letter">B</div><div>${q.option_b}</div></button>
+                        <button class="option-btn" data-question="${idx}" data-answer="C" onclick="selectQuestionAnswer(${idx}, 'C', this)"><div class="opt-letter">C</div><div>${q.option_c}</div></button>
+                        <button class="option-btn" data-question="${idx}" data-answer="D" onclick="selectQuestionAnswer(${idx}, 'D', this)"><div class="opt-letter">D</div><div>${q.option_d}</div></button>
+                    </div>
+                `;
+                container.appendChild(qBlock);
+            });
+
+            document.getElementById('submitBtn').disabled = true;
+            // Hide prize timer for test mode
+            document.getElementById('timerSection').style.display = 'none';
+            document.getElementById('practiceModeBanner').style.display = 'block';
+            document.getElementById('practiceModeBanner').innerHTML = '<span style="font-weight:800;color:#d97706;font-size:13px">🧪 TEST MODE — All answers are A. Testing MedicPoints flow.</span>';
+            showScreen('quizScreen');
+            setupQuizToggle();
+            startStopwatch();
+        }
+
         async function loadCurrentRound() {
             try {
                 const res = await fetch(`${API}/api/current-round`);
@@ -3920,6 +3992,33 @@
             if (hasAttempted) return;
             hasAttempted = true;
             const tms = stopStopwatch();
+
+            // Test mode: simulate 4/4 no-cash response locally
+            if (_isTestMode) {
+                lastTimeMs = tms;
+                const allA = userAnswers.every(a => a === 'A');
+                const score = userAnswers.filter(a => a === 'A').length;
+                const fakeData = {
+                    all_correct: allA,
+                    score: score,
+                    results: userAnswers.map(a => a === 'A'),
+                    correct_answers: ['A','A','A','A'],
+                    explanations: ['Test explanation','Test explanation','Test explanation','Test explanation'],
+                    your_time_ms: tms,
+                    is_current_winner: false,
+                    in_lucky_pool: false,
+                    rank: null,
+                    leaderboard: [],
+                    prize_window_active: false,
+                    challenge_result: null,
+                    wallet_balance: null,
+                    eligible_for_medicpoints: allA,
+                    medicpoints_amount: allA ? 20 : 0,
+                    round_id: 99999
+                };
+                setTimeout(() => showResult(fakeData, tms), 500);
+                return;
+            }
             lastTimeMs = tms;
 
             document.getElementById('submitBtn').disabled = true;

@@ -414,7 +414,7 @@ Better luck next time!
 {winner_text}
 
 💰 Total paid: ₹{total_prize}
-👥 {total_4of4}/{{total_participants}} scored 4/4!{{medic_points_line}}
+👥 {total_4of4}/{total_participants} scored 4/4!{medic_points_line}
 
 🔥 Rounds daily at 7:00, 7:30, 8:00, 8:30 PM IST!"""
 

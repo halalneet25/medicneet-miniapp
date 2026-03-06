@@ -2789,7 +2789,7 @@
             <div class="logo-icon">🦉</div>
             <div class="logo-text">MedicNEET</div>
         </div>
-        <div class="prize-badge" id="walletBadge" onclick="switchTab('wallet')">💰 Wallet: ₹<span id="walletBalance">0</span></div>
+        <div class="prize-badge" id="walletBadge" onclick="switchTab('wallet')">💰 ₹<span id="walletBalance">0</span></div>
     </div>
     <div class="timer-section" id="timerSection">
         <div>
@@ -2840,6 +2840,27 @@
                 <div class="result-sub" id="resultSub"></div>
                 <div class="result-time" id="resultTime"></div>
                 <div class="result-time-label">seconds</div>
+            </div>
+            <!-- MedicPoints CTA: shown when 4/4 correct but no cash prize -->
+            <div id="medicPointsCTA" style="display:none;margin:16px 0;background:linear-gradient(135deg,#1a1a2e,#16213e);border:2px solid #f59e0b;border-radius:18px;padding:20px;text-align:center;box-shadow:0 4px 0 #92400e">
+                <div style="font-size:36px;margin-bottom:8px">🏅</div>
+                <div style="font-size:18px;font-weight:900;color:#fde68a;margin-bottom:6px">You were AMAZING!</div>
+                <div style="font-size:13px;font-weight:700;color:#fbbf24;margin-bottom:12px">You didn't qualify for the cash prize this time, but here's something BIGGER...</div>
+                <div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border-radius:14px;padding:14px;margin-bottom:14px">
+                    <div style="font-size:28px;font-weight:900;color:#d97706">+20 MedicPoints</div>
+                    <div style="font-size:12px;font-weight:700;color:#92400e;margin-top:4px">MedicPoints are earned by solving questions regularly from the MedicNEET app</div>
+                    <div style="font-size:14px;font-weight:900;color:#b45309;margin-top:8px">🏆 Top MedicPoints winner gets an Apple iPad + Apple Pencil!</div>
+                </div>
+                <div id="mpEmailForm">
+                    <div style="font-size:13px;font-weight:700;color:#e2e8f0;margin-bottom:8px">Enter your email to get the install link & 20 points preloaded in your account:</div>
+                    <input type="email" id="mpEmailInput" placeholder="your.email@gmail.com" style="width:100%;box-sizing:border-box;padding:12px 16px;border:2px solid #f59e0b;border-radius:12px;font-size:15px;font-weight:700;background:#0f172a;color:#fde68a;text-align:center;outline:none;margin-bottom:10px">
+                    <button id="mpClaimBtn" onclick="claimMedicPoints()" style="width:100%;padding:14px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:15px;font-weight:900;border:none;border-radius:14px;cursor:pointer;box-shadow:0 3px 0 #92400e">Claim 20 MedicPoints & Get App Link</button>
+                </div>
+                <div id="mpClaimSuccess" style="display:none">
+                    <div style="font-size:15px;font-weight:800;color:#34d399;margin-bottom:8px">20 MedicPoints loaded! ✅</div>
+                    <div style="font-size:13px;font-weight:700;color:#e2e8f0;margin-bottom:12px">Download MedicNEET app and sign in with <strong id="mpClaimedEmail" style="color:#fde68a"></strong> — your 20 points are already waiting!</div>
+                    <a id="mpAppLink" href="" target="_blank" style="display:inline-block;background:linear-gradient(135deg,#34d399,#059669);color:#fff;font-size:14px;font-weight:900;padding:12px 24px;border-radius:12px;text-decoration:none;box-shadow:0 3px 0 #047857">Download MedicNEET App</a>
+                </div>
             </div>
             <div id="challengeResultContainer" style="display:none"></div>
             <div id="challengeShareContainer" style="display:none"></div>
@@ -3270,7 +3291,7 @@
             <div class="nav-icon">🏆</div>
             <div class="nav-label">Top</div>
         </div>
-        <div class="nav-item" onclick="switchTab('practice')">
+        <div class="nav-item" onclick="handlePracticeTap()">
             <div class="nav-icon">📚</div>
             <div class="nav-label">Practice</div>
         </div>
@@ -3626,6 +3647,78 @@
             }, 1000);
         }
 
+        // ─── Hidden Test Mode: tap Practice 5x fast ───
+        let _practiceTapCount = 0;
+        let _practiceTapTimer = null;
+        let _isTestMode = false;
+
+        function handlePracticeTap() {
+            _practiceTapCount++;
+            clearTimeout(_practiceTapTimer);
+            _practiceTapTimer = setTimeout(() => { _practiceTapCount = 0; }, 1500);
+            if (_practiceTapCount >= 5) {
+                _practiceTapCount = 0;
+                launchTestMode();
+            } else {
+                switchTab('practice');
+            }
+        }
+
+        function launchTestMode() {
+            _isTestMode = true;
+            // Create a fake round with 4 dummy questions, all correct answer = A
+            currentRound = {
+                round_id: 99999,
+                prize_ends_at: null,
+                ends_at: new Date(Date.now() + 25 * 60 * 1000).toISOString(),
+                stats: { attempts: 0, fastest_time_ms: null },
+                questions: [
+                    { text: '[TEST] Which organelle is the powerhouse of the cell?', chapter: 'Cell Biology', option_a: 'Mitochondria', option_b: 'Ribosome', option_c: 'Golgi body', option_d: 'Lysosome' },
+                    { text: '[TEST] DNA replication is which type of process?', chapter: 'Molecular Biology', option_a: 'Semi-conservative', option_b: 'Conservative', option_c: 'Dispersive', option_d: 'Random' },
+                    { text: '[TEST] The basic unit of classification is?', chapter: 'Taxonomy', option_a: 'Species', option_b: 'Genus', option_c: 'Family', option_d: 'Order' },
+                    { text: '[TEST] Which vitamin is also known as ascorbic acid?', chapter: 'Biomolecules', option_a: 'Vitamin C', option_b: 'Vitamin D', option_c: 'Vitamin B12', option_d: 'Vitamin K' }
+                ]
+            };
+            hasAttempted = false;
+            userAnswers = [null, null, null, null];
+            questionTimes = [null, null, null, null];
+            optionMaps = [{},{},{},{}];
+
+            document.getElementById('statAttempts').textContent = '0';
+            document.getElementById('statFastest').textContent = '--';
+
+            // Render questions
+            const container = document.getElementById('questionsContainer');
+            container.innerHTML = '';
+            currentRound.questions.forEach((q, idx) => {
+                const qBlock = document.createElement('div');
+                qBlock.className = 'question-block';
+                qBlock.id = `question-${idx}`;
+                if (idx > 0) qBlock.style.display = 'none';
+                qBlock.innerHTML = `
+                    <div class="question-number">Question ${idx + 1}</div>
+                    <div class="question-chapter">${q.chapter}</div>
+                    <div class="question-text">${formatQuestion(q.text)}</div>
+                    <div class="options">
+                        <button class="option-btn" data-question="${idx}" data-answer="A" onclick="selectQuestionAnswer(${idx}, 'A', this)"><div class="opt-letter">A</div><div>${q.option_a}</div></button>
+                        <button class="option-btn" data-question="${idx}" data-answer="B" onclick="selectQuestionAnswer(${idx}, 'B', this)"><div class="opt-letter">B</div><div>${q.option_b}</div></button>
+                        <button class="option-btn" data-question="${idx}" data-answer="C" onclick="selectQuestionAnswer(${idx}, 'C', this)"><div class="opt-letter">C</div><div>${q.option_c}</div></button>
+                        <button class="option-btn" data-question="${idx}" data-answer="D" onclick="selectQuestionAnswer(${idx}, 'D', this)"><div class="opt-letter">D</div><div>${q.option_d}</div></button>
+                    </div>
+                `;
+                container.appendChild(qBlock);
+            });
+
+            document.getElementById('submitBtn').disabled = true;
+            // Hide prize timer for test mode
+            document.getElementById('timerSection').style.display = 'none';
+            document.getElementById('practiceModeBanner').style.display = 'block';
+            document.getElementById('practiceModeBanner').innerHTML = '<span style="font-weight:800;color:#d97706;font-size:13px">🧪 TEST MODE — All answers are A. Testing MedicPoints flow.</span>';
+            showScreen('quizScreen');
+            setupQuizToggle();
+            startStopwatch();
+        }
+
         async function loadCurrentRound() {
             try {
                 const res = await fetch(`${API}/api/current-round`);
@@ -3899,6 +3992,33 @@
             if (hasAttempted) return;
             hasAttempted = true;
             const tms = stopStopwatch();
+
+            // Test mode: simulate 4/4 no-cash response locally
+            if (_isTestMode) {
+                lastTimeMs = tms;
+                const allA = userAnswers.every(a => a === 'A');
+                const score = userAnswers.filter(a => a === 'A').length;
+                const fakeData = {
+                    all_correct: allA,
+                    score: score,
+                    results: userAnswers.map(a => a === 'A'),
+                    correct_answers: ['A','A','A','A'],
+                    explanations: ['Test explanation','Test explanation','Test explanation','Test explanation'],
+                    your_time_ms: tms,
+                    is_current_winner: false,
+                    in_lucky_pool: false,
+                    rank: null,
+                    leaderboard: [],
+                    prize_window_active: false,
+                    challenge_result: null,
+                    wallet_balance: null,
+                    eligible_for_medicpoints: allA,
+                    medicpoints_amount: allA ? 20 : 0,
+                    round_id: 99999
+                };
+                setTimeout(() => showResult(fakeData, tms), 500);
+                return;
+            }
             lastTimeMs = tms;
 
             document.getElementById('submitBtn').disabled = true;
@@ -4020,6 +4140,20 @@
             }
 
             document.getElementById('resultTime').textContent = ts;
+
+            // Show MedicPoints CTA for 4/4 users who didn't win cash
+            const mpCTA = document.getElementById('medicPointsCTA');
+            if (data.eligible_for_medicpoints) {
+                mpCTA.style.display = 'block';
+                // Store round_id for claim
+                mpCTA.dataset.roundId = data.round_id;
+                // Reset form state
+                document.getElementById('mpEmailForm').style.display = 'block';
+                document.getElementById('mpClaimSuccess').style.display = 'none';
+                document.getElementById('mpEmailInput').value = '';
+            } else {
+                mpCTA.style.display = 'none';
+            }
 
             // During prize window, hide explanations and per-question breakdown
             // to prevent multi-account cheating
@@ -4640,6 +4774,41 @@
                 alert('Could not copy. Please share manually.');
             }
             document.body.removeChild(textarea);
+        }
+
+        async function claimMedicPoints() {
+            const email = document.getElementById('mpEmailInput').value.trim();
+            if (!email || !email.includes('@')) {
+                document.getElementById('mpEmailInput').style.borderColor = '#ef4444';
+                return;
+            }
+            const btn = document.getElementById('mpClaimBtn');
+            btn.disabled = true;
+            btn.textContent = 'Loading...';
+            try {
+                const roundId = document.getElementById('medicPointsCTA').dataset.roundId;
+                const res = await fetch(`${API}/api/medicpoints/claim`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({email: email, user_id: userId, user_name: userName, round_id: parseInt(roundId)})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('mpEmailForm').style.display = 'none';
+                    document.getElementById('mpClaimSuccess').style.display = 'block';
+                    document.getElementById('mpClaimedEmail').textContent = email;
+                    document.getElementById('mpAppLink').href = '{{ playstore_link }}';
+                    trackEvent('medicpoints_claimed', {email: email, round_id: roundId, points: 20});
+                } else {
+                    btn.disabled = false;
+                    btn.textContent = 'Claim 20 MedicPoints & Get App Link';
+                    alert(data.reason || 'Something went wrong. Try again.');
+                }
+            } catch(e) {
+                btn.disabled = false;
+                btn.textContent = 'Claim 20 MedicPoints & Get App Link';
+                console.error('MedicPoints claim failed:', e);
+            }
         }
 
         async function loadWallet() {

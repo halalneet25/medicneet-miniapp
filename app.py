@@ -403,12 +403,17 @@ Better luck next time!
         winner_text = "\n\n".join(sections)
         total_prize = len(all_winners) * CASH_PRIZE
 
+        total_4of4 = len(speed_winners) + len(lucky_winners) + len(pool)
+        medic_points_line = ""
+        if total_4of4 > len(all_winners):
+            medic_points_line = f"\n\n🎯 {total_4of4} scored 4/4 — all earn 20 Medic Points on the MedicNEET App! 🍎"
+
         text = f"""🏆 <b>ROUND #{round_id} RESULTS</b>
 
 {winner_text}
 
 💰 Total paid: ₹{total_prize}
-👥 Total participants: {total_participants}
+👥 {total_4of4}/{{total_participants}} scored 4/4!{{medic_points_line}}
 
 🔥 Rounds daily at 7:00, 7:30, 8:00, 8:30 PM IST!"""
 

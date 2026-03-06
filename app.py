@@ -343,15 +343,9 @@ async def send_winner_to_channel(round_id):
         temp_weights = list(weights)
         for _ in range(lucky_count):
             if not temp_pool: break
-            total = sum(temp_weights)
-            r = random.uniform(0, total)
-            cumulative = 0
-            for i, w in enumerate(temp_weights):
-                cumulative += w
-                if r <= cumulative:
-                    lucky_winners.append(temp_pool.pop(i))
-                    temp_weights.pop(i)
-                    break
+            chosen = random.choices(range(len(temp_pool)), weights=temp_weights, k=1)[0]
+            lucky_winners.append(temp_pool.pop(chosen))
+            temp_weights.pop(chosen)
     else:
         lucky_winners = []
 

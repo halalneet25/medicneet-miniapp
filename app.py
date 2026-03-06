@@ -404,9 +404,10 @@ Better luck next time!
         total_prize = len(all_winners) * CASH_PRIZE
 
         total_4of4 = len(speed_winners) + len(lucky_winners) + len(pool)
+        no_prize_4of4 = total_4of4 - len(all_winners)
         medic_points_line = ""
-        if total_4of4 > len(all_winners):
-            medic_points_line = f"\n\n🎯 {total_4of4} scored 4/4 — all earn 20 Medic Points on the MedicNEET App! 🍎"
+        if no_prize_4of4 > 0:
+            medic_points_line = f"\n\n🎯 {no_prize_4of4} more scored 4/4 — earn 20 Medic Points on the MedicNEET App! 🍎"
 
         text = f"""🏆 <b>ROUND #{round_id} RESULTS</b>
 

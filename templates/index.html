@@ -3527,7 +3527,7 @@
             // Hide NCERT reader sticky when switching away
             const ncertSticky = document.getElementById('ncertReaderSticky');
             if (ncertSticky) ncertSticky.style.display = 'none';
-            if (tab === 'quiz') { if (currentRound && !hasAttempted) showScreen('quizScreen'); else if (hasAttempted) showScreen('resultScreen'); else { showScreen('waitingScreen'); loadSchedule() } }
+            if (tab === 'quiz') { if (currentRound && !hasAttempted) showScreen('quizScreen'); else if (hasAttempted) showScreen('resultScreen'); window.scrollTo(0, 0); else { showScreen('waitingScreen'); loadSchedule() } }
             else if (tab === 'wallet') { showScreen('walletScreen'); loadWallet() }
             else if (tab === 'leaderboard') { showScreen('leaderboardScreen'); loadAllTimeLeaderboard() }
             else if (tab === 'history') { showScreen('historyScreen'); loadHistory() }
@@ -4323,7 +4323,7 @@
                 else tg.HapticFeedback.notificationOccurred('error');
             }
 
-            showScreen('resultScreen');
+            showScreen('resultScreen'); window.scrollTo(0, 0);
         }
 
         function showDisqualified(reason) {
@@ -4345,7 +4345,7 @@
             document.getElementById('challengeFriendBtn').style.display = 'none';
             document.getElementById('shareChallengeBtn').style.display = 'none';
             document.getElementById('challengeResultContainer').style.display = 'none';
-            showScreen('resultScreen');
+            showScreen('resultScreen'); window.scrollTo(0, 0);
         }
 
         function showAlreadyAttempted() {

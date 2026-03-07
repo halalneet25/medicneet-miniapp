@@ -485,10 +485,18 @@ def send_daily_email_export():
             conn.commit(); conn.close()
         except: pass
 
-def send_withdrawal_request_email(user_id, user_name, amount, upi_id, balance, total_earned):
+def send_withdrawal_request_email(user_id, user_name, amount, upi_id, balance, total_earned,
+                                   ugc_video_link=None, medic_points=None, required_points=None):
     """Send email when user requests withdrawal"""
     try:
         now = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+        proofs = ""
+        if ugc_video_link or medic_points is not None:
+            proofs = (
+                f"\n── Proofs ──\n"
+                f"Medic Points: {medic_points}/{required_points} ✅\n"
+                f"UGC Video: {ugc_video_link}\n"
+            )
         msg = MIMEText(
             f"💰 New Withdrawal Request!\n\n"
             f"User: {user_name}\n"
@@ -496,7 +504,8 @@ def send_withdrawal_request_email(user_id, user_name, amount, upi_id, balance, t
             f"Amount: ₹{amount}\n"
             f"UPI ID: {upi_id}\n"
             f"Current Balance: ₹{balance}\n"
-            f"Total Earned: ₹{total_earned}\n\n"
+            f"Total Earned: ₹{total_earned}\n"
+            f"{proofs}\n"
             f"Requested at: {now}\n\n"
             f"— MedicNEET Bot", "plain"
         )
@@ -1668,7 +1677,29 @@ async def api_withdraw_tasks(user_id: str):
         rounds_played = c.fetchone()["cnt"]
         tasks["min_rounds"] = {"completed": rounds_played >= 20, "value": rounds_played}
 
-        # 3-4, 7-8: Click-tracked tasks
+        # 3. medic_points: Check Firebase for total >= 1000
+        required_points = 1000
+        mp_data = get_user_medicpoints(user_id)
+        current_points = mp_data.get("points", 0)
+        email_linked = mp_data.get("success", False) and mp_data.get("reason") != "No email linked"
+        tasks["medic_points"] = {
+            "completed": current_points >= required_points,
+            "value": current_points,
+            "required": required_points,
+            "email_linked": email_linked,
+            "email": mp_data.get("email"),
+            "error": mp_data.get("reason") if not mp_data.get("success") else None
+        }
+
+        # 4. ugc_video: Check v2_withdrawal_proofs for uploaded video
+        c.execute("SELECT proof_link FROM v2_withdrawal_proofs WHERE user_id = ? AND task = 'ugc_video' ORDER BY created_at DESC LIMIT 1", (user_id,))
+        ugc_row = c.fetchone()
+        tasks["ugc_video"] = {
+            "completed": bool(ugc_row and ugc_row["proof_link"]),
+            "value": ugc_row["proof_link"] if ugc_row else None
+        }
+
+        # 5-6, 9-10: Click-tracked tasks
         click_tasks = ["install_app", "rate_app", "subscribe_yt", "follow_ig"]
         for task_name in click_tasks:
             c.execute("SELECT completed FROM withdrawal_tasks WHERE user_id = ? AND task = ?", (user_id, task_name))
@@ -2046,6 +2077,21 @@ async def api_withdraw_request(request: Request):
 
     else:
         # ─── V1 VERIFICATION ─────────────────────────────
+        # Verify Medic Points >= 1000
+        required_points = 1000
+        mp_data = get_user_medicpoints(user_id)
+        if mp_data.get("points", 0) < required_points:
+            conn.close()
+            raise HTTPException(400, f"Need at least {required_points} Medic Points")
+
+        # Verify UGC video uploaded
+        c.execute("SELECT proof_link FROM v2_withdrawal_proofs WHERE user_id = ? AND task = 'ugc_video' ORDER BY created_at DESC LIMIT 1", (user_id,))
+        ugc_row = c.fetchone()
+        if not ugc_row or not ugc_row["proof_link"]:
+            conn.close()
+            raise HTTPException(400, "UGC video not uploaded")
+        ugc_video_link = ugc_row["proof_link"]
+
         # Verify click-tracked tasks
         for task_name in ["install_app", "rate_app", "subscribe_yt", "follow_ig"]:
             c.execute("SELECT completed FROM withdrawal_tasks WHERE user_id = ? AND task = ?", (user_id, task_name))
@@ -2116,6 +2162,8 @@ async def api_withdraw_request(request: Request):
     else:
         # V1 -> V2 transition: reset OTP for next cycle
         c.execute("DELETE FROM withdrawal_tasks WHERE user_id = ? AND task = 'otp_verified'", (user_id,))
+        # Clean up UGC proofs for next cycle
+        c.execute("DELETE FROM v2_withdrawal_proofs WHERE user_id = ?", (user_id,))
         # Mark all existing referrals as cycle 0 (already used for V1)
         c.execute("UPDATE referrals SET withdrawal_cycle = 0 WHERE referrer_id = ? AND withdrawal_cycle = 0", (user_id,))
 
@@ -2127,7 +2175,8 @@ async def api_withdraw_request(request: Request):
             balance - withdraw_amount, total_earned, ugc_video_link, ig_post_link,
             mp_data.get("points", 0), required_points)
     else:
-        send_withdrawal_request_email(user_id, user_name, withdraw_amount, upi_id, balance - withdraw_amount, total_earned)
+        send_withdrawal_request_email(user_id, user_name, withdraw_amount, upi_id, balance - withdraw_amount, total_earned,
+            ugc_video_link, mp_data.get("points", 0), required_points)
 
     return {
         "success": True,

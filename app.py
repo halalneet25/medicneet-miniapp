@@ -4,7 +4,7 @@ load_dotenv()
 MedicNEET Telegram Mini App - Cash Prize Quiz
 Backend: FastAPI + SQLite + Daily Email Export
 """
-import os, io, csv, json, time, hashlib, hmac, sqlite3, asyncio, logging, smtplib, string, random
+import os, io, csv, json, time, hashlib, hmac, sqlite3, asyncio, logging, smtplib, string, random, html as html_lib
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email.mime.text import MIMEText
@@ -388,7 +388,7 @@ Better luck next time!
         if speed_winners:
             speed_lines = []
             for i, w in enumerate(speed_winners, start=1):
-                name = w["user_name"] or "Anonymous"
+                name = html_lib.escape(w["user_name"] or "Anonymous")
                 time_sec = w["time_ms"] / 1000
                 speed_lines.append(f"{i}. {name} — {time_sec:.1f}s — ₹{CASH_PRIZE} ✅")
             sections.append("⚡ <b>Speed Winners (Top 2):</b>\n" + "\n".join(speed_lines))
@@ -396,7 +396,7 @@ Better luck next time!
         if lucky_winners:
             lucky_lines = []
             for w in lucky_winners:
-                name = w["user_name"] or "Anonymous"
+                name = html_lib.escape(w["user_name"] or "Anonymous")
                 lucky_lines.append(f"🍀 {name} — ₹{CASH_PRIZE} ✅")
             sections.append("🎲 <b>Lucky Winners:</b>\n" + "\n".join(lucky_lines))
 

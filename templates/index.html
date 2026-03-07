@@ -4983,18 +4983,38 @@
             const rounds = tasks.min_rounds;
             html += buildTaskRow('min_rounds', '\uD83C\uDFAF', 'Play at least 20 rounds', rounds.value + '/20 rounds played', rounds.completed, null);
 
-            // 3. medic_points (with progress bar)
+            // 3. medic_points (with progress bar + email link + install instructions)
             const mp = tasks.medic_points;
-            const mpPct = Math.min(100, Math.round((mp.value / mp.required) * 100));
+            const mpPct = mp.email_linked ? Math.min(100, Math.round((mp.value / mp.required) * 100)) : 0;
+            let mpExtra = '';
+            if (!mp.email_linked) {
+                // No email linked — show email input + install instructions
+                mpExtra = '<div style="margin-top:8px;padding:10px;background:var(--bg2);border-radius:12px">'
+                    + '<div style="font-size:12px;font-weight:700;color:var(--txt1);margin-bottom:6px">Step 1: Install MedicNEET App</div>'
+                    + '<a href="https://play.google.com/store/apps/details?id=com.halalfire.medicneet&hl=en" target="_blank" style="display:inline-block;padding:6px 14px;background:var(--green);color:white;border-radius:8px;font-size:12px;font-weight:800;text-decoration:none;margin-bottom:8px">Install App</a>'
+                    + '<div style="font-size:12px;font-weight:700;color:var(--txt1);margin-bottom:4px">Step 2: Sign up with your email</div>'
+                    + '<div style="font-size:11px;color:var(--txt2);margin-bottom:8px">Create an account in the MedicNEET app using your email address</div>'
+                    + '<div style="font-size:12px;font-weight:700;color:var(--txt1);margin-bottom:4px">Step 3: Link your email here</div>'
+                    + '<div style="display:flex;gap:8px;margin-top:4px">'
+                    + '<input type="email" class="wg-upi-input" id="wgMpEmailInput" placeholder="your.email@gmail.com" style="margin-top:0">'
+                    + '<button class="wg-action-btn" onclick="wgLinkMpEmail()">Link</button>'
+                    + '</div>'
+                    + '<div id="wgMpEmailStatus" style="font-size:11px;color:var(--txt2);margin-top:4px"></div>'
+                    + '</div>';
+            } else if (!mp.completed) {
+                mpExtra = '<div style="margin-top:6px;background:var(--bg2);border-radius:8px;height:8px;overflow:hidden">'
+                    + '<div style="width:' + mpPct + '%;height:100%;background:var(--blue);border-radius:8px;transition:width 0.3s"></div>'
+                    + '</div>'
+                    + '<div class="wg-task-sub" style="font-size:11px;margin-top:4px">Linked: ' + mp.email + '</div>';
+            }
             html += '<div class="wg-task' + (mp.completed ? ' completed' : '') + '">'
                 + '<div class="wg-task-icon">\uD83C\uDFAE</div>'
                 + '<div class="wg-task-info">'
                 + '<div class="wg-task-title">Earn ' + mp.required + ' Medic Points</div>'
-                + '<div class="wg-task-sub">' + mp.value + '/' + mp.required + ' points</div>'
-                + '<div style="margin-top:6px;background:var(--bg2);border-radius:8px;height:8px;overflow:hidden">'
-                + '<div style="width:' + mpPct + '%;height:100%;background:' + (mp.completed ? 'var(--green)' : 'var(--blue)') + ';border-radius:8px;transition:width 0.3s"></div>'
-                + '</div>'
-                + '<div class="wg-task-sub" style="font-size:11px;margin-top:4px">Play quizzes on the MedicNEET app to earn points</div>'
+                + '<div class="wg-task-sub">' + (mp.email_linked ? mp.value + '/' + mp.required + ' points' : 'Link your MedicNEET app account first') + '</div>'
+                + (mp.completed ? '<div style="margin-top:6px;background:var(--bg2);border-radius:8px;height:8px;overflow:hidden"><div style="width:100%;height:100%;background:var(--green);border-radius:8px"></div></div>' : '')
+                + '<div class="wg-task-sub" style="font-size:11px;margin-top:4px;color:var(--txt2)">Each question solved in MedicNEET app gives +4 Medic Points</div>'
+                + mpExtra
                 + '</div>'
                 + '<div class="wg-task-status">' + (mp.completed ? '<div class="wg-check">\u2713</div>' : '') + '</div>'
                 + '</div>';
@@ -5003,17 +5023,27 @@
             const ugc = tasks.ugc_video;
             let ugcExtra = '';
             if (!ugc.completed) {
-                ugcExtra = '<div style="margin-top:8px">'
+                ugcExtra = '<div style="margin-top:8px;padding:10px;background:var(--bg2);border-radius:12px">'
+                    + '<div style="font-size:12px;font-weight:700;color:var(--txt1);margin-bottom:6px">How to record:</div>'
+                    + '<div style="font-size:11px;color:var(--txt2);line-height:1.5">'
+                    + '1. Open the <a href="https://play.google.com/store/apps/details?id=com.halalfire.medicneet&hl=en" target="_blank" style="color:var(--blue);font-weight:700">MedicNEET Play Store app</a> and solve questions<br>'
+                    + '2. Record yourself reviewing the app question quality<br>'
+                    + '3. Video must be <b>at least 1 minute</b> long<br>'
+                    + '4. <b>Show your face</b> — faceless videos will be rejected<br>'
+                    + '5. Good video/audio clarity required'
+                    + '</div>'
+                    + '<div style="margin-top:8px">'
                     + '<input type="file" id="wgVideoFile" accept="video/*" style="display:none" onchange="wgHandleVideoSelect()">'
-                    + '<button class="wg-action-btn" onclick="document.getElementById(\'wgVideoFile\').click()" id="wgUploadVideoBtn">Choose Video</button>'
+                    + '<button class="wg-action-btn" onclick="document.getElementById(\'wgVideoFile\').click()" id="wgUploadVideoBtn">Upload Video</button>'
                     + '<div id="wgVideoStatus" style="font-size:11px;color:var(--txt2);margin-top:4px"></div>'
+                    + '</div>'
                     + '</div>';
             }
             html += '<div class="wg-task' + (ugc.completed ? ' completed' : '') + '">'
                 + '<div class="wg-task-icon">\uD83C\uDFA5</div>'
                 + '<div class="wg-task-info">'
-                + '<div class="wg-task-title">Upload a UGC Video</div>'
-                + (ugc.completed ? '<div class="wg-task-sub">Video uploaded \u2705</div>' : '<div class="wg-task-sub">Record yourself playing MedicNEET quiz or talking about it</div>' + ugcExtra)
+                + '<div class="wg-task-title">Record a Video Review</div>'
+                + (ugc.completed ? '<div class="wg-task-sub">Video uploaded \u2705</div>' : '<div class="wg-task-sub">Record a 1-min video about MedicNEET Play Store app question quality</div>' + ugcExtra)
                 + '</div>'
                 + '<div class="wg-task-status">' + (ugc.completed ? '<div class="wg-check">\u2713</div>' : '') + '</div>'
                 + '</div>';
@@ -5113,7 +5143,71 @@
             const rounds = tasks.min_rounds;
             html += buildTaskRow('min_rounds', '\uD83C\uDFAF', 'Play at least 20 rounds', rounds.value + '/20 rounds played', rounds.completed, null);
 
-            // 3. install_app
+            // 3. medic_points (with progress bar + email link + install instructions)
+            const mp = tasks.medic_points;
+            const mpPct = mp.email_linked ? Math.min(100, Math.round((mp.value / mp.required) * 100)) : 0;
+            let mpExtra = '';
+            if (!mp.email_linked) {
+                mpExtra = '<div style="margin-top:8px;padding:10px;background:var(--bg2);border-radius:12px">'
+                    + '<div style="font-size:12px;font-weight:700;color:var(--txt1);margin-bottom:6px">Step 1: Install MedicNEET App</div>'
+                    + '<a href="https://play.google.com/store/apps/details?id=com.halalfire.medicneet&hl=en" target="_blank" style="display:inline-block;padding:6px 14px;background:var(--green);color:white;border-radius:8px;font-size:12px;font-weight:800;text-decoration:none;margin-bottom:8px">Install App</a>'
+                    + '<div style="font-size:12px;font-weight:700;color:var(--txt1);margin-bottom:4px">Step 2: Sign up with your email</div>'
+                    + '<div style="font-size:11px;color:var(--txt2);margin-bottom:8px">Create an account in the MedicNEET app using your email address</div>'
+                    + '<div style="font-size:12px;font-weight:700;color:var(--txt1);margin-bottom:4px">Step 3: Link your email here</div>'
+                    + '<div style="display:flex;gap:8px;margin-top:4px">'
+                    + '<input type="email" class="wg-upi-input" id="wgMpEmailInput" placeholder="your.email@gmail.com" style="margin-top:0">'
+                    + '<button class="wg-action-btn" onclick="wgLinkMpEmail()">Link</button>'
+                    + '</div>'
+                    + '<div id="wgMpEmailStatus" style="font-size:11px;color:var(--txt2);margin-top:4px"></div>'
+                    + '</div>';
+            } else if (!mp.completed) {
+                mpExtra = '<div style="margin-top:6px;background:var(--bg2);border-radius:8px;height:8px;overflow:hidden">'
+                    + '<div style="width:' + mpPct + '%;height:100%;background:var(--blue);border-radius:8px;transition:width 0.3s"></div>'
+                    + '</div>'
+                    + '<div class="wg-task-sub" style="font-size:11px;margin-top:4px">Linked: ' + mp.email + '</div>';
+            }
+            html += '<div class="wg-task' + (mp.completed ? ' completed' : '') + '">'
+                + '<div class="wg-task-icon">\uD83C\uDFAE</div>'
+                + '<div class="wg-task-info">'
+                + '<div class="wg-task-title">Earn ' + mp.required + ' Medic Points</div>'
+                + '<div class="wg-task-sub">' + (mp.email_linked ? mp.value + '/' + mp.required + ' points' : 'Link your MedicNEET app account first') + '</div>'
+                + (mp.completed ? '<div style="margin-top:6px;background:var(--bg2);border-radius:8px;height:8px;overflow:hidden"><div style="width:100%;height:100%;background:var(--green);border-radius:8px"></div></div>' : '')
+                + '<div class="wg-task-sub" style="font-size:11px;margin-top:4px;color:var(--txt2)">Each question solved in MedicNEET Play Store app gives +4 Medic Points</div>'
+                + mpExtra
+                + '</div>'
+                + '<div class="wg-task-status">' + (mp.completed ? '<div class="wg-check">\u2713</div>' : '') + '</div>'
+                + '</div>';
+
+            // 4. ugc_video (file upload)
+            const ugc = tasks.ugc_video;
+            let ugcExtra = '';
+            if (!ugc.completed) {
+                ugcExtra = '<div style="margin-top:8px;padding:10px;background:var(--bg2);border-radius:12px">'
+                    + '<div style="font-size:12px;font-weight:700;color:var(--txt1);margin-bottom:6px">How to record:</div>'
+                    + '<div style="font-size:11px;color:var(--txt2);line-height:1.5">'
+                    + '1. Open the <a href="https://play.google.com/store/apps/details?id=com.halalfire.medicneet&hl=en" target="_blank" style="color:var(--blue);font-weight:700">MedicNEET Play Store app</a> and solve questions<br>'
+                    + '2. Record yourself reviewing the app question quality<br>'
+                    + '3. Video must be <b>at least 1 minute</b> long<br>'
+                    + '4. <b>Show your face</b> — faceless videos will be rejected<br>'
+                    + '5. Good video/audio clarity required'
+                    + '</div>'
+                    + '<div style="margin-top:8px">'
+                    + '<input type="file" id="wgVideoFile" accept="video/*" style="display:none" onchange="wgHandleVideoSelect()">'
+                    + '<button class="wg-action-btn" onclick="document.getElementById(\'wgVideoFile\').click()" id="wgUploadVideoBtn">Upload Video</button>'
+                    + '<div id="wgVideoStatus" style="font-size:11px;color:var(--txt2);margin-top:4px"></div>'
+                    + '</div>'
+                    + '</div>';
+            }
+            html += '<div class="wg-task' + (ugc.completed ? ' completed' : '') + '">'
+                + '<div class="wg-task-icon">\uD83C\uDFA5</div>'
+                + '<div class="wg-task-info">'
+                + '<div class="wg-task-title">Record a Video Review</div>'
+                + (ugc.completed ? '<div class="wg-task-sub">Video uploaded \u2705</div>' : '<div class="wg-task-sub">Record a 1-min video about MedicNEET Play Store app question quality</div>' + ugcExtra)
+                + '</div>'
+                + '<div class="wg-task-status">' + (ugc.completed ? '<div class="wg-check">\u2713</div>' : '') + '</div>'
+                + '</div>';
+
+            // 5. install_app
             html += buildTaskRow('install_app', '\uD83D\uDCF1', 'Install MedicNEET App', null, tasks.install_app.completed,
                 tasks.install_app.completed ? null : {label: 'Install', onclick: "trackAppClick('withdraw_install');wgOpenLink('https://play.google.com/store/apps/details?id=com.halalfire.medicneet&hl=en', 'install_app')"});
 
@@ -5328,6 +5422,38 @@
                 statusEl.textContent = 'Upload failed. Please try again.';
                 btn.disabled = false;
                 btn.textContent = 'Choose Video';
+            }
+        }
+
+        async function wgLinkMpEmail() {
+            const input = document.getElementById('wgMpEmailInput');
+            const statusEl = document.getElementById('wgMpEmailStatus');
+            const email = input ? input.value.trim().toLowerCase() : '';
+            if (!email || !email.includes('@')) {
+                alert('Please enter a valid email address');
+                return;
+            }
+            statusEl.textContent = 'Linking...';
+            try {
+                const res = await fetch(`${API}/api/v2-link-email`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({user_id: userId, email: email})
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    if (data.found_in_firebase) {
+                        statusEl.innerHTML = '<span style="color:var(--green-dk);font-weight:700">Linked! Found ' + data.points + ' points</span>';
+                    } else {
+                        statusEl.innerHTML = '<span style="color:var(--orange);font-weight:700">Email linked but no MedicNEET app account found. Make sure you sign up in the app with this email.</span>';
+                    }
+                    setTimeout(() => { loadWithdrawTasks(); }, 1500);
+                } else {
+                    statusEl.innerHTML = '<span style="color:var(--red);font-weight:700">' + (data.detail || 'Failed to link') + '</span>';
+                }
+            } catch (e) {
+                console.error('Email link error:', e);
+                statusEl.innerHTML = '<span style="color:var(--red)">Failed. Try again.</span>';
             }
         }
 

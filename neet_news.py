@@ -330,6 +330,29 @@ def main():
     print("\n--- Step 3: Saving news data ---")
     save_news_json(news_data)
 
+    # Step 3.5: Dedup check — skip if same headlines as yesterday
+    archive_path = NEWS_JSON_PATH.replace(".json", "_archive.json")
+    try:
+        with open(archive_path, "r") as f:
+            archive = json.load(f)
+        if len(archive) >= 2:
+            today_headlines = set(item.get("headline", "").strip().lower() for item in news_data.get("items", []))
+            yesterday_headlines = set(item.get("headline", "").strip().lower() for item in archive[-2].get("items", []))
+            if today_headlines and today_headlines == yesterday_headlines:
+                print("\nSame headlines as yesterday — skipping Telegram post.")
+                print("\nDone! No new news to post.")
+                return
+            overlap = today_headlines & yesterday_headlines
+            if overlap:
+                print(f"  {len(overlap)} overlapping headlines with yesterday — filtering out")
+                news_data["items"] = [item for item in news_data["items"] if item.get("headline", "").strip().lower() not in yesterday_headlines]
+                if not news_data["items"]:
+                    print("\nAll headlines already posted yesterday — skipping.")
+                    print("\nDone! No new news to post.")
+                    return
+    except (FileNotFoundError, json.JSONDecodeError, IndexError):
+        pass
+
     # Step 4: Build and send Telegram teaser
     print("\n--- Step 4: Sending Telegram teaser ---")
     teaser = build_telegram_teaser(news_data)

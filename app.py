@@ -675,6 +675,13 @@ async def api_submit(request: Request):
     if not isinstance(question_times, list) or len(question_times) != 4:
         return JSONResponse({"error": "Invalid submission data"}, status_code=400)
 
+    # Check if user is banned
+    conn_check = get_db()
+    banned = conn_check.execute("SELECT 1 FROM blocked_users WHERE user_id=?", (uid,)).fetchone()
+    conn_check.close()
+    if banned:
+        return JSONResponse({"error": "Account suspended. Contact support."}, status_code=403)
+
     # Normalize answers
     answers = [str(a).upper().strip() for a in answers]
 

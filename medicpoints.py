@@ -290,12 +290,31 @@ def get_user_medicpoints(telegram_id: str) -> dict:
         "SELECT email FROM medicpoints_claims WHERE telegram_id = ? ORDER BY created_at DESC LIMIT 1",
         (str(telegram_id),)
     ).fetchone()
-    conn.close()
 
     if not row:
+        conn.close()
         return {"success": False, "points": 0, "reason": "No email linked"}
 
     email = row["email"]
+
+    # Check if another user has already used this email for a withdrawal
+    other = conn.execute(
+        "SELECT DISTINCT telegram_id FROM medicpoints_claims WHERE email = ? AND telegram_id != ?",
+        (email, str(telegram_id))
+    ).fetchall()
+    if other:
+        # Check if any of those other users have withdrawn (withdrawal_count > 0)
+        other_ids = [r["telegram_id"] for r in other]
+        placeholders = ",".join("?" * len(other_ids))
+        used = conn.execute(
+            f"SELECT user_id FROM wallets WHERE user_id IN ({placeholders}) AND withdrawal_count > 0",
+            other_ids
+        ).fetchone()
+        if used:
+            conn.close()
+            return {"success": False, "points": 0, "reason": "This email is linked to another account that already withdrew"}
+
+    conn.close()
     db = get_firestore()
     if not db:
         return {"success": False, "points": 0, "reason": "Firebase unavailable"}

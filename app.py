@@ -1588,10 +1588,14 @@ async def api_withdraw_tasks(user_id: str):
         required_points = 2000 * withdrawal_count
         mp_data = get_user_medicpoints(user_id)
         current_points = mp_data.get("points", 0)
+        email_linked = mp_data.get("success", False) and mp_data.get("reason") != "No email linked"
         tasks["medic_points"] = {
             "completed": current_points >= required_points,
             "value": current_points,
-            "required": required_points
+            "required": required_points,
+            "email_linked": email_linked,
+            "email": mp_data.get("email"),
+            "error": mp_data.get("reason") if not mp_data.get("success") else None
         }
 
         # 4. ugc_video: Check v2_withdrawal_proofs for uploaded video
@@ -1858,6 +1862,50 @@ async def api_withdraw_verify_otp(request: Request):
     del otp_store[user_id]
 
     return {"success": True, "message": "OTP verified successfully"}
+
+@app.post("/api/v2-link-email")
+async def api_v2_link_email(request: Request):
+    """Manually link email for V2 Medic Points verification"""
+    data = await request.json()
+    user_id = str(data.get("user_id", ""))
+    email = str(data.get("email", "")).strip().lower()
+
+    if not user_id or not email or "@" not in email:
+        raise HTTPException(400, "Valid user_id and email required")
+
+    conn = get_db(); c = conn.cursor()
+
+    # Check if this email is already used by another user who has withdrawn
+    c.execute("""SELECT DISTINCT telegram_id FROM medicpoints_claims
+        WHERE email = ? AND telegram_id != ?""", (email, user_id))
+    others = c.fetchall()
+    if others:
+        other_ids = [r["telegram_id"] for r in others]
+        placeholders = ",".join("?" * len(other_ids))
+        used = c.execute(
+            f"SELECT user_id FROM wallets WHERE user_id IN ({placeholders}) AND withdrawal_count > 0",
+            other_ids
+        ).fetchone()
+        if used:
+            conn.close()
+            raise HTTPException(400, "This email is already linked to another account")
+
+    # Insert into medicpoints_claims to link the email
+    now = datetime.utcnow().isoformat()
+    c.execute("""INSERT INTO medicpoints_claims (telegram_id, telegram_name, email, round_id, points, firebase_preloaded, created_at)
+        VALUES (?, ?, ?, 0, 0, 0, ?)""",
+        (user_id, "", email, now))
+    conn.commit(); conn.close()
+
+    # Verify the email exists in Firebase
+    mp_data = get_user_medicpoints(user_id)
+
+    return {
+        "success": True,
+        "email": email,
+        "points": mp_data.get("points", 0),
+        "found_in_firebase": mp_data.get("success", False)
+    }
 
 @app.post("/api/v2-withdrawal-proof")
 async def api_v2_withdrawal_proof(request: Request):

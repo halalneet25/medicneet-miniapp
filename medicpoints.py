@@ -275,6 +275,118 @@ def check_and_apply_pending_points(firebase_uid: str, email: str) -> int:
         return 0
 
 
+def get_user_medicpoints(telegram_id: str) -> dict:
+    """
+    Get a user's total MedicPoints from Firebase.
+
+    Looks up the user's email from medicpoints_claims table,
+    then queries Firebase for their medicPoints balance.
+
+    Returns dict with points and status info.
+    """
+    conn = _get_db()
+    # Get the email linked to this Telegram user
+    row = conn.execute(
+        "SELECT email FROM medicpoints_claims WHERE telegram_id = ? ORDER BY created_at DESC LIMIT 1",
+        (str(telegram_id),)
+    ).fetchone()
+    conn.close()
+
+    if not row:
+        return {"success": False, "points": 0, "reason": "No email linked"}
+
+    email = row["email"]
+    db = get_firestore()
+    if not db:
+        return {"success": False, "points": 0, "reason": "Firebase unavailable"}
+
+    try:
+        # Search for user by email
+        query = db.collection("users").where("email", "==", email).limit(1)
+        results = list(query.stream())
+
+        if not results:
+            # Try original case
+            query2 = db.collection("users").where("email", "==", email.strip()).limit(1)
+            results = list(query2.stream())
+
+        if results:
+            user_data = results[0].to_dict()
+            points = user_data.get("medicPoints", 0)
+            return {"success": True, "points": points, "email": email}
+        else:
+            # Check pending points
+            pending_ref = db.collection("pending_medicpoints").document(email)
+            pending_doc = pending_ref.get()
+            if pending_doc.exists:
+                points = pending_doc.to_dict().get("points", 0)
+                return {"success": True, "points": points, "email": email, "pending": True}
+            return {"success": True, "points": 0, "email": email}
+
+    except Exception as e:
+        logger.error(f"Failed to get medicpoints for {telegram_id}: {e}")
+        return {"success": False, "points": 0, "reason": str(e)}
+
+
+def upload_to_google_drive(file_content: bytes, filename: str, mime_type: str) -> dict:
+    """
+    Upload a file to Google Drive using service account credentials.
+
+    Returns dict with file_id and shareable link.
+    """
+    try:
+        from googleapiclient.discovery import build
+        from googleapiclient.http import MediaInMemoryUpload
+        from google.oauth2 import service_account
+        import json
+
+        creds_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+        creds_json = os.getenv("FIREBASE_CREDENTIALS_JSON")
+
+        if creds_path and os.path.exists(creds_path):
+            creds = service_account.Credentials.from_service_account_file(
+                creds_path, scopes=["https://www.googleapis.com/auth/drive.file"]
+            )
+        elif creds_json:
+            info = json.loads(creds_json)
+            creds = service_account.Credentials.from_service_account_info(
+                info, scopes=["https://www.googleapis.com/auth/drive.file"]
+            )
+        else:
+            return {"success": False, "reason": "No Google credentials configured"}
+
+        service = build("drive", "v3", credentials=creds)
+
+        # Upload file
+        file_metadata = {"name": filename}
+
+        # If a shared folder ID is configured, upload there
+        drive_folder_id = os.getenv("GOOGLE_DRIVE_FOLDER_ID")
+        if drive_folder_id:
+            file_metadata["parents"] = [drive_folder_id]
+
+        media = MediaInMemoryUpload(file_content, mimetype=mime_type)
+        file = service.files().create(
+            body=file_metadata, media_body=media, fields="id,webViewLink"
+        ).execute()
+
+        # Make file viewable by anyone with link
+        service.permissions().create(
+            fileId=file["id"],
+            body={"type": "anyone", "role": "reader"}
+        ).execute()
+
+        return {
+            "success": True,
+            "file_id": file["id"],
+            "link": file.get("webViewLink", f"https://drive.google.com/file/d/{file['id']}/view")
+        }
+
+    except Exception as e:
+        logger.error(f"Google Drive upload failed: {e}")
+        return {"success": False, "reason": str(e)}
+
+
 def get_claim_status(telegram_id: str, round_id: int) -> dict:
     """Check if user already claimed MedicPoints for a round."""
     try:

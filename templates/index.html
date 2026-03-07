@@ -4933,6 +4933,7 @@
 
         let wgTasksData = null;
         let wgReferralLink = '';
+        let wgVersion = 'v1';
 
         function openWithdrawChecklist() {
             showScreen('withdrawChecklistScreen');
@@ -4948,6 +4949,7 @@
                 const data = await res.json();
                 wgTasksData = data.tasks;
                 wgReferralLink = data.referral_link;
+                wgVersion = data.version || 'v1';
 
                 // Update progress
                 const pct = Math.round((data.completed_count / data.total_count) * 100);
@@ -4957,12 +4959,146 @@
                 // Enable submit button if all done
                 document.getElementById('wgSubmitBtn').disabled = !data.all_completed;
 
-                // Render tasks
-                renderWithdrawTasks(data.tasks);
+                // Render tasks based on version
+                if (wgVersion === 'v2') {
+                    renderWithdrawTasksV2(data.tasks);
+                } else {
+                    renderWithdrawTasks(data.tasks);
+                }
             } catch (e) {
                 console.error('Failed to load withdrawal tasks:', e);
                 container.innerHTML = '<p style="color:var(--red);text-align:center;padding:20px;font-weight:700">Failed to load. Try again.</p>';
             }
+        }
+
+        function renderWithdrawTasksV2(tasks) {
+            const container = document.getElementById('wgTasksList');
+            let html = '';
+
+            // 1. min_balance
+            const bal = tasks.min_balance;
+            html += buildTaskRow('min_balance', '\uD83D\uDCB0', 'Minimum \u20B950 balance', bal.completed ? 'Balance: \u20B9' + bal.value : 'Current: \u20B9' + bal.value, bal.completed, null);
+
+            // 2. min_rounds
+            const rounds = tasks.min_rounds;
+            html += buildTaskRow('min_rounds', '\uD83C\uDFAF', 'Play at least 20 rounds', rounds.value + '/20 rounds played', rounds.completed, null);
+
+            // 3. medic_points (with progress bar)
+            const mp = tasks.medic_points;
+            const mpPct = Math.min(100, Math.round((mp.value / mp.required) * 100));
+            html += '<div class="wg-task' + (mp.completed ? ' completed' : '') + '">'
+                + '<div class="wg-task-icon">\uD83C\uDFAE</div>'
+                + '<div class="wg-task-info">'
+                + '<div class="wg-task-title">Earn ' + mp.required + ' Medic Points</div>'
+                + '<div class="wg-task-sub">' + mp.value + '/' + mp.required + ' points</div>'
+                + '<div style="margin-top:6px;background:var(--bg2);border-radius:8px;height:8px;overflow:hidden">'
+                + '<div style="width:' + mpPct + '%;height:100%;background:' + (mp.completed ? 'var(--green)' : 'var(--blue)') + ';border-radius:8px;transition:width 0.3s"></div>'
+                + '</div>'
+                + '<div class="wg-task-sub" style="font-size:11px;margin-top:4px">Play quizzes on the MedicNEET app to earn points</div>'
+                + '</div>'
+                + '<div class="wg-task-status">' + (mp.completed ? '<div class="wg-check">\u2713</div>' : '') + '</div>'
+                + '</div>';
+
+            // 4. ugc_video (file upload)
+            const ugc = tasks.ugc_video;
+            let ugcExtra = '';
+            if (!ugc.completed) {
+                ugcExtra = '<div style="margin-top:8px">'
+                    + '<input type="file" id="wgVideoFile" accept="video/*" style="display:none" onchange="wgHandleVideoSelect()">'
+                    + '<button class="wg-action-btn" onclick="document.getElementById(\'wgVideoFile\').click()" id="wgUploadVideoBtn">Choose Video</button>'
+                    + '<div id="wgVideoStatus" style="font-size:11px;color:var(--txt2);margin-top:4px"></div>'
+                    + '</div>';
+            }
+            html += '<div class="wg-task' + (ugc.completed ? ' completed' : '') + '">'
+                + '<div class="wg-task-icon">\uD83C\uDFA5</div>'
+                + '<div class="wg-task-info">'
+                + '<div class="wg-task-title">Upload a UGC Video</div>'
+                + (ugc.completed ? '<div class="wg-task-sub">Video uploaded \u2705</div>' : '<div class="wg-task-sub">Record yourself playing MedicNEET quiz or talking about it</div>' + ugcExtra)
+                + '</div>'
+                + '<div class="wg-task-status">' + (ugc.completed ? '<div class="wg-check">\u2713</div>' : '') + '</div>'
+                + '</div>';
+
+            // 5. refer_5_friends
+            const rf = tasks.refer_5_friends;
+            let refExtra = '';
+            if (!rf.completed) {
+                refExtra = '<div class="wg-referral-box">'
+                    + '<div class="wg-referral-link" id="wgRefLink">' + wgReferralLink + '</div>'
+                    + '<div class="wg-referral-actions">'
+                    + '<button class="wg-action-btn" onclick="wgCopyReferral()" style="flex:1">Copy Link</button>'
+                    + '<button class="wg-action-btn" onclick="wgShareReferral()" style="flex:1;background:var(--green);box-shadow:0 2px 0 var(--green-dk)">Share</button>'
+                    + '</div></div>';
+            }
+            html += '<div class="wg-task' + (rf.completed ? ' completed' : '') + '">'
+                + '<div class="wg-task-icon">\uD83D\uDD17</div>'
+                + '<div class="wg-task-info">'
+                + '<div class="wg-task-title">Invite 5 NEW friends</div>'
+                + '<div class="wg-task-sub">' + rf.value + '/5 friends joined</div>'
+                + '<div class="wg-task-sub" style="font-size:11px;color:var(--txt2);margin-top:2px">Each friend must open your link AND play at least 1 round</div>'
+                + (rf.details && rf.details.length > 0 ? '<div style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px">' + rf.details.map(d => '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px"><span style="font-weight:700;color:var(--txt1)">' + d.name + '</span><span style="font-weight:800;color:' + (d.qualified ? 'var(--green-dk)' : 'var(--red)') + '">' + (d.qualified ? '\u2705 Played' : '0/1 round') + '</span></div>').join('') + '</div>' : '')
+                + refExtra
+                + '</div>'
+                + '<div class="wg-task-status">' + (rf.completed ? '<div class="wg-check">\u2713</div>' : '') + '</div>'
+                + '</div>';
+
+            // 6. instagram_post (text input)
+            const ig = tasks.instagram_post;
+            let igExtra = '';
+            if (!ig.completed) {
+                igExtra = '<div style="display:flex;gap:8px;margin-top:8px">'
+                    + '<input type="text" class="wg-upi-input" id="wgIgLinkInput" placeholder="https://www.instagram.com/p/..." style="margin-top:0">'
+                    + '<button class="wg-action-btn" onclick="wgSubmitIgLink()">Submit</button>'
+                    + '</div>';
+            }
+            html += '<div class="wg-task' + (ig.completed ? ' completed' : '') + '">'
+                + '<div class="wg-task-icon">\uD83D\uDCF8</div>'
+                + '<div class="wg-task-info">'
+                + '<div class="wg-task-title">Post on Instagram with #MedicNEET</div>'
+                + (ig.completed ? '<div class="wg-task-sub">Link submitted \u2705</div>' : '<div class="wg-task-sub">Post a reel/story/post about MedicNEET and paste the link</div>' + igExtra)
+                + '</div>'
+                + '<div class="wg-task-status">' + (ig.completed ? '<div class="wg-check">\u2713</div>' : '') + '</div>'
+                + '</div>';
+
+            // 7. otp_verified
+            const otp = tasks.otp_verified;
+            let otpExtra = '';
+            if (!otp.completed) {
+                otpExtra = '<div id="wgOtpSection">'
+                    + '<button class="wg-action-btn" id="wgSendOtpBtn" onclick="wgSendOtp()" style="margin-top:8px">Send OTP</button>'
+                    + '<div id="wgOtpInputRow" style="display:none" class="wg-otp-row">'
+                    + '<input type="text" class="wg-otp-input" id="wgOtpInput" placeholder="Enter 6-digit OTP" maxlength="6" inputmode="numeric">'
+                    + '<button class="wg-action-btn" onclick="wgVerifyOtp()">Verify</button>'
+                    + '</div>'
+                    + '</div>';
+            }
+            html += '<div class="wg-task' + (otp.completed ? ' completed' : '') + '">'
+                + '<div class="wg-task-icon">\uD83D\uDD10</div>'
+                + '<div class="wg-task-info">'
+                + '<div class="wg-task-title">Verify OTP</div>'
+                + (otp.completed ? '<div class="wg-task-sub">Verified</div>' : '<div class="wg-task-sub">We\'ll send OTP to your Telegram</div>' + otpExtra)
+                + '</div>'
+                + '<div class="wg-task-status">' + (otp.completed ? '<div class="wg-check">\u2713</div>' : '') + '</div>'
+                + '</div>';
+
+            // 8. upi_id
+            const upi = tasks.upi_id;
+            let upiExtra = '';
+            if (!upi.completed) {
+                upiExtra = '<div style="display:flex;gap:8px;margin-top:8px">'
+                    + '<input type="text" class="wg-upi-input" id="wgUpiInput" placeholder="name@upi or phone@paytm" style="margin-top:0">'
+                    + '<button class="wg-action-btn" onclick="wgSaveUpi()">Save</button>'
+                    + '</div>';
+            }
+            html += '<div class="wg-task' + (upi.completed ? ' completed' : '') + '">'
+                + '<div class="wg-task-icon">\uD83D\uDCB3</div>'
+                + '<div class="wg-task-info">'
+                + '<div class="wg-task-title">Enter UPI ID</div>'
+                + (upi.completed ? '<div class="wg-task-sub">' + upi.value + '</div>' : '<div class="wg-task-sub">For receiving payment</div>' + upiExtra)
+                + '</div>'
+                + '<div class="wg-task-status">' + (upi.completed ? '<div class="wg-check">\u2713</div>' : '') + '</div>'
+                + '</div>';
+
+            container.innerHTML = html;
         }
 
         function renderWithdrawTasks(tasks) {
@@ -5146,6 +5282,79 @@
             } else {
                 const tgUrl = 'https://t.me/share/url?url=' + encodeURIComponent(wgReferralLink) + '&text=' + encodeURIComponent(shareText);
                 window.open(tgUrl, '_blank');
+            }
+        }
+
+        // ─── V2 SPECIFIC FUNCTIONS ───────────────────────
+
+        async function wgHandleVideoSelect() {
+            const fileInput = document.getElementById('wgVideoFile');
+            const statusEl = document.getElementById('wgVideoStatus');
+            const btn = document.getElementById('wgUploadVideoBtn');
+            if (!fileInput || !fileInput.files || fileInput.files.length === 0) return;
+
+            const file = fileInput.files[0];
+            if (file.size > 100 * 1024 * 1024) {
+                alert('Video must be under 100MB');
+                fileInput.value = '';
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Uploading...';
+            statusEl.textContent = 'Uploading ' + file.name + ' (' + (file.size / (1024*1024)).toFixed(1) + ' MB)...';
+
+            try {
+                const formData = new FormData();
+                formData.append('user_id', userId);
+                formData.append('video', file);
+
+                const res = await fetch(`${API}/api/v2-upload-video`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+
+                if (res.ok && data.success) {
+                    statusEl.textContent = 'Uploaded successfully!';
+                    loadWithdrawTasks();
+                } else {
+                    statusEl.textContent = 'Upload failed: ' + (data.detail || 'Try again');
+                    btn.disabled = false;
+                    btn.textContent = 'Choose Video';
+                }
+            } catch (e) {
+                console.error('Video upload error:', e);
+                statusEl.textContent = 'Upload failed. Please try again.';
+                btn.disabled = false;
+                btn.textContent = 'Choose Video';
+            }
+        }
+
+        async function wgSubmitIgLink() {
+            const input = document.getElementById('wgIgLinkInput');
+            const link = input ? input.value.trim() : '';
+            if (!link) {
+                alert('Please paste your Instagram post link');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API}/api/v2-withdrawal-proof`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({user_id: userId, task: 'instagram_post', proof_link: link})
+                });
+                const data = await res.json();
+
+                if (res.ok && data.success) {
+                    loadWithdrawTasks();
+                } else {
+                    alert(data.detail || 'Failed to submit link');
+                }
+            } catch (e) {
+                console.error('Instagram link submit error:', e);
+                alert('Failed to submit. Try again.');
             }
         }
 

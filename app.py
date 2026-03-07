@@ -14,7 +14,7 @@ from contextlib import asynccontextmanager
 from urllib.parse import parse_qsl
 import httpx
 from fastapi import FastAPI, Request, HTTPException
-from medicpoints import preload_points_for_email, get_claim_status, init_medicpoints_table
+from medicpoints import preload_points_for_email, get_claim_status, init_medicpoints_table, get_user_medicpoints, upload_to_google_drive
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -171,6 +171,24 @@ def init_db():
         c.execute("ALTER TABLE wallets ADD COLUMN upi_id TEXT")
     except:
         pass
+    # Migrate: add withdrawal_count to wallets (V2 withdrawal system)
+    try:
+        c.execute("ALTER TABLE wallets ADD COLUMN withdrawal_count INTEGER DEFAULT 0")
+    except:
+        pass
+    # Migrate: add withdrawal_cycle to referrals (V2 referral cycle tracking)
+    try:
+        c.execute("ALTER TABLE referrals ADD COLUMN withdrawal_cycle INTEGER DEFAULT 0")
+    except:
+        pass
+    # V2 withdrawal proofs table
+    c.execute("""CREATE TABLE IF NOT EXISTS v2_withdrawal_proofs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT NOT NULL,
+        task TEXT NOT NULL,
+        proof_link TEXT,
+        verified INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP)""")
     conn.commit(); conn.close()
     init_medicpoints_table()
     logger.info("Database initialized")
@@ -490,6 +508,35 @@ def send_withdrawal_request_email(user_id, user_name, amount, upi_id, balance, t
         logger.info(f"✅ Withdrawal email sent: {user_name} / ₹{amount}")
     except Exception as e:
         logger.error(f"❌ Withdrawal email failed: {e}")
+
+def send_v2_withdrawal_request_email(user_id, user_name, amount, upi_id, balance, total_earned,
+                                      ugc_video_link, ig_post_link, medic_points, required_points):
+    """Send email when V2 user requests withdrawal - includes proof links"""
+    try:
+        now = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+        msg = MIMEText(
+            f"💰 V2 Withdrawal Request!\n\n"
+            f"User: {user_name}\n"
+            f"User ID: {user_id}\n"
+            f"Amount: ₹{amount}\n"
+            f"UPI ID: {upi_id}\n"
+            f"Current Balance: ₹{balance}\n"
+            f"Total Earned: ₹{total_earned}\n\n"
+            f"── V2 Proofs ──\n"
+            f"Medic Points: {medic_points}/{required_points} ✅\n"
+            f"UGC Video: {ugc_video_link}\n"
+            f"Instagram Post: {ig_post_link}\n\n"
+            f"Requested at: {now}\n\n"
+            f"— MedicNEET Bot", "plain"
+        )
+        msg["From"] = SMTP_USER
+        msg["To"] = "medicneet.team@gmail.com"
+        msg["Subject"] = f"💰 V2 Withdrawal - {user_name}"
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as s:
+            s.starttls(); s.login(SMTP_USER, SMTP_PASS); s.send_message(msg)
+        logger.info(f"✅ V2 Withdrawal email sent: {user_name} / ₹{amount}")
+    except Exception as e:
+        logger.error(f"❌ V2 Withdrawal email failed: {e}")
 
 mid_round_notified = set()
 
@@ -1432,12 +1479,12 @@ async def api_wallet(user_id: str):
     conn = get_db(); c = conn.cursor()
 
     # Get wallet info
-    c.execute("SELECT balance, total_earned, upi_id FROM wallets WHERE user_id = ?", (user_id,))
+    c.execute("SELECT balance, total_earned, upi_id, withdrawal_count FROM wallets WHERE user_id = ?", (user_id,))
     wallet = c.fetchone()
 
     if not wallet:
         conn.close()
-        return {"balance": 0, "total_earned": 0, "upi_id": None, "transactions": []}
+        return {"balance": 0, "total_earned": 0, "upi_id": None, "withdrawal_count": 0, "transactions": []}
 
     # Get transactions (wins only)
     c.execute("SELECT amount, type, round_id, created_at FROM transactions WHERE user_id = ? AND type = 'win' ORDER BY created_at DESC LIMIT 50", (user_id,))
@@ -1449,6 +1496,7 @@ async def api_wallet(user_id: str):
         "balance": wallet["balance"],
         "total_earned": wallet["total_earned"],
         "upi_id": wallet["upi_id"],
+        "withdrawal_count": wallet["withdrawal_count"] or 0,
         "transactions": transactions
     }
 
@@ -1511,105 +1559,189 @@ otp_store = {}
 
 @app.get("/api/withdraw/tasks")
 async def api_withdraw_tasks(user_id: str):
-    """Get checklist status for all withdrawal tasks"""
+    """Get checklist status for all withdrawal tasks (V1 or V2 based on withdrawal_count)"""
     if not user_id:
         raise HTTPException(400, "user_id required")
 
     conn = get_db(); c = conn.cursor()
 
-    tasks = {}
-
-    # 1. min_balance: Check wallet balance >= 50
-    c.execute("SELECT balance FROM wallets WHERE user_id = ?", (user_id,))
+    # Determine V1 or V2
+    c.execute("SELECT balance, withdrawal_count, upi_id FROM wallets WHERE user_id = ?", (user_id,))
     wallet = c.fetchone()
     balance = wallet["balance"] if wallet else 0
-    tasks["min_balance"] = {"completed": balance >= 50, "value": balance}
+    withdrawal_count = wallet["withdrawal_count"] if wallet else 0
+    is_v2 = withdrawal_count >= 1
 
-    # 2. min_rounds: Check attempts count >= 20 distinct rounds
-    c.execute("SELECT COUNT(DISTINCT round_id) as cnt FROM attempts WHERE user_id = ?", (user_id,))
-    rounds_played = c.fetchone()["cnt"]
-    tasks["min_rounds"] = {"completed": rounds_played >= 20, "value": rounds_played}
+    if is_v2:
+        # ─── V2 TASKS (repeat withdrawers) ─────────────────
+        tasks = {}
 
-    # 3-4, 7-8: Check withdrawal_tasks table for click-tracked tasks
-    click_tasks = ["install_app", "rate_app", "subscribe_yt", "follow_ig"]
-    for task_name in click_tasks:
-        c.execute("SELECT completed FROM withdrawal_tasks WHERE user_id = ? AND task = ?", (user_id, task_name))
-        row = c.fetchone()
-        tasks[task_name] = {"completed": bool(row and row["completed"])}
+        # 1. min_balance >= 50
+        tasks["min_balance"] = {"completed": balance >= 50, "value": balance}
 
-    # 5. follow_channel: Verify via Telegram Bot API
-    channel_verified = False
-    try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(
-                f"https://api.telegram.org/bot{BOT_TOKEN}/getChatMember",
-                params={"chat_id": "@bioneettraps", "user_id": user_id}
-            )
-            data = resp.json()
-            if data.get("ok"):
-                status = data["result"].get("status", "")
-                if status in ("member", "administrator", "creator"):
-                    channel_verified = True
-    except:
-        pass
-    tasks["follow_channel"] = {"completed": channel_verified}
+        # 2. min_rounds >= 20
+        c.execute("SELECT COUNT(DISTINCT round_id) as cnt FROM attempts WHERE user_id = ?", (user_id,))
+        rounds_played = c.fetchone()["cnt"]
+        tasks["min_rounds"] = {"completed": rounds_played >= 20, "value": rounds_played}
 
-    # 6. join_group: Verify via Telegram Bot API
-    group_verified = False
-    try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(
-                f"https://api.telegram.org/bot{BOT_TOKEN}/getChatMember",
-                params={"chat_id": "@neetbiotraps", "user_id": user_id}
-            )
-            data = resp.json()
-            if data.get("ok"):
-                status = data["result"].get("status", "")
-                if status in ("member", "administrator", "creator"):
-                    group_verified = True
-    except:
-        pass
-    tasks["join_group"] = {"completed": group_verified}
+        # 3. medic_points: Check Firebase for total >= 2000 * withdrawal_count
+        required_points = 2000 * withdrawal_count
+        mp_data = get_user_medicpoints(user_id)
+        current_points = mp_data.get("points", 0)
+        tasks["medic_points"] = {
+            "completed": current_points >= required_points,
+            "value": current_points,
+            "required": required_points
+        }
 
-    # 9. share_friends: Check referral clicks >= 3
-    c.execute("SELECT COUNT(*) as cnt FROM referrals r WHERE r.referrer_id = ? AND (SELECT COUNT(DISTINCT round_id) FROM attempts WHERE user_id = r.referee_id) >= 3", (user_id,))
-    referral_count = c.fetchone()["cnt"]
-    
-    # Get detailed referral progress
-    c.execute("""SELECT r.referee_id, 
-        COALESCE((SELECT user_name FROM attempts WHERE user_id = r.referee_id LIMIT 1), 'Unknown') as name,
-        (SELECT COUNT(DISTINCT round_id) FROM attempts WHERE user_id = r.referee_id) as rounds
-        FROM referrals r WHERE r.referrer_id = ?""", (user_id,))
-    referral_details = [{"name": row["name"], "rounds": row["rounds"], "qualified": row["rounds"] >= 3} for row in c.fetchall()]
-    
-    tasks["share_friends"] = {"completed": referral_count >= 3, "value": referral_count, "details": referral_details}
+        # 4. ugc_video: Check v2_withdrawal_proofs for uploaded video
+        c.execute("SELECT proof_link FROM v2_withdrawal_proofs WHERE user_id = ? AND task = 'ugc_video' ORDER BY created_at DESC LIMIT 1", (user_id,))
+        ugc_row = c.fetchone()
+        tasks["ugc_video"] = {
+            "completed": bool(ugc_row and ugc_row["proof_link"]),
+            "value": ugc_row["proof_link"] if ugc_row else None
+        }
 
-    # Generate referral link
-    referral_link = f"https://t.me/Winners_neetbot/Medicneet?startapp=ref_{user_id}"
+        # 5. refer_5_friends: Count NEW referrals (in current withdrawal cycle)
+        c.execute("""SELECT COUNT(*) as cnt FROM referrals r
+            WHERE r.referrer_id = ? AND r.withdrawal_cycle = ?
+            AND (SELECT COUNT(DISTINCT round_id) FROM attempts WHERE user_id = r.referee_id) >= 1""",
+            (user_id, withdrawal_count))
+        v2_referral_count = c.fetchone()["cnt"]
 
-    # 10. upi_id: Check if UPI ID is saved
-    c.execute("SELECT upi_id FROM wallets WHERE user_id = ?", (user_id,))
-    w = c.fetchone()
-    upi_id = w["upi_id"] if w and w["upi_id"] else None
-    tasks["upi_id"] = {"completed": bool(upi_id), "value": upi_id}
+        # Get detailed referral progress for current cycle
+        c.execute("""SELECT r.referee_id,
+            COALESCE((SELECT user_name FROM attempts WHERE user_id = r.referee_id LIMIT 1), 'Unknown') as name,
+            (SELECT COUNT(DISTINCT round_id) FROM attempts WHERE user_id = r.referee_id) as rounds
+            FROM referrals r WHERE r.referrer_id = ? AND r.withdrawal_cycle = ?""",
+            (user_id, withdrawal_count))
+        v2_referral_details = [{"name": row["name"], "rounds": row["rounds"], "qualified": row["rounds"] >= 1} for row in c.fetchall()]
 
-    # 11. otp_verified: Check withdrawal_tasks table
-    c.execute("SELECT completed FROM withdrawal_tasks WHERE user_id = ? AND task = 'otp_verified'", (user_id,))
-    otp_row = c.fetchone()
-    tasks["otp_verified"] = {"completed": bool(otp_row and otp_row["completed"])}
+        tasks["refer_5_friends"] = {"completed": v2_referral_count >= 5, "value": v2_referral_count, "details": v2_referral_details}
 
-    # Count completed tasks
-    completed_count = sum(1 for t in tasks.values() if t["completed"])
+        # 6. instagram_post: Check v2_withdrawal_proofs
+        c.execute("SELECT proof_link FROM v2_withdrawal_proofs WHERE user_id = ? AND task = 'instagram_post' ORDER BY created_at DESC LIMIT 1", (user_id,))
+        ig_row = c.fetchone()
+        tasks["instagram_post"] = {
+            "completed": bool(ig_row and ig_row["proof_link"]),
+            "value": ig_row["proof_link"] if ig_row else None
+        }
 
-    conn.close()
+        # 7. otp_verified
+        c.execute("SELECT completed FROM withdrawal_tasks WHERE user_id = ? AND task = 'otp_verified'", (user_id,))
+        otp_row = c.fetchone()
+        tasks["otp_verified"] = {"completed": bool(otp_row and otp_row["completed"])}
 
-    return {
-        "tasks": tasks,
-        "completed_count": completed_count,
-        "total_count": len(tasks),
-        "all_completed": completed_count == len(tasks),
-        "referral_link": referral_link
-    }
+        # 8. upi_id
+        upi_id = wallet["upi_id"] if wallet and wallet["upi_id"] else None
+        tasks["upi_id"] = {"completed": bool(upi_id), "value": upi_id}
+
+        # Generate referral link
+        referral_link = f"https://t.me/Winners_neetbot/Medicneet?startapp=ref_{user_id}"
+
+        completed_count = sum(1 for t in tasks.values() if t["completed"])
+        conn.close()
+
+        return {
+            "version": "v2",
+            "withdrawal_count": withdrawal_count,
+            "tasks": tasks,
+            "completed_count": completed_count,
+            "total_count": len(tasks),
+            "all_completed": completed_count == len(tasks),
+            "referral_link": referral_link
+        }
+
+    else:
+        # ─── V1 TASKS (first-time withdrawers) ─────────────
+        tasks = {}
+
+        # 1. min_balance
+        tasks["min_balance"] = {"completed": balance >= 50, "value": balance}
+
+        # 2. min_rounds
+        c.execute("SELECT COUNT(DISTINCT round_id) as cnt FROM attempts WHERE user_id = ?", (user_id,))
+        rounds_played = c.fetchone()["cnt"]
+        tasks["min_rounds"] = {"completed": rounds_played >= 20, "value": rounds_played}
+
+        # 3-4, 7-8: Click-tracked tasks
+        click_tasks = ["install_app", "rate_app", "subscribe_yt", "follow_ig"]
+        for task_name in click_tasks:
+            c.execute("SELECT completed FROM withdrawal_tasks WHERE user_id = ? AND task = ?", (user_id, task_name))
+            row = c.fetchone()
+            tasks[task_name] = {"completed": bool(row and row["completed"])}
+
+        # 5. follow_channel
+        channel_verified = False
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(
+                    f"https://api.telegram.org/bot{BOT_TOKEN}/getChatMember",
+                    params={"chat_id": "@bioneettraps", "user_id": user_id}
+                )
+                data = resp.json()
+                if data.get("ok"):
+                    status = data["result"].get("status", "")
+                    if status in ("member", "administrator", "creator"):
+                        channel_verified = True
+        except:
+            pass
+        tasks["follow_channel"] = {"completed": channel_verified}
+
+        # 6. join_group
+        group_verified = False
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(
+                    f"https://api.telegram.org/bot{BOT_TOKEN}/getChatMember",
+                    params={"chat_id": "@neetbiotraps", "user_id": user_id}
+                )
+                data = resp.json()
+                if data.get("ok"):
+                    status = data["result"].get("status", "")
+                    if status in ("member", "administrator", "creator"):
+                        group_verified = True
+        except:
+            pass
+        tasks["join_group"] = {"completed": group_verified}
+
+        # 9. share_friends
+        c.execute("SELECT COUNT(*) as cnt FROM referrals r WHERE r.referrer_id = ? AND (SELECT COUNT(DISTINCT round_id) FROM attempts WHERE user_id = r.referee_id) >= 3", (user_id,))
+        referral_count = c.fetchone()["cnt"]
+
+        c.execute("""SELECT r.referee_id,
+            COALESCE((SELECT user_name FROM attempts WHERE user_id = r.referee_id LIMIT 1), 'Unknown') as name,
+            (SELECT COUNT(DISTINCT round_id) FROM attempts WHERE user_id = r.referee_id) as rounds
+            FROM referrals r WHERE r.referrer_id = ?""", (user_id,))
+        referral_details = [{"name": row["name"], "rounds": row["rounds"], "qualified": row["rounds"] >= 3} for row in c.fetchall()]
+
+        tasks["share_friends"] = {"completed": referral_count >= 3, "value": referral_count, "details": referral_details}
+
+        # Generate referral link
+        referral_link = f"https://t.me/Winners_neetbot/Medicneet?startapp=ref_{user_id}"
+
+        # 10. upi_id
+        w = wallet
+        upi_id = w["upi_id"] if w and w["upi_id"] else None
+        tasks["upi_id"] = {"completed": bool(upi_id), "value": upi_id}
+
+        # 11. otp_verified
+        c.execute("SELECT completed FROM withdrawal_tasks WHERE user_id = ? AND task = 'otp_verified'", (user_id,))
+        otp_row = c.fetchone()
+        tasks["otp_verified"] = {"completed": bool(otp_row and otp_row["completed"])}
+
+        completed_count = sum(1 for t in tasks.values() if t["completed"])
+        conn.close()
+
+        return {
+            "version": "v1",
+            "withdrawal_count": 0,
+            "tasks": tasks,
+            "completed_count": completed_count,
+            "total_count": len(tasks),
+            "all_completed": completed_count == len(tasks),
+            "referral_link": referral_link
+        }
 
 @app.post("/api/withdraw/complete-task")
 async def api_withdraw_complete_task(request: Request):
@@ -1727,9 +1859,69 @@ async def api_withdraw_verify_otp(request: Request):
 
     return {"success": True, "message": "OTP verified successfully"}
 
+@app.post("/api/v2-withdrawal-proof")
+async def api_v2_withdrawal_proof(request: Request):
+    """Submit V2 withdrawal proof (Instagram link)"""
+    data = await request.json()
+    user_id = str(data.get("user_id", ""))
+    task = str(data.get("task", ""))
+    proof_link = str(data.get("proof_link", "")).strip()
+
+    if not user_id or not task or not proof_link:
+        raise HTTPException(400, "user_id, task, and proof_link required")
+
+    if task not in ("instagram_post",):
+        raise HTTPException(400, f"Invalid task: {task}")
+
+    conn = get_db(); c = conn.cursor()
+    now = datetime.utcnow().isoformat()
+
+    # Upsert proof
+    c.execute("""INSERT INTO v2_withdrawal_proofs (user_id, task, proof_link, created_at)
+        VALUES (?,?,?,?)""", (user_id, task, proof_link, now))
+
+    conn.commit(); conn.close()
+    return {"success": True, "task": task, "proof_link": proof_link}
+
+@app.post("/api/v2-upload-video")
+async def api_v2_upload_video(request: Request):
+    """Upload UGC video to Google Drive for V2 withdrawal"""
+    from fastapi import UploadFile, File, Form
+
+    form = await request.form()
+    user_id = str(form.get("user_id", ""))
+    video_file = form.get("video")
+
+    if not user_id or not video_file:
+        raise HTTPException(400, "user_id and video file required")
+
+    # Read file content
+    content = await video_file.read()
+    if len(content) > 100 * 1024 * 1024:  # 100MB limit
+        raise HTTPException(400, "File too large. Maximum 100MB.")
+
+    # Get content type
+    content_type = video_file.content_type or "video/mp4"
+    filename = f"ugc_{user_id}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{video_file.filename}"
+
+    # Upload to Google Drive
+    result = upload_to_google_drive(content, filename, content_type)
+
+    if not result["success"]:
+        raise HTTPException(500, f"Upload failed: {result.get('reason', 'Unknown error')}")
+
+    # Save proof link in DB
+    conn = get_db(); c = conn.cursor()
+    now = datetime.utcnow().isoformat()
+    c.execute("""INSERT INTO v2_withdrawal_proofs (user_id, task, proof_link, created_at)
+        VALUES (?,?,?,?)""", (user_id, "ugc_video", result["link"], now))
+    conn.commit(); conn.close()
+
+    return {"success": True, "link": result["link"]}
+
 @app.post("/api/withdraw/request")
 async def api_withdraw_request(request: Request):
-    """Submit withdrawal request - only if ALL tasks completed"""
+    """Submit withdrawal request - only if ALL tasks completed (V1 or V2)"""
     data = await request.json()
     user_id = str(data.get("user_id", ""))
     amount = data.get("amount")
@@ -1737,11 +1929,10 @@ async def api_withdraw_request(request: Request):
     if not user_id:
         raise HTTPException(400, "user_id required")
 
-    # Check all tasks are completed by calling the tasks endpoint logic
     conn = get_db(); c = conn.cursor()
 
-    # Verify balance
-    c.execute("SELECT balance, total_earned, user_name, upi_id FROM wallets WHERE user_id = ?", (user_id,))
+    # Verify balance and get withdrawal_count
+    c.execute("SELECT balance, total_earned, user_name, upi_id, withdrawal_count FROM wallets WHERE user_id = ?", (user_id,))
     wallet = c.fetchone()
     if not wallet or wallet["balance"] < 50:
         conn.close()
@@ -1755,6 +1946,8 @@ async def api_withdraw_request(request: Request):
     total_earned = wallet["total_earned"]
     user_name = wallet["user_name"] or "Unknown"
     upi_id = wallet["upi_id"]
+    withdrawal_count = wallet["withdrawal_count"] or 0
+    is_v2 = withdrawal_count >= 1
 
     # Verify min_rounds
     c.execute("SELECT COUNT(DISTINCT round_id) as cnt FROM attempts WHERE user_id = ?", (user_id,))
@@ -1762,73 +1955,135 @@ async def api_withdraw_request(request: Request):
         conn.close()
         raise HTTPException(400, "Need at least 20 rounds played")
 
-    # Verify click-tracked tasks
-    for task_name in ["install_app", "rate_app", "subscribe_yt", "follow_ig", "otp_verified"]:
-        c.execute("SELECT completed FROM withdrawal_tasks WHERE user_id = ? AND task = ?", (user_id, task_name))
-        row = c.fetchone()
-        if not row or not row["completed"]:
+    # Verify OTP
+    c.execute("SELECT completed FROM withdrawal_tasks WHERE user_id = ? AND task = 'otp_verified'", (user_id,))
+    otp_row = c.fetchone()
+    if not otp_row or not otp_row["completed"]:
+        conn.close()
+        raise HTTPException(400, "OTP not verified")
+
+    if is_v2:
+        # ─── V2 VERIFICATION ─────────────────────────────
+        # Verify Medic Points
+        required_points = 2000 * withdrawal_count
+        mp_data = get_user_medicpoints(user_id)
+        if mp_data.get("points", 0) < required_points:
             conn.close()
-            raise HTTPException(400, f"Task '{task_name}' not completed")
+            raise HTTPException(400, f"Need at least {required_points} Medic Points")
 
-    # Verify referrals >= 3
-    c.execute("SELECT COUNT(*) as cnt FROM referrals r WHERE r.referrer_id = ? AND (SELECT COUNT(DISTINCT round_id) FROM attempts WHERE user_id = r.referee_id) >= 3", (user_id,))
-    if c.fetchone()["cnt"] < 3:
-        conn.close()
-        raise HTTPException(400, "Need at least 3 referrals")
+        # Verify UGC video uploaded
+        c.execute("SELECT proof_link FROM v2_withdrawal_proofs WHERE user_id = ? AND task = 'ugc_video' ORDER BY created_at DESC LIMIT 1", (user_id,))
+        ugc_row = c.fetchone()
+        if not ugc_row or not ugc_row["proof_link"]:
+            conn.close()
+            raise HTTPException(400, "UGC video not uploaded")
+        ugc_video_link = ugc_row["proof_link"]
 
-    # Verify Telegram channel/group (async checks)
-    channel_ok = False
-    group_ok = False
-    try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(
-                f"https://api.telegram.org/bot{BOT_TOKEN}/getChatMember",
-                params={"chat_id": "@bioneettraps", "user_id": user_id}
-            )
-            d = resp.json()
-            if d.get("ok") and d["result"].get("status") in ("member", "administrator", "creator"):
-                channel_ok = True
-    except:
-        pass
+        # Verify 5 new referrals in current cycle
+        c.execute("""SELECT COUNT(*) as cnt FROM referrals r
+            WHERE r.referrer_id = ? AND r.withdrawal_cycle = ?
+            AND (SELECT COUNT(DISTINCT round_id) FROM attempts WHERE user_id = r.referee_id) >= 1""",
+            (user_id, withdrawal_count))
+        if c.fetchone()["cnt"] < 5:
+            conn.close()
+            raise HTTPException(400, "Need at least 5 new referrals")
 
-    try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(
-                f"https://api.telegram.org/bot{BOT_TOKEN}/getChatMember",
-                params={"chat_id": "@neetbiotraps", "user_id": user_id}
-            )
-            d = resp.json()
-            if d.get("ok") and d["result"].get("status") in ("member", "administrator", "creator"):
-                group_ok = True
-    except:
-        pass
+        # Verify Instagram post
+        c.execute("SELECT proof_link FROM v2_withdrawal_proofs WHERE user_id = ? AND task = 'instagram_post' ORDER BY created_at DESC LIMIT 1", (user_id,))
+        ig_row = c.fetchone()
+        if not ig_row or not ig_row["proof_link"]:
+            conn.close()
+            raise HTTPException(400, "Instagram post not submitted")
+        ig_post_link = ig_row["proof_link"]
 
-    if not channel_ok:
-        conn.close()
-        raise HTTPException(400, "Please follow @bioneettraps channel first")
-    if not group_ok:
-        conn.close()
-        raise HTTPException(400, "Please join @neetbiotraps group first")
+    else:
+        # ─── V1 VERIFICATION ─────────────────────────────
+        # Verify click-tracked tasks
+        for task_name in ["install_app", "rate_app", "subscribe_yt", "follow_ig"]:
+            c.execute("SELECT completed FROM withdrawal_tasks WHERE user_id = ? AND task = ?", (user_id, task_name))
+            row = c.fetchone()
+            if not row or not row["completed"]:
+                conn.close()
+                raise HTTPException(400, f"Task '{task_name}' not completed")
+
+        # Verify referrals >= 3
+        c.execute("SELECT COUNT(*) as cnt FROM referrals r WHERE r.referrer_id = ? AND (SELECT COUNT(DISTINCT round_id) FROM attempts WHERE user_id = r.referee_id) >= 3", (user_id,))
+        if c.fetchone()["cnt"] < 3:
+            conn.close()
+            raise HTTPException(400, "Need at least 3 referrals")
+
+        # Verify Telegram channel/group
+        channel_ok = False
+        group_ok = False
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(
+                    f"https://api.telegram.org/bot{BOT_TOKEN}/getChatMember",
+                    params={"chat_id": "@bioneettraps", "user_id": user_id}
+                )
+                d = resp.json()
+                if d.get("ok") and d["result"].get("status") in ("member", "administrator", "creator"):
+                    channel_ok = True
+        except:
+            pass
+
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(
+                    f"https://api.telegram.org/bot{BOT_TOKEN}/getChatMember",
+                    params={"chat_id": "@neetbiotraps", "user_id": user_id}
+                )
+                d = resp.json()
+                if d.get("ok") and d["result"].get("status") in ("member", "administrator", "creator"):
+                    group_ok = True
+        except:
+            pass
+
+        if not channel_ok:
+            conn.close()
+            raise HTTPException(400, "Please follow @bioneettraps channel first")
+        if not group_ok:
+            conn.close()
+            raise HTTPException(400, "Please join @neetbiotraps group first")
 
     # All checks passed - process withdrawal
     withdraw_amount = amount if amount and amount <= balance else balance
     now = datetime.utcnow().isoformat()
 
-    c.execute("UPDATE wallets SET balance = balance - ?, updated_at = ? WHERE user_id = ?",
+    c.execute("UPDATE wallets SET balance = balance - ?, withdrawal_count = withdrawal_count + 1, updated_at = ? WHERE user_id = ?",
              (withdraw_amount, now, user_id))
     c.execute("INSERT INTO withdrawal_requests (user_id, user_name, amount, upi_id, status, created_at) VALUES (?,?,?,?,?,?)",
              (user_id, user_name, withdraw_amount, upi_id, "pending", now))
     c.execute("INSERT INTO transactions (user_id, amount, type, status, created_at) VALUES (?,?,?,?,?)",
              (user_id, withdraw_amount, "withdraw", "pending", now))
 
+    if is_v2:
+        # Reset OTP for next withdrawal cycle
+        c.execute("DELETE FROM withdrawal_tasks WHERE user_id = ? AND task = 'otp_verified'", (user_id,))
+        # Clean up V2 proofs for next cycle
+        c.execute("DELETE FROM v2_withdrawal_proofs WHERE user_id = ?", (user_id,))
+        # Mark future referrals with new cycle number
+        # (existing referrals keep their cycle, new ones will get the incremented count)
+
+    else:
+        # V1 -> V2 transition: reset OTP for next cycle
+        c.execute("DELETE FROM withdrawal_tasks WHERE user_id = ? AND task = 'otp_verified'", (user_id,))
+        # Mark all existing referrals as cycle 0 (already used for V1)
+        c.execute("UPDATE referrals SET withdrawal_cycle = 0 WHERE referrer_id = ? AND withdrawal_cycle = 0", (user_id,))
+
     conn.commit(); conn.close()
 
     # Send email notification
-    send_withdrawal_request_email(user_id, user_name, withdraw_amount, upi_id, balance - withdraw_amount, total_earned)
+    if is_v2:
+        send_v2_withdrawal_request_email(user_id, user_name, withdraw_amount, upi_id,
+            balance - withdraw_amount, total_earned, ugc_video_link, ig_post_link,
+            mp_data.get("points", 0), required_points)
+    else:
+        send_withdrawal_request_email(user_id, user_name, withdraw_amount, upi_id, balance - withdraw_amount, total_earned)
 
     return {
         "success": True,
-        "message": f"Withdrawal of ₹{withdraw_amount} requested! You'll receive payment within 24 hours.",
+        "message": f"Withdrawal of \u20b9{withdraw_amount} requested! You'll receive payment within 24 hours.",
         "amount": withdraw_amount
     }
 
@@ -1847,9 +2102,15 @@ async def api_referral(request: Request):
 
     conn = get_db(); c = conn.cursor()
     now = datetime.utcnow().isoformat()
+
+    # Get referrer's current withdrawal_count to tag the referral with the right cycle
+    c.execute("SELECT withdrawal_count FROM wallets WHERE user_id = ?", (referrer_id,))
+    w = c.fetchone()
+    cycle = w["withdrawal_count"] if w else 0
+
     try:
-        c.execute("INSERT OR IGNORE INTO referrals (referrer_id, referee_id, created_at) VALUES (?,?,?)",
-                 (referrer_id, referee_id, now))
+        c.execute("INSERT OR IGNORE INTO referrals (referrer_id, referee_id, withdrawal_cycle, created_at) VALUES (?,?,?,?)",
+                 (referrer_id, referee_id, cycle, now))
         conn.commit()
     except:
         pass

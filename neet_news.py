@@ -165,6 +165,18 @@ def parse_news_json(raw_text):
                 continue
             filtered.append(item)
 
+        # Deduplicate within this response (Claude sometimes returns same item twice)
+        seen_headlines = set()
+        deduped = []
+        for item in filtered:
+            norm = item.get("headline", "").strip().lower()
+            if norm not in seen_headlines:
+                seen_headlines.add(norm)
+                deduped.append(item)
+            else:
+                print(f"FILTERED OUT (duplicate in response): {item.get('headline', '')}")
+        filtered = deduped
+
         data["items"] = filtered
         data["has_news"] = len(filtered) > 0
 
@@ -188,6 +200,21 @@ def save_news_json(data):
             archive = json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
         archive = []
+
+    # Clean existing archive: remove duplicate headlines across all days
+    all_seen = set()
+    for day_data in archive:
+        cleaned_items = []
+        for item in day_data.get("items", []):
+            norm = _normalize_headline(item.get("headline", ""))
+            if norm and norm not in all_seen:
+                all_seen.add(norm)
+                cleaned_items.append(item)
+        day_data["items"] = cleaned_items
+        day_data["has_news"] = len(cleaned_items) > 0
+
+    # Remove empty days from archive
+    archive = [d for d in archive if d.get("items")]
 
     # Add today's data to archive (keep last 30 days)
     archive.append(data)
@@ -293,6 +320,62 @@ def send_telegram(text):
         return False
 
 
+def _normalize_headline(headline):
+    """Normalize a headline for dedup comparison — lowercase, strip punctuation/whitespace."""
+    import re
+    text = headline.strip().lower()
+    text = re.sub(r'[^\w\s]', '', text)  # remove punctuation
+    text = re.sub(r'\s+', ' ', text).strip()  # collapse whitespace
+    return text
+
+
+def deduplicate_news(news_data):
+    """Remove duplicate news items by checking:
+    1. Duplicates within the current batch (same headline appearing twice)
+    2. Duplicates against the full archive (last 30 days)
+    """
+    items = news_data.get("items", [])
+    if not items:
+        return news_data
+
+    # --- Step 1: Remove duplicates within current batch ---
+    seen = set()
+    unique_items = []
+    for item in items:
+        norm = _normalize_headline(item.get("headline", ""))
+        if norm and norm not in seen:
+            seen.add(norm)
+            unique_items.append(item)
+        else:
+            print(f"  DEDUP (batch): Removed duplicate headline: {item.get('headline', '')}")
+
+    # --- Step 2: Remove duplicates against full archive (all 30 days, not just yesterday) ---
+    archive_path = NEWS_JSON_PATH.replace(".json", "_archive.json")
+    archive_headlines = set()
+    try:
+        with open(archive_path, "r") as f:
+            archive = json.load(f)
+        for day_data in archive:
+            for arch_item in day_data.get("items", []):
+                archive_headlines.add(_normalize_headline(arch_item.get("headline", "")))
+    except (FileNotFoundError, json.JSONDecodeError):
+        archive = []
+
+    if archive_headlines:
+        filtered = []
+        for item in unique_items:
+            norm = _normalize_headline(item.get("headline", ""))
+            if norm in archive_headlines:
+                print(f"  DEDUP (archive): Already posted: {item.get('headline', '')}")
+            else:
+                filtered.append(item)
+        unique_items = filtered
+
+    news_data["items"] = unique_items
+    news_data["has_news"] = len(unique_items) > 0
+    return news_data
+
+
 def main():
     now = datetime.now(IST)
     print(f"[{now.isoformat()}] Starting NEET Flash News v2...")
@@ -326,32 +409,20 @@ def main():
     for i, item in enumerate(news_data.get("items", [])):
         print(f"  [{i+1}] [{item.get('importance','?')}] {item.get('headline','?')} — {item.get('source','?')}")
 
-    # Step 3: Save JSON for website
-    print("\n--- Step 3: Saving news data ---")
-    save_news_json(news_data)
+    # Step 3: Deduplicate news BEFORE saving
+    print("\n--- Step 3: Deduplicating news ---")
+    news_data = deduplicate_news(news_data)
 
-    # Step 3.5: Dedup check — skip if same headlines as yesterday
-    archive_path = NEWS_JSON_PATH.replace(".json", "_archive.json")
-    try:
-        with open(archive_path, "r") as f:
-            archive = json.load(f)
-        if len(archive) >= 2:
-            today_headlines = set(item.get("headline", "").strip().lower() for item in news_data.get("items", []))
-            yesterday_headlines = set(item.get("headline", "").strip().lower() for item in archive[-2].get("items", []))
-            if today_headlines and today_headlines == yesterday_headlines:
-                print("\nSame headlines as yesterday — skipping Telegram post.")
-                print("\nDone! No new news to post.")
-                return
-            overlap = today_headlines & yesterday_headlines
-            if overlap:
-                print(f"  {len(overlap)} overlapping headlines with yesterday — filtering out")
-                news_data["items"] = [item for item in news_data["items"] if item.get("headline", "").strip().lower() not in yesterday_headlines]
-                if not news_data["items"]:
-                    print("\nAll headlines already posted yesterday — skipping.")
-                    print("\nDone! No new news to post.")
-                    return
-    except (FileNotFoundError, json.JSONDecodeError, IndexError):
-        pass
+    if not news_data.get("items"):
+        print("No new unique news items after deduplication — skipping save and post.")
+        print("\nDone! No new news to post.")
+        return
+
+    print(f"After dedup: {len(news_data['items'])} unique news items")
+
+    # Step 3.5: Save JSON for website
+    print("\n--- Step 3.5: Saving news data ---")
+    save_news_json(news_data)
 
     # Step 4: Build and send Telegram teaser
     print("\n--- Step 4: Sending Telegram teaser ---")

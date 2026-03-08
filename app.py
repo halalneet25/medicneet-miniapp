@@ -212,6 +212,80 @@ def seed_initial_blogs():
         conn.commit()
     conn.close()
 
+def cleanup_duplicate_blogs():
+    """Remove duplicate blogs from the database, keeping the oldest entry for each title/medium_url."""
+    conn = get_db(); c = conn.cursor()
+    # Find and delete duplicates by title (keep lowest id)
+    c.execute("""DELETE FROM blogs WHERE id NOT IN (
+        SELECT MIN(id) FROM blogs GROUP BY title
+    )""")
+    title_dupes = c.rowcount
+    # Find and delete duplicates by medium_url (keep lowest id)
+    c.execute("""DELETE FROM blogs WHERE id NOT IN (
+        SELECT MIN(id) FROM blogs GROUP BY medium_url
+    )""")
+    url_dupes = c.rowcount
+    conn.commit(); conn.close()
+    if title_dupes or url_dupes:
+        logger.info(f"Cleaned up duplicate blogs: {title_dupes} by title, {url_dupes} by URL")
+
+def cleanup_duplicate_news():
+    """Remove duplicate news items from the current news JSON and archive."""
+    import re
+    news_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "neet_news_data.json")
+    archive_path = news_path.replace(".json", "_archive.json")
+
+    def _norm(headline):
+        text = headline.strip().lower()
+        text = re.sub(r'[^\w\s]', '', text)
+        text = re.sub(r'\s+', ' ', text).strip()
+        return text
+
+    # Clean current news JSON
+    try:
+        with open(news_path, "r") as f:
+            data = json.load(f)
+        seen = set()
+        cleaned = []
+        for item in data.get("items", []):
+            norm = _norm(item.get("headline", ""))
+            if norm and norm not in seen:
+                seen.add(norm)
+                cleaned.append(item)
+        if len(cleaned) < len(data.get("items", [])):
+            data["items"] = cleaned
+            data["has_news"] = len(cleaned) > 0
+            with open(news_path, "w") as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+            logger.info(f"Cleaned {len(data.get('items', [])) - len(cleaned)} duplicate news items from current JSON")
+    except (FileNotFoundError, json.JSONDecodeError):
+        pass
+
+    # Clean archive
+    try:
+        with open(archive_path, "r") as f:
+            archive = json.load(f)
+        all_seen = set()
+        changed = False
+        for day_data in archive:
+            cleaned_items = []
+            for item in day_data.get("items", []):
+                norm = _norm(item.get("headline", ""))
+                if norm and norm not in all_seen:
+                    all_seen.add(norm)
+                    cleaned_items.append(item)
+            if len(cleaned_items) < len(day_data.get("items", [])):
+                changed = True
+            day_data["items"] = cleaned_items
+            day_data["has_news"] = len(cleaned_items) > 0
+        archive = [d for d in archive if d.get("items")]
+        if changed:
+            with open(archive_path, "w") as f:
+                json.dump(archive, f, indent=2, ensure_ascii=False)
+            logger.info(f"Cleaned duplicate news from archive ({len(archive)} days remaining)")
+    except (FileNotFoundError, json.JSONDecodeError):
+        pass
+
 def sync_questions_from_sheet():
     if not GOOGLE_SHEET_ID: return 0
     try:
@@ -656,7 +730,7 @@ async def round_manager():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    init_db(); seed_initial_blogs(); sync_questions_from_sheet(); maybe_create_scheduled_round()
+    init_db(); seed_initial_blogs(); cleanup_duplicate_blogs(); cleanup_duplicate_news(); sync_questions_from_sheet(); maybe_create_scheduled_round()
     task = asyncio.create_task(round_manager()); yield; task.cancel()
 
 app = FastAPI(lifespan=lifespan)
@@ -2570,6 +2644,12 @@ async def api_add_blog(request: Request):
     if not all([title, slug, excerpt, medium_url]):
         raise HTTPException(400, "title, slug, excerpt, medium_url required")
     conn = get_db(); c = conn.cursor()
+    # Check for duplicate slug, title, or medium_url
+    c.execute("SELECT id, title, slug, medium_url FROM blogs WHERE slug = ? OR title = ? OR medium_url = ?", (slug, title, medium_url))
+    existing = c.fetchone()
+    if existing:
+        conn.close()
+        raise HTTPException(409, f"Duplicate blog detected — a blog with the same slug, title, or URL already exists (id={existing['id']})")
     c.execute("INSERT INTO blogs (title, slug, excerpt, thumbnail_emoji, medium_url, category) VALUES (?,?,?,?,?,?)",
               (title, slug, excerpt, thumbnail_emoji, medium_url, category))
     blog_id = c.lastrowid

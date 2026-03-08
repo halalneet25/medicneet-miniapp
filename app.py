@@ -326,14 +326,33 @@ async def send_winner_to_channel(round_id):
     c = conn.cursor()
     now = datetime.utcnow().isoformat()
 
-    # Step 1: Determine final top 5 speed winners from all 4/4 correct users
+    # Step 1: Get all 4/4 correct users
     c.execute("SELECT user_id, user_name, time_ms, prize_amount FROM winners WHERE round_id = ? ORDER BY time_ms ASC", (round_id,))
     all_entries = [dict(r) for r in c.fetchall()]
 
-    speed_winners = all_entries[:2]
-    pool = all_entries[5:]
+    # Step 2: Separate capped (balance >= 50) vs uncapped users
+    capped_users = []
+    uncapped_users = []
+    for entry in all_entries:
+        ce = conn.cursor()
+        ce.execute("SELECT balance FROM wallets WHERE user_id=?", (entry["user_id"],))
+        w_row = ce.fetchone()
+        bal = w_row["balance"] if w_row else 0
+        if bal >= 50:
+            capped_users.append(entry)
+        else:
+            uncapped_users.append(entry)
 
-    # Step 2: Mark and credit speed winners
+    # Step 3: Award 20 Medic Points to all capped users (tracked in transactions)
+    for cu in capped_users:
+        c.execute("UPDATE winners SET winner_type = 'capped_medic' WHERE round_id = ? AND user_id = ?", (round_id, cu["user_id"]))
+        c.execute("INSERT INTO transactions (user_id, amount, type, round_id, status, created_at) VALUES (?,?,?,?,?,?)",
+                 (cu["user_id"], 20, "medic_points_cap", round_id, "completed", now))
+
+    # Step 4: Speed winners from UNCAPPED pool only (top 2)
+    speed_winners = uncapped_users[:2]
+    pool = uncapped_users[5:]
+
     for sw in speed_winners:
         c.execute("UPDATE winners SET winner_type = 'speed' WHERE round_id = ? AND user_id = ?", (round_id, sw["user_id"]))
         c.execute("INSERT INTO wallets (user_id, user_name, balance, total_earned, created_at, updated_at) VALUES (?,?,5,5,?,?) ON CONFLICT(user_id) DO UPDATE SET balance = balance + 5, total_earned = total_earned + 5, updated_at = ?",
@@ -341,10 +360,9 @@ async def send_winner_to_channel(round_id):
         c.execute("INSERT INTO transactions (user_id, amount, type, round_id, status, created_at) VALUES (?,?,?,?,?,?)",
                  (sw["user_id"], 5, "win", round_id, "completed", now))
 
-    # Step 3: Run weighted lucky draw — newcomers get higher chance
+    # Step 5: Weighted lucky draw from UNCAPPED pool
     lucky_count = min(8, len(pool))
     if lucky_count > 0 and pool:
-        # Weight by earnings: less earned = higher chance
         weights = []
         for p in pool:
             earned = 0
@@ -355,7 +373,6 @@ async def send_winner_to_channel(round_id):
             if earned < 30: weights.append(5)
             elif earned < 100: weights.append(2)
             else: weights.append(1)
-        # Weighted sampling without replacement
         lucky_winners = []
         temp_pool = list(pool)
         temp_weights = list(weights)
@@ -367,7 +384,7 @@ async def send_winner_to_channel(round_id):
     else:
         lucky_winners = []
 
-    # Step 4: Credit ₹5 to each lucky winner's wallet
+    # Step 6: Credit cash to lucky winners
     for lw in lucky_winners:
         c.execute("UPDATE winners SET winner_type = 'lucky' WHERE round_id = ? AND user_id = ?", (round_id, lw["user_id"]))
         c.execute("INSERT INTO wallets (user_id, user_name, balance, total_earned, created_at, updated_at) VALUES (?,?,5,5,?,?) ON CONFLICT(user_id) DO UPDATE SET balance = balance + 5, total_earned = total_earned + 5, updated_at = ?",
@@ -375,7 +392,7 @@ async def send_winner_to_channel(round_id):
         c.execute("INSERT INTO transactions (user_id, amount, type, round_id, status, created_at) VALUES (?,?,?,?,?,?)",
                  (lw["user_id"], 5, "win", round_id, "completed", now))
 
-    # Step 5: Remove non-winners from winners table (pool members not selected)
+    # Step 7: Remove non-winners from winners table
     c.execute("DELETE FROM winners WHERE round_id = ? AND (winner_type IS NULL OR winner_type = '')", (round_id,))
 
     conn.commit()
@@ -389,8 +406,10 @@ async def send_winner_to_channel(round_id):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}"
     button = {"inline_keyboard": [[{"text": "🧠 Play Next Round", "url": "https://t.me/Winners_neetbot/Medicneet"}]]}
 
-    all_winners = speed_winners + lucky_winners
-    if not all_winners:
+    all_cash_winners = speed_winners + lucky_winners
+    total_4of4 = len(all_cash_winners) + len(pool) + len(capped_users)
+
+    if not all_cash_winners and not capped_users:
         text = f"""🏆 <b>ROUND #{round_id} RESULTS</b>
 
 No winners this round! 😢
@@ -399,6 +418,23 @@ Nobody scored 4/4 correct.
 👥 {total_participants} players attempted
 
 Better luck next time!
+🔥 Rounds daily at 7:00, 7:30, 8:00, 8:30 PM IST!"""
+    elif not all_cash_winners and capped_users:
+        # All 4/4 scorers were capped
+        capped_lines = []
+        for cu in capped_users:
+            name = html_lib.escape(cu["user_name"] or "Anonymous")
+            capped_lines.append(f"🎯 {name} — 20 Medic Points")
+        capped_text = "\n".join(capped_lines)
+        text = f"""🏆 <b>ROUND #{round_id} RESULTS</b>
+
+All winners earned Medic Points this round!
+
+🎯 <b>Medic Points Earned:</b>
+{capped_text}
+
+👥 {total_4of4}/{total_participants} scored 4/4!
+
 🔥 Rounds daily at 7:00, 7:30, 8:00, 8:30 PM IST!"""
     else:
         sections = []
@@ -418,11 +454,17 @@ Better luck next time!
                 lucky_lines.append(f"🍀 {name} — ₹{CASH_PRIZE} ✅")
             sections.append("🎲 <b>Lucky Winners:</b>\n" + "\n".join(lucky_lines))
 
-        winner_text = "\n\n".join(sections)
-        total_prize = len(all_winners) * CASH_PRIZE
+        if capped_users:
+            capped_lines = []
+            for cu in capped_users:
+                name = html_lib.escape(cu["user_name"] or "Anonymous")
+                capped_lines.append(f"🎯 {name} — 20 Medic Points")
+            sections.append("🎯 <b>Wallet Full — Medic Points:</b>\n" + "\n".join(capped_lines))
 
-        total_4of4 = len(speed_winners) + len(lucky_winners) + len(pool)
-        no_prize_4of4 = total_4of4 - len(all_winners)
+        winner_text = "\n\n".join(sections)
+        total_prize = len(all_cash_winners) * CASH_PRIZE
+
+        no_prize_4of4 = total_4of4 - len(all_cash_winners) - len(capped_users)
         medic_points_line = ""
         if no_prize_4of4 > 0:
             medic_points_line = f"\n\n🎯 {no_prize_4of4} more scored 4/4 — earn 20 Medic Points on the MedicNEET App! 🍎"
@@ -915,13 +957,14 @@ async def api_submit(request: Request):
             }
         # If not 4/4, leave as pending (they can try next round)
 
-    # Read wallet balance if user won
+    # Read wallet balance and check cap status
     wallet_balance = None
-    if iw:
-        c.execute("SELECT balance FROM wallets WHERE user_id = ?", (uid,))
-        w = c.fetchone()
-        if w:
-            wallet_balance = w["balance"]
+    wallet_capped = False
+    c.execute("SELECT balance FROM wallets WHERE user_id = ?", (uid,))
+    w = c.fetchone()
+    if w:
+        wallet_balance = w["balance"]
+        wallet_capped = (w["balance"] or 0) >= 50
 
     # Track played_at for reminder funnel
     try:
@@ -936,7 +979,10 @@ async def api_submit(request: Request):
 
     # Check if user qualifies for MedicPoints offer:
     # Got 4/4 correct but NOT a speed winner and NOT in lucky pool (no cash prize)
-    eligible_for_medicpoints = all_correct and not iw and not in_lucky_pool and not disqualified
+    # OR: user is capped (balance >= 50) and got 4/4 — they earn Medic Points instead of cash
+    eligible_for_medicpoints = all_correct and not disqualified and (
+        (not iw and not in_lucky_pool) or wallet_capped
+    )
 
     # Anti-cheat: hide correct answers and per-question results during prize window
     # so users can't use one account to see answers and another to submit them
@@ -955,6 +1001,7 @@ async def api_submit(request: Request):
             "prize_window_active": True,
             "challenge_result": challenge_result,
             "wallet_balance": wallet_balance,
+            "wallet_capped": wallet_capped,
             "eligible_for_medicpoints": eligible_for_medicpoints,
             "medicpoints_amount": 20 if eligible_for_medicpoints else 0,
             "round_id": rid
@@ -975,6 +1022,7 @@ async def api_submit(request: Request):
         "prize_window_active": False,
         "challenge_result": challenge_result,
         "wallet_balance": wallet_balance,
+        "wallet_capped": wallet_capped,
         "eligible_for_medicpoints": eligible_for_medicpoints,
         "medicpoints_amount": 20 if eligible_for_medicpoints else 0,
         "round_id": rid
@@ -1493,19 +1541,22 @@ async def api_wallet(user_id: str):
 
     if not wallet:
         conn.close()
-        return {"balance": 0, "total_earned": 0, "upi_id": None, "withdrawal_count": 0, "transactions": []}
+        return {"balance": 0, "total_earned": 0, "upi_id": None, "withdrawal_count": 0, "is_capped": False, "transactions": []}
 
-    # Get transactions (wins only)
-    c.execute("SELECT amount, type, round_id, created_at FROM transactions WHERE user_id = ? AND type = 'win' ORDER BY created_at DESC LIMIT 50", (user_id,))
+    balance = wallet["balance"] or 0
+
+    # Get transactions (wins and medic_points_cap)
+    c.execute("SELECT amount, type, round_id, created_at FROM transactions WHERE user_id = ? AND type IN ('win', 'medic_points_cap') ORDER BY created_at DESC LIMIT 50", (user_id,))
     transactions = [dict(t) for t in c.fetchall()]
 
     conn.close()
 
     return {
-        "balance": wallet["balance"],
+        "balance": balance,
         "total_earned": wallet["total_earned"],
         "upi_id": wallet["upi_id"],
         "withdrawal_count": wallet["withdrawal_count"] or 0,
+        "is_capped": balance >= 50,
         "transactions": transactions
     }
 

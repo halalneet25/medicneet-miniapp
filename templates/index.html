@@ -3172,6 +3172,12 @@
                 </div>
             </div>
 
+            <div id="walletCappedBanner" style="display:none;text-align:center;padding:16px 20px;background:linear-gradient(135deg, #fff3e0, #ffe0b2);border:2px solid var(--orange);border-radius:18px;margin-bottom:16px;box-shadow:0 3px 0 var(--orange-dk)">
+                <div style="font-size:28px;margin-bottom:8px">💰</div>
+                <div style="font-size:16px;font-weight:800;color:var(--orange-dk);margin-bottom:4px">Wallet Full!</div>
+                <div style="font-size:13px;font-weight:600;color:var(--txt2)">Withdraw your ₹<span id="cappedBannerAmount">50</span> to start earning cash again. You're earning Medic Points for now!</div>
+            </div>
+
             <div id="withdrawSection" style="display:none;margin-bottom:20px">
                 <div class="winner-form">
                     <h3>💸 Withdraw Money</h3>
@@ -4093,7 +4099,16 @@
             lastScore = correctCount;
             lastTime = ts;
 
-            if (data.is_current_winner && inPrizeWindow) {
+            if (data.wallet_capped && allCorrect && inPrizeWindow) {
+                // Capped user got 4/4 — earns Medic Points, not cash
+                card.className = 'result-card correct';
+                document.getElementById('resultIcon').textContent = '🎯';
+                document.getElementById('resultTitle').textContent = '20 Medic Points!';
+                document.getElementById('resultTitle').className = 'result-title correct-text';
+                document.getElementById('resultSub').innerHTML = '💰 Your wallet is full! Withdraw ₹' + (data.wallet_balance || 50) + ' to start earning cash again.<br>Meanwhile, you\'re earning Medic Points!';
+                document.getElementById('resultTime').style.color = 'var(--green-dk)';
+            }
+            else if (data.is_current_winner && inPrizeWindow) {
                 card.className = 'result-card win';
                 document.getElementById('resultIcon').textContent = '🏆';
                 document.getElementById('resultTitle').textContent = "SPEED WINNER!";
@@ -4822,15 +4837,28 @@
                 document.getElementById('walletCurrentBalance').textContent = balance;
                 document.getElementById('walletTotalEarned').textContent = totalEarned;
 
-                // Show/hide withdraw section based on balance
-                if (balance >= 50) {
+                // Show/hide withdraw section and capped banner
+                const cappedBanner = document.getElementById('walletCappedBanner');
+                if (data.is_capped) {
+                    // Wallet is full — show prominent withdraw banner
                     document.getElementById('withdrawSection').style.display = 'block';
                     document.getElementById('withdrawMinMessage').style.display = 'none';
                     document.getElementById('withdrawAmount').textContent = balance;
+                    if (cappedBanner) {
+                        cappedBanner.style.display = 'block';
+                        const cappedAmountEl = document.getElementById('cappedBannerAmount');
+                        if (cappedAmountEl) cappedAmountEl.textContent = balance;
+                    }
+                } else if (balance >= 50) {
+                    document.getElementById('withdrawSection').style.display = 'block';
+                    document.getElementById('withdrawMinMessage').style.display = 'none';
+                    document.getElementById('withdrawAmount').textContent = balance;
+                    if (cappedBanner) cappedBanner.style.display = 'none';
                 } else {
                     document.getElementById('withdrawSection').style.display = 'none';
                     document.getElementById('withdrawMinMessage').style.display = 'block';
                     document.getElementById('needMoreAmount').textContent = 50 - balance;
+                    if (cappedBanner) cappedBanner.style.display = 'none';
                 }
 
                 // Display transactions
@@ -4839,12 +4867,18 @@
                     let txHTML = '';
                     data.transactions.forEach(tx => {
                         const date = new Date(tx.created_at).toLocaleDateString();
-                        txHTML += `<div class="lb-row" style="background:var(--green-lt);border-color:var(--green)">
+                        const isMedicPoints = tx.type === 'medic_points_cap';
+                        const bgColor = isMedicPoints ? 'var(--bg2)' : 'var(--green-lt)';
+                        const borderColor = isMedicPoints ? 'var(--border)' : 'var(--green)';
+                        const amountColor = isMedicPoints ? 'var(--txt2)' : 'var(--green)';
+                        const amountText = isMedicPoints ? `+${tx.amount} MP` : `+₹${tx.amount}`;
+                        const label = isMedicPoints ? `Round #${tx.round_id || '?'} (Wallet Full)` : `Round #${tx.round_id || '?'}`;
+                        txHTML += `<div class="lb-row" style="background:${bgColor};border-color:${borderColor}">
                             <div style="flex:1">
-                                <div style="font-weight:700;font-size:14px">Round #${tx.round_id || '?'}</div>
+                                <div style="font-weight:700;font-size:14px">${label}</div>
                                 <div style="font-size:11px;color:var(--txt3);font-weight:700">${date}</div>
                             </div>
-                            <div style="font-weight:800;font-size:16px;color:var(--green)">+₹${tx.amount}</div>
+                            <div style="font-weight:800;font-size:16px;color:${amountColor}">${amountText}</div>
                         </div>`;
                     });
                     txList.innerHTML = txHTML;
@@ -4913,7 +4947,9 @@
             let message = '';
 
             // Check conditions for encouragement messages
-            if (data.current_balance >= 45 && data.current_balance < 50) {
+            if (data.current_balance >= 50) {
+                message = '💰 Wallet full! Withdraw now to start earning cash again.';
+            } else if (data.current_balance >= 45 && data.current_balance < 50) {
                 message = `Almost there! ₹${50 - data.current_balance} more to withdraw!`;
             } else if (data.win_rate < 50 && data.rounds_played > 0) {
                 message = '💡 Tip: Read questions carefully and think before answering!';

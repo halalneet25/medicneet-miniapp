@@ -4787,10 +4787,28 @@
         }
 
         async function claimMedicPoints() {
-            const email = document.getElementById('mpEmailInput').value.trim();
+            const emailInput = document.getElementById('mpEmailInput');
+            const email = emailInput.value.trim().toLowerCase();
             if (!email || !email.includes('@')) {
-                document.getElementById('mpEmailInput').style.borderColor = '#ef4444';
+                emailInput.style.borderColor = '#ef4444';
                 return;
+            }
+            // Catch common email domain typos
+            const domain = email.split('@')[1] || '';
+            const typoMap = {
+                'gmail.co': 'gmail.com', 'gmail.con': 'gmail.com', 'gmail.cm': 'gmail.com',
+                'gmail.om': 'gmail.com', 'gmai.com': 'gmail.com', 'gmial.com': 'gmail.com',
+                'gamil.com': 'gmail.com', 'gmal.com': 'gmail.com', 'gnail.com': 'gmail.com',
+                'yahoo.co': 'yahoo.com', 'yahoo.con': 'yahoo.com',
+                'outlok.com': 'outlook.com', 'outloo.com': 'outlook.com',
+                'hotmal.com': 'hotmail.com', 'hotmai.com': 'hotmail.com',
+            };
+            if (typoMap[domain]) {
+                const corrected = email.replace('@' + domain, '@' + typoMap[domain]);
+                if (confirm('Did you mean ' + corrected + '?\n\nClick OK to use the corrected email, or Cancel to keep ' + email)) {
+                    emailInput.value = corrected;
+                    return claimMedicPoints();
+                }
             }
             const btn = document.getElementById('mpClaimBtn');
             btn.disabled = true;
@@ -5468,6 +5486,25 @@
             if (!email || !email.includes('@')) {
                 alert('Please enter a valid email address');
                 return;
+            }
+            // Catch common email domain typos
+            const domain = email.split('@')[1] || '';
+            const typoMap = {
+                'gmail.co': 'gmail.com', 'gmail.con': 'gmail.com', 'gmail.cm': 'gmail.com',
+                'gmail.om': 'gmail.com', 'gmai.com': 'gmail.com', 'gmial.com': 'gmail.com',
+                'gamil.com': 'gmail.com', 'gmal.com': 'gmail.com', 'gnail.com': 'gmail.com',
+                'yahoo.co': 'yahoo.com', 'yahoo.con': 'yahoo.com',
+                'outlok.com': 'outlook.com', 'outloo.com': 'outlook.com',
+                'hotmal.com': 'hotmail.com', 'hotmai.com': 'hotmail.com',
+            };
+            if (typoMap[domain]) {
+                const corrected = email.replace('@' + domain, '@' + typoMap[domain]);
+                if (!confirm('Did you mean ' + corrected + '?\n\nClick OK to use the corrected email, or Cancel to keep ' + email)) {
+                    // User wants to keep original — proceed
+                } else {
+                    input.value = corrected;
+                    return wgLinkMpEmail(); // Retry with corrected email
+                }
             }
             statusEl.textContent = 'Linking...';
             try {

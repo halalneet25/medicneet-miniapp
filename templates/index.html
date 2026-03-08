@@ -3175,7 +3175,7 @@
             <div id="walletCappedBanner" style="display:none;text-align:center;padding:16px 20px;background:linear-gradient(135deg, #fff3e0, #ffe0b2);border:2px solid var(--orange);border-radius:18px;margin-bottom:16px;box-shadow:0 3px 0 var(--orange-dk)">
                 <div style="font-size:28px;margin-bottom:8px">💰</div>
                 <div style="font-size:16px;font-weight:800;color:var(--orange-dk);margin-bottom:4px">Wallet Full!</div>
-                <div style="font-size:13px;font-weight:600;color:var(--txt2)">Withdraw ₹50 to start earning cash again. You're earning Medic Points for now!</div>
+                <div style="font-size:13px;font-weight:600;color:var(--txt2)">Withdraw your ₹<span id="cappedBannerAmount">50</span> to start earning cash again. You're earning Medic Points for now!</div>
             </div>
 
             <div id="withdrawSection" style="display:none;margin-bottom:20px">
@@ -4105,7 +4105,7 @@
                 document.getElementById('resultIcon').textContent = '🎯';
                 document.getElementById('resultTitle').textContent = '20 Medic Points!';
                 document.getElementById('resultTitle').className = 'result-title correct-text';
-                document.getElementById('resultSub').innerHTML = '💰 Your wallet is full! Withdraw ₹50 to start earning cash again.<br>Meanwhile, you\'re earning Medic Points!';
+                document.getElementById('resultSub').innerHTML = '💰 Your wallet is full! Withdraw ₹' + (data.wallet_balance || 50) + ' to start earning cash again.<br>Meanwhile, you\'re earning Medic Points!';
                 document.getElementById('resultTime').style.color = 'var(--green-dk)';
             }
             else if (data.is_current_winner && inPrizeWindow) {
@@ -4844,7 +4844,11 @@
                     document.getElementById('withdrawSection').style.display = 'block';
                     document.getElementById('withdrawMinMessage').style.display = 'none';
                     document.getElementById('withdrawAmount').textContent = balance;
-                    if (cappedBanner) cappedBanner.style.display = 'block';
+                    if (cappedBanner) {
+                        cappedBanner.style.display = 'block';
+                        const cappedAmountEl = document.getElementById('cappedBannerAmount');
+                        if (cappedAmountEl) cappedAmountEl.textContent = balance;
+                    }
                 } else if (balance >= 50) {
                     document.getElementById('withdrawSection').style.display = 'block';
                     document.getElementById('withdrawMinMessage').style.display = 'none';

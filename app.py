@@ -464,10 +464,16 @@ All winners earned Medic Points this round!
         winner_text = "\n\n".join(sections)
         total_prize = len(all_cash_winners) * CASH_PRIZE
 
-        no_prize_4of4 = total_4of4 - len(all_cash_winners) - len(capped_users)
+        # Collect names of 4/4 scorers who didn't win cash or capped points
+        winner_ids = set(w["user_id"] for w in all_cash_winners)
+        capped_ids = set(cu["user_id"] for cu in capped_users)
+        also_4of4 = [html_lib.escape(e["user_name"] or "Anonymous") for e in all_entries if e["user_id"] not in winner_ids and e["user_id"] not in capped_ids]
+        also_line = ""
+        if also_4of4:
+            also_line = f"\n\n✅ Also scored 4/4: {', '.join(also_4of4)}"
         medic_points_line = ""
-        if no_prize_4of4 > 0:
-            medic_points_line = f"\n\n🎯 {no_prize_4of4} more scored 4/4 — earn 20 Medic Points on the MedicNEET App! 🍎"
+        if also_4of4:
+            medic_points_line = f"{also_line}\n🎯 All earn 20 Medic Points on the MedicNEET App! 🍎"
 
         text = f"""🏆 <b>ROUND #{round_id} RESULTS</b>
 

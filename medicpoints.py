@@ -135,7 +135,7 @@ def preload_points_for_email(email: str, telegram_id: str, telegram_name: str, r
 
     if db:
         try:
-            # Search for existing Flutter app user with this email
+            # Search for existing Flutter app user with this email in Firestore
             query = db.collection("users").where("email", "==", email_clean).limit(1)
             results = list(query.stream())
 
@@ -143,6 +143,23 @@ def preload_points_for_email(email: str, telegram_id: str, telegram_name: str, r
                 # Try original case
                 query2 = db.collection("users").where("email", "==", email.strip()).limit(1)
                 results = list(query2.stream())
+
+            # Fallback: look up user by email in Firebase Auth
+            if not results:
+                try:
+                    from firebase_admin import auth as firebase_auth
+                    auth_user = firebase_auth.get_user_by_email(email_clean)
+                    if auth_user:
+                        # Found in Firebase Auth - check if they have a Firestore doc
+                        user_doc_ref = db.collection("users").document(auth_user.uid)
+                        user_doc_snap = user_doc_ref.get()
+                        if user_doc_snap.exists:
+                            results = [user_doc_snap]
+                            # Backfill the email field so future lookups work
+                            user_doc_ref.set({"email": email_clean}, merge=True)
+                            logger.info(f"Backfilled email for Firebase Auth user {auth_user.uid}")
+                except Exception as auth_e:
+                    logger.debug(f"Firebase Auth lookup failed for {email_clean}: {auth_e}")
 
             if results:
                 # Existing user found - add points to their account
@@ -328,6 +345,22 @@ def get_user_medicpoints(telegram_id: str) -> dict:
             # Try original case
             query2 = db.collection("users").where("email", "==", email.strip()).limit(1)
             results = list(query2.stream())
+
+        # Fallback: look up user by email in Firebase Auth
+        if not results:
+            try:
+                from firebase_admin import auth as firebase_auth
+                auth_user = firebase_auth.get_user_by_email(email)
+                if auth_user:
+                    user_doc_ref = db.collection("users").document(auth_user.uid)
+                    user_doc_snap = user_doc_ref.get()
+                    if user_doc_snap.exists:
+                        results = [user_doc_snap]
+                        # Backfill the email field so future lookups work
+                        user_doc_ref.set({"email": email}, merge=True)
+                        logger.info(f"Backfilled email for Firebase Auth user {auth_user.uid} in get_user_medicpoints")
+            except Exception as auth_e:
+                logger.debug(f"Firebase Auth lookup failed for {email}: {auth_e}")
 
         if results:
             user_data = results[0].to_dict()

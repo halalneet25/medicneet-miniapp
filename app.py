@@ -551,9 +551,22 @@ All winners earned Medic Points this round!
         if also_4of4:
             medic_points_line = f"{also_line}\n🎯 All earn 20 Medic Points on the MedicNEET App! 🍎"
 
+        # Check for DQs this round
+        c2 = conn.cursor()
+        c2.execute("SELECT user_name, (SELECT COUNT(*) FROM disqualifications d2 WHERE d2.user_id=d.user_id) as total_dqs FROM disqualifications d WHERE d.round_id=? ORDER BY total_dqs DESC", (round_id,))
+        dq_rows = c2.fetchall()
+        dq_line = ""
+        if dq_rows:
+            dq_entries = []
+            for dq in dq_rows:
+                name = html_lib.escape(dq["user_name"] or "Anonymous")
+                total = dq["total_dqs"]
+                dq_entries.append(f"❌ {name} — speed violation ({total}/3 strikes)")
+            dq_line = "\n\n🚫 <b>Disqualified:</b>\n" + "\n".join(dq_entries)
+
         text = f"""🏆 <b>ROUND #{round_id} RESULTS</b>
 
-{winner_text}
+{winner_text}{dq_line}
 
 💰 Total paid: ₹{total_prize}
 👥 {total_4of4}/{total_participants} scored 4/4!{medic_points_line}
@@ -947,6 +960,15 @@ async def api_submit(request: Request):
     if disqualified:
         c.execute("INSERT INTO disqualifications (user_id, user_name, round_id, question_times, created_at) VALUES (?,?,?,?,?)",
                   (uid, un, rid, json.dumps(question_times), datetime.utcnow().isoformat()))
+        # Check if 3+ DQs — auto-ban
+        c.execute("SELECT COUNT(*) as cnt FROM disqualifications WHERE user_id=?", (uid,))
+        dq_count = c.fetchone()["cnt"]
+        if dq_count >= 3:
+            c.execute("CREATE TABLE IF NOT EXISTS blocked_users (user_id TEXT PRIMARY KEY, reason TEXT, blocked_at TEXT DEFAULT CURRENT_TIMESTAMP)")
+            c.execute("INSERT OR REPLACE INTO blocked_users VALUES (?, ?, CURRENT_TIMESTAMP)", (uid, f"Auto-banned: {dq_count} DQs"))
+            c.execute("UPDATE wallets SET balance=0, total_earned=0 WHERE user_id=?", (uid,))
+            logger.info(f"AUTO-BANNED user {uid} ({un}) after {dq_count} DQs")
+
         conn.commit()
         conn.close()
         return {"disqualified": True, "reason": "Suspicious answer speed detected. Each question requires minimum reading time."}

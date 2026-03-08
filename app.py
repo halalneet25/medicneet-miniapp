@@ -425,7 +425,7 @@ async def send_winner_to_channel(round_id):
 
     # Step 4: Speed winners from UNCAPPED pool only (top 2)
     speed_winners = uncapped_users[:2]
-    pool = uncapped_users[5:]
+    pool = uncapped_users[2:]
 
     for sw in speed_winners:
         c.execute("UPDATE winners SET winner_type = 'speed' WHERE round_id = ? AND user_id = ?", (round_id, sw["user_id"]))

@@ -492,7 +492,9 @@ Nobody scored 4/4 correct.
 👥 {total_participants} players attempted
 
 Better luck next time!
-🔥 Rounds daily at 7:00, 7:30, 8:00, 8:30 PM IST!"""
+🔥 Rounds daily at 7:00, 7:30, 8:00, 8:30 PM IST!
+
+🍎 <b>What are Medic Points?</b> Earn them by solving questions on the MedicNEET App. Link your email to transfer points. Top scorer wins iPad + Apple Pencil after NEET 2026!"""
     elif not all_cash_winners and capped_users:
         # All 4/4 scorers were capped
         capped_lines = []

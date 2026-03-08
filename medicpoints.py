@@ -135,7 +135,7 @@ def preload_points_for_email(email: str, telegram_id: str, telegram_name: str, r
 
     if db:
         try:
-            # Search for existing Flutter app user with this email
+            # Search for existing Flutter app user with this email in Firestore
             query = db.collection("users").where("email", "==", email_clean).limit(1)
             results = list(query.stream())
 
@@ -143,6 +143,23 @@ def preload_points_for_email(email: str, telegram_id: str, telegram_name: str, r
                 # Try original case
                 query2 = db.collection("users").where("email", "==", email.strip()).limit(1)
                 results = list(query2.stream())
+
+            # Fallback: look up user by email in Firebase Auth
+            if not results:
+                try:
+                    from firebase_admin import auth as firebase_auth
+                    auth_user = firebase_auth.get_user_by_email(email_clean)
+                    if auth_user:
+                        # Found in Firebase Auth - check if they have a Firestore doc
+                        user_doc_ref = db.collection("users").document(auth_user.uid)
+                        user_doc_snap = user_doc_ref.get()
+                        if user_doc_snap.exists:
+                            results = [user_doc_snap]
+                            # Backfill the email field so future lookups work
+                            user_doc_ref.set({"email": email_clean}, merge=True)
+                            logger.info(f"Backfilled email for Firebase Auth user {auth_user.uid}")
+                except Exception as auth_e:
+                    logger.debug(f"Firebase Auth lookup failed for {email_clean}: {auth_e}")
 
             if results:
                 # Existing user found - add points to their account
@@ -275,6 +292,85 @@ def check_and_apply_pending_points(firebase_uid: str, email: str) -> int:
         return 0
 
 
+def flush_pending_medicpoints() -> dict:
+    """
+    One-time migration: apply all pending_medicpoints to users who already
+    exist in Firebase Auth. Call on server startup to fix current users who
+    claimed points in the Mini App but never received them because their
+    Firestore user doc was missing the email field.
+
+    Returns dict with counts of applied/skipped/failed.
+    """
+    db = get_firestore()
+    if not db:
+        return {"applied": 0, "skipped": 0, "error": "Firebase unavailable"}
+
+    applied = 0
+    skipped = 0
+    failed = 0
+
+    try:
+        from firebase_admin import auth as firebase_auth
+
+        # Get all pending_medicpoints docs
+        pending_docs = list(db.collection("pending_medicpoints").stream())
+        logger.info(f"flush_pending_medicpoints: found {len(pending_docs)} pending docs")
+
+        for pending_doc_snap in pending_docs:
+            email = pending_doc_snap.id  # doc ID is the email
+            pending_data = pending_doc_snap.to_dict()
+            points = pending_data.get("points", 0)
+
+            if points <= 0:
+                skipped += 1
+                continue
+
+            try:
+                # Look up user in Firebase Auth by email
+                auth_user = firebase_auth.get_user_by_email(email)
+                firebase_uid = auth_user.uid
+
+                # Get their Firestore user doc
+                user_ref = db.collection("users").document(firebase_uid)
+                user_doc = user_ref.get()
+                current_data = user_doc.to_dict() if user_doc.exists else {}
+                current_points = current_data.get("medicPoints", 0)
+                new_total = current_points + points
+
+                # Apply points
+                user_ref.set({
+                    "medicPoints": new_total,
+                    "miniAppBonus": True,
+                    "email": email,
+                    "miniAppTelegramId": pending_data.get("telegramId", ""),
+                }, merge=True)
+
+                # Update leaderboard
+                username = current_data.get("username", "")
+                if username:
+                    db.collection("leaderboard").document(firebase_uid).set({
+                        "medicPoints": new_total,
+                        "username": username,
+                    }, merge=True)
+
+                # Delete pending doc
+                db.collection("pending_medicpoints").document(email).delete()
+
+                applied += 1
+                logger.info(f"Flushed {points} pending points to {firebase_uid} ({email}): {current_points} -> {new_total}")
+
+            except Exception:
+                # User not in Firebase Auth yet - leave pending for when they sign up
+                skipped += 1
+
+    except Exception as e:
+        logger.error(f"flush_pending_medicpoints error: {e}")
+        return {"applied": applied, "skipped": skipped, "failed": failed, "error": str(e)}
+
+    logger.info(f"flush_pending_medicpoints complete: applied={applied}, skipped={skipped}")
+    return {"applied": applied, "skipped": skipped, "failed": failed}
+
+
 def get_user_medicpoints(telegram_id: str) -> dict:
     """
     Get a user's total MedicPoints from Firebase.
@@ -328,6 +424,22 @@ def get_user_medicpoints(telegram_id: str) -> dict:
             # Try original case
             query2 = db.collection("users").where("email", "==", email.strip()).limit(1)
             results = list(query2.stream())
+
+        # Fallback: look up user by email in Firebase Auth
+        if not results:
+            try:
+                from firebase_admin import auth as firebase_auth
+                auth_user = firebase_auth.get_user_by_email(email)
+                if auth_user:
+                    user_doc_ref = db.collection("users").document(auth_user.uid)
+                    user_doc_snap = user_doc_ref.get()
+                    if user_doc_snap.exists:
+                        results = [user_doc_snap]
+                        # Backfill the email field so future lookups work
+                        user_doc_ref.set({"email": email}, merge=True)
+                        logger.info(f"Backfilled email for Firebase Auth user {auth_user.uid} in get_user_medicpoints")
+            except Exception as auth_e:
+                logger.debug(f"Firebase Auth lookup failed for {email}: {auth_e}")
 
         if results:
             user_data = results[0].to_dict()

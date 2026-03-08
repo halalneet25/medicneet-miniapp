@@ -14,7 +14,7 @@ from contextlib import asynccontextmanager
 from urllib.parse import parse_qsl
 import httpx
 from fastapi import FastAPI, Request, HTTPException
-from medicpoints import preload_points_for_email, get_claim_status, init_medicpoints_table, get_user_medicpoints, upload_to_google_drive
+from medicpoints import preload_points_for_email, get_claim_status, init_medicpoints_table, get_user_medicpoints, upload_to_google_drive, flush_pending_medicpoints
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -757,6 +757,12 @@ async def round_manager():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db(); seed_initial_blogs(); cleanup_duplicate_blogs(); cleanup_duplicate_news(); sync_questions_from_sheet(); maybe_create_scheduled_round()
+    # Flush pending MedicPoints for users who already exist in Firebase Auth
+    try:
+        result = flush_pending_medicpoints()
+        logger.info(f"Startup flush_pending_medicpoints: {result}")
+    except Exception as e:
+        logger.error(f"Startup flush_pending_medicpoints failed: {e}")
     task = asyncio.create_task(round_manager()); yield; task.cancel()
 
 app = FastAPI(lifespan=lifespan)

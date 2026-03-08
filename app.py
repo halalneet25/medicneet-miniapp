@@ -2570,6 +2570,12 @@ async def api_add_blog(request: Request):
     if not all([title, slug, excerpt, medium_url]):
         raise HTTPException(400, "title, slug, excerpt, medium_url required")
     conn = get_db(); c = conn.cursor()
+    # Check for duplicate slug, title, or medium_url
+    c.execute("SELECT id, title, slug, medium_url FROM blogs WHERE slug = ? OR title = ? OR medium_url = ?", (slug, title, medium_url))
+    existing = c.fetchone()
+    if existing:
+        conn.close()
+        raise HTTPException(409, f"Duplicate blog detected — a blog with the same slug, title, or URL already exists (id={existing['id']})")
     c.execute("INSERT INTO blogs (title, slug, excerpt, thumbnail_emoji, medium_url, category) VALUES (?,?,?,?,?,?)",
               (title, slug, excerpt, thumbnail_emoji, medium_url, category))
     blog_id = c.lastrowid

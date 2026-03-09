@@ -423,17 +423,22 @@ async def send_winner_to_channel(round_id):
         c.execute("INSERT INTO transactions (user_id, amount, type, round_id, status, created_at) VALUES (?,?,?,?,?,?)",
                  (cu["user_id"], 20, "medic_points_cap", round_id, "completed", now))
 
-    
+
+    # Idempotency check: skip wallet crediting if already done for this round
+    c.execute("SELECT COUNT(*) as cnt FROM transactions WHERE round_id = ? AND type = 'win'", (round_id,))
+    already_credited = c.fetchone()["cnt"] > 0
+
     # Step 4: Speed winners from UNCAPPED pool only (top 2)
     speed_winners = uncapped_users[:2]
     pool = uncapped_users[2:]
 
     for sw in speed_winners:
         c.execute("UPDATE winners SET winner_type = 'speed' WHERE round_id = ? AND user_id = ?", (round_id, sw["user_id"]))
-        c.execute("INSERT INTO wallets (user_id, user_name, balance, total_earned, created_at, updated_at) VALUES (?,?,5,5,?,?) ON CONFLICT(user_id) DO UPDATE SET balance = balance + 5, total_earned = total_earned + 5, updated_at = ?",
-                 (sw["user_id"], sw["user_name"], now, now, now))
-        c.execute("INSERT INTO transactions (user_id, amount, type, round_id, status, created_at) VALUES (?,?,?,?,?,?)",
-                 (sw["user_id"], 5, "win", round_id, "completed", now))
+        if not already_credited:
+            c.execute("INSERT INTO wallets (user_id, user_name, balance, total_earned, created_at, updated_at) VALUES (?,?,5,5,?,?) ON CONFLICT(user_id) DO UPDATE SET balance = balance + 5, total_earned = total_earned + 5, updated_at = ?",
+                     (sw["user_id"], sw["user_name"], now, now, now))
+            c.execute("INSERT INTO transactions (user_id, amount, type, round_id, status, created_at) VALUES (?,?,?,?,?,?)",
+                     (sw["user_id"], 5, "win", round_id, "completed", now))
 
     # Step 5: Weighted lucky draw from UNCAPPED pool
     lucky_count = min(8, len(pool))
@@ -462,10 +467,11 @@ async def send_winner_to_channel(round_id):
     # Step 6: Credit cash to lucky winners
     for lw in lucky_winners:
         c.execute("UPDATE winners SET winner_type = 'lucky' WHERE round_id = ? AND user_id = ?", (round_id, lw["user_id"]))
-        c.execute("INSERT INTO wallets (user_id, user_name, balance, total_earned, created_at, updated_at) VALUES (?,?,5,5,?,?) ON CONFLICT(user_id) DO UPDATE SET balance = balance + 5, total_earned = total_earned + 5, updated_at = ?",
-                 (lw["user_id"], lw["user_name"], now, now, now))
-        c.execute("INSERT INTO transactions (user_id, amount, type, round_id, status, created_at) VALUES (?,?,?,?,?,?)",
-                 (lw["user_id"], 5, "win", round_id, "completed", now))
+        if not already_credited:
+            c.execute("INSERT INTO wallets (user_id, user_name, balance, total_earned, created_at, updated_at) VALUES (?,?,5,5,?,?) ON CONFLICT(user_id) DO UPDATE SET balance = balance + 5, total_earned = total_earned + 5, updated_at = ?",
+                     (lw["user_id"], lw["user_name"], now, now, now))
+            c.execute("INSERT INTO transactions (user_id, amount, type, round_id, status, created_at) VALUES (?,?,?,?,?,?)",
+                     (lw["user_id"], 5, "win", round_id, "completed", now))
 
     # Step 7: Remove non-winners from winners table
     c.execute("DELETE FROM winners WHERE round_id = ? AND (winner_type IS NULL OR winner_type = '')", (round_id,))
@@ -475,8 +481,6 @@ async def send_winner_to_channel(round_id):
     # Get total participants count
     c.execute("SELECT COUNT(DISTINCT user_id) as cnt FROM attempts WHERE round_id = ?", (round_id,))
     total_participants = c.fetchone()["cnt"]
-
-    conn.close()
 
     url = f"https://api.telegram.org/bot{BOT_TOKEN}"
     button = {"inline_keyboard": [[{"text": "🧠 Play Next Round", "url": "https://t.me/Winners_neetbot/Medicneet"}]]}
@@ -580,6 +584,8 @@ All winners earned Medic Points this round!
             logger.info(f"Round {round_id} announcement: {resp.status_code}")
     except Exception as e:
         logger.error(f"Failed to send round {round_id} announcement: {e}")
+    finally:
+        conn.close()
 
 async def send_new_round_to_channel():
     """Post new question alert with quiz button to channel"""
@@ -592,8 +598,11 @@ async def send_new_round_to_channel():
 👇 Answer now!"""
     url = f"https://api.telegram.org/bot{BOT_TOKEN}"
     button = {"inline_keyboard": [[{"text": "🧠 Play Quiz - Win ₹5!", "url": "https://t.me/Winners_neetbot/Medicneet"}]]}
-    async with httpx.AsyncClient() as client:
-        await client.post(f"{url}/sendMessage", json={"chat_id": CHANNEL_ID, "text": text, "parse_mode": "HTML", "reply_markup": button})
+    try:
+        async with httpx.AsyncClient() as client:
+            await client.post(f"{url}/sendMessage", json={"chat_id": CHANNEL_ID, "text": text, "parse_mode": "HTML", "reply_markup": button})
+    except Exception as e:
+        logger.error(f"Failed to send new round announcement: {e}")
 
 def export_emails_csv():
     conn = get_db(); c = conn.cursor()
@@ -712,13 +721,17 @@ async def send_mid_round_notification(round_id, msg_type):
 async def round_manager():
     last_export_date = None
     while True:
+        conn = None
         try:
             conn = get_db(); c = conn.cursor(); now = datetime.utcnow(); now_str = now.isoformat()
             c.execute("SELECT r.id FROM rounds r WHERE r.prize_ends_at <= ? AND r.announced = 0", (now_str,))
             for rnd in c.fetchall():
-                c.execute("UPDATE rounds SET announced = 1 WHERE id = ?", (rnd["id"],))
-                conn.commit()
-                await send_winner_to_channel(rnd["id"])
+                try:
+                    await send_winner_to_channel(rnd["id"])
+                    c.execute("UPDATE rounds SET announced = 1 WHERE id = ?", (rnd["id"],))
+                    conn.commit()
+                except Exception as e:
+                    logger.error(f"send_winner_to_channel failed for round {rnd['id']}, will retry: {e}")
             # Mid-round notifications
             c.execute("SELECT r.id, r.started_at, r.prize_ends_at, r.ends_at FROM rounds r WHERE r.ends_at > ? AND r.announced = 0", (now_str,))
             for rnd in c.fetchall():
@@ -740,13 +753,17 @@ async def round_manager():
             # Expire old challenges (24 hours)
             c.execute("UPDATE challenges SET status = 'expired' WHERE status = 'pending' AND created_at < ?",
                      ((now - timedelta(hours=24)).isoformat(),))
-            conn.commit(); conn.close()
+            conn.commit()
             # Check if it's time to create a scheduled round
             maybe_create_scheduled_round()
             today_str = now.strftime("%Y-%m-%d")
             if now.hour == 2 and now.minute >= 30 and last_export_date != today_str:
                 send_daily_email_export(); last_export_date = today_str
-        except Exception as e: logger.error(f"Round manager: {e}")
+        except Exception as e:
+            logger.error(f"Round manager: {e}")
+        finally:
+            if conn:
+                conn.close()
         await asyncio.sleep(30)
 
 @asynccontextmanager
@@ -991,10 +1008,11 @@ async def api_submit(request: Request):
     prize_ends_at = rnd["prize_ends_at"]
     in_prize_window = prize_ends_at and now <= prize_ends_at
 
-    if ic and in_prize_window:
+    if ic and in_prize_window and not rnd["announced"]:
         # Add to winners table (all 4/4 correct users during prize window)
         # Wallet crediting happens in send_winner_to_channel when prize window ends
         # so final top 5 are determined once, not on every submit
+        # Skip if round already announced (winners already processed)
         c.execute("INSERT OR IGNORE INTO winners (round_id,user_id,user_name,time_ms,prize_amount) VALUES (?,?,?,?,?)", (rid, uid, un, tms, 5))
 
         # Check if user is currently in top 5 fastest (for UI feedback only, no crediting)

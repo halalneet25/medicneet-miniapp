@@ -574,8 +574,12 @@ All winners earned Medic Points this round!
 
 🔥 Rounds daily at 7:00, 7:30, 8:00, 8:30 PM IST!"""
 
-    async with httpx.AsyncClient() as client:
-        await client.post(f"{url}/sendMessage", json={"chat_id": CHANNEL_ID, "text": text, "parse_mode": "HTML", "reply_markup": button})
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(f"{url}/sendMessage", json={"chat_id": CHANNEL_ID, "text": text, "parse_mode": "HTML", "reply_markup": button})
+            logger.info(f"Round {round_id} announcement: {resp.status_code}")
+    except Exception as e:
+        logger.error(f"Failed to send round {round_id} announcement: {e}")
 
 async def send_new_round_to_channel():
     """Post new question alert with quiz button to channel"""
@@ -712,8 +716,9 @@ async def round_manager():
             conn = get_db(); c = conn.cursor(); now = datetime.utcnow(); now_str = now.isoformat()
             c.execute("SELECT r.id FROM rounds r WHERE r.prize_ends_at <= ? AND r.announced = 0", (now_str,))
             for rnd in c.fetchall():
-                await send_winner_to_channel(rnd["id"])
                 c.execute("UPDATE rounds SET announced = 1 WHERE id = ?", (rnd["id"],))
+                conn.commit()
+                await send_winner_to_channel(rnd["id"])
             # Mid-round notifications
             c.execute("SELECT r.id, r.started_at, r.prize_ends_at, r.ends_at FROM rounds r WHERE r.ends_at > ? AND r.announced = 0", (now_str,))
             for rnd in c.fetchall():

@@ -5594,16 +5594,29 @@
                 });
                 const data = await res.json();
                 if (res.ok) {
-                    btn.textContent = 'OTP Sent!';
+                    btn.textContent = 'OTP Sent! ✓';
                     document.getElementById('wgOtpInputRow').style.display = 'flex';
+                    // Allow resend after 60 seconds
+                    let countdown = 60;
+                    const timer = setInterval(() => {
+                        countdown--;
+                        if (countdown <= 0) {
+                            clearInterval(timer);
+                            btn.disabled = false;
+                            btn.textContent = 'Resend OTP';
+                        } else {
+                            btn.textContent = 'Resend in ' + countdown + 's';
+                        }
+                    }, 1000);
                 } else {
-                    alert(data.detail || 'Failed to send OTP');
+                    const errMsg = data.detail || 'Failed to send OTP';
+                    alert(errMsg);
                     btn.disabled = false;
                     btn.textContent = 'Send OTP';
                 }
             } catch (e) {
                 console.error('Failed to send OTP:', e);
-                alert('Failed to send OTP. Try again.');
+                alert('Network error. Please check your connection and try again.');
                 btn.disabled = false;
                 btn.textContent = 'Send OTP';
             }
@@ -5626,11 +5639,21 @@
                 if (res.ok) {
                     loadWithdrawTasks();
                 } else {
-                    alert(data.detail || 'Invalid OTP');
+                    const errMsg = data.detail || 'Invalid OTP';
+                    alert(errMsg);
+                    // If OTP expired or max attempts, reset the OTP section
+                    if (errMsg.includes('expired') || errMsg.includes('Too many')) {
+                        document.getElementById('wgOtpInputRow').style.display = 'none';
+                        const btn = document.getElementById('wgSendOtpBtn');
+                        if (btn) {
+                            btn.disabled = false;
+                            btn.textContent = 'Send New OTP';
+                        }
+                    }
                 }
             } catch (e) {
                 console.error('Failed to verify OTP:', e);
-                alert('Failed to verify OTP. Try again.');
+                alert('Network error. Please check your connection and try again.');
             }
         }
 

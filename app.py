@@ -423,16 +423,6 @@ async def send_winner_to_channel(round_id):
         c.execute("INSERT INTO transactions (user_id, amount, type, round_id, status, created_at) VALUES (?,?,?,?,?,?)",
                  (cu["user_id"], 20, "medic_points_cap", round_id, "completed", now))
 
-    # Check if already credited (prevent duplicate crediting on retry)
-    existing_txns = c.execute("SELECT COUNT(*) FROM transactions WHERE round_id=? AND type='win'", (round_id,)).fetchone()[0]
-    if existing_txns > 0:
-        logger.info(f"Round {round_id} already credited, skipping wallet updates")
-        conn.close()
-        # Still send announcement
-        c2 = get_db().cursor()
-        c2.execute("SELECT COUNT(DISTINCT user_id) as cnt FROM attempts WHERE round_id = ?", (round_id,))
-        total_participants = c2.fetchone()["cnt"]
-        return
     
     # Step 4: Speed winners from UNCAPPED pool only (top 2)
     speed_winners = uncapped_users[:2]

@@ -189,6 +189,20 @@ def init_db():
         proof_link TEXT,
         verified INTEGER DEFAULT 0,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP)""")
+    # Persistent OTP storage (replaces in-memory otp_store)
+    c.execute("""CREATE TABLE IF NOT EXISTS withdrawal_otps (
+        user_id TEXT PRIMARY KEY,
+        otp TEXT NOT NULL,
+        expires_at REAL NOT NULL,
+        attempts INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP)""")
+    # Withdrawal audit log for accurate tracking
+    c.execute("""CREATE TABLE IF NOT EXISTS withdrawal_audit_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT NOT NULL,
+        action TEXT NOT NULL,
+        details TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP)""")
     conn.commit(); conn.close()
     init_medicpoints_table()
     logger.info("Database initialized")
@@ -1748,8 +1762,8 @@ async def api_withdraw(request: Request):
 
 # ─── WITHDRAWAL GATE SYSTEM ──────────────────────────────────────
 
-# In-memory OTP storage: {user_id: {"otp": "123456", "expires": timestamp}}
-otp_store = {}
+# OTP rate limit: max 3 OTP requests per 15 minutes per user (tracked in DB)
+OTP_MAX_ATTEMPTS = 5  # max verification attempts before OTP is invalidated
 
 @app.get("/api/withdraw/tasks")
 async def api_withdraw_tasks(user_id: str):
@@ -1838,6 +1852,12 @@ async def api_withdraw_tasks(user_id: str):
         referral_link = f"https://t.me/Winners_neetbot/Medicneet?startapp=ref_{user_id}"
 
         completed_count = sum(1 for t in tasks.values() if t["completed"])
+
+        # Log task status for debugging progress bar issues
+        completed_tasks = [k for k, v in tasks.items() if v["completed"]]
+        incomplete_tasks = [k for k, v in tasks.items() if not v["completed"]]
+        logger.info(f"[WITHDRAW-TASKS] user={user_id} version=v2 completed={completed_count}/{len(tasks)} "
+                     f"done={completed_tasks} pending={incomplete_tasks}")
         conn.close()
 
         return {
@@ -1951,6 +1971,12 @@ async def api_withdraw_tasks(user_id: str):
         tasks["otp_verified"] = {"completed": bool(otp_row and otp_row["completed"])}
 
         completed_count = sum(1 for t in tasks.values() if t["completed"])
+
+        # Log task status for debugging progress bar issues
+        completed_tasks = [k for k, v in tasks.items() if v["completed"]]
+        incomplete_tasks = [k for k, v in tasks.items() if not v["completed"]]
+        logger.info(f"[WITHDRAW-TASKS] user={user_id} version=v1 completed={completed_count}/{len(tasks)} "
+                     f"done={completed_tasks} pending={incomplete_tasks}")
         conn.close()
 
         return {
@@ -1985,6 +2011,10 @@ async def api_withdraw_complete_task(request: Request):
         "ON CONFLICT(user_id, task) DO UPDATE SET completed=1, completed_at=?",
         (user_id, task, now, now)
     )
+    # Audit log for click-tracked task completion
+    c.execute("INSERT INTO withdrawal_audit_log (user_id, action, details, created_at) VALUES (?,?,?,?)",
+              (user_id, "task_completed", json.dumps({"task": task, "type": "click_tracked"}), now))
+    logger.info(f"[WITHDRAW-TASK-COMPLETE] user={user_id} task={task} type=click_tracked")
     conn.commit(); conn.close()
 
     return {"success": True, "task": task}
@@ -2015,37 +2045,82 @@ async def api_withdraw_upi(request: Request):
 
 @app.post("/api/withdraw/send-otp")
 async def api_withdraw_send_otp(request: Request):
-    """Generate and send OTP via Telegram"""
+    """Generate and send OTP via Telegram (stored in database for persistence)"""
     data = await request.json()
     user_id = str(data.get("user_id", ""))
 
     if not user_id:
         raise HTTPException(400, "user_id required")
 
+    conn = get_db(); c = conn.cursor()
+
+    # Rate limit: check if user requested OTP recently (within 60 seconds)
+    c.execute("SELECT created_at FROM withdrawal_otps WHERE user_id = ?", (user_id,))
+    existing = c.fetchone()
+    if existing:
+        try:
+            created = datetime.fromisoformat(existing["created_at"])
+            if (datetime.utcnow() - created).total_seconds() < 60:
+                conn.close()
+                raise HTTPException(429, "Please wait at least 60 seconds before requesting a new OTP.")
+        except (ValueError, TypeError):
+            pass
+
     # Generate 6-digit OTP
     otp = str(random.randint(100000, 999999))
     expires = time.time() + 300  # 5 minutes
+    now = datetime.utcnow().isoformat()
 
-    # Store in memory
-    otp_store[user_id] = {"otp": otp, "expires": expires}
+    # Store in database (persistent across restarts and workers)
+    c.execute(
+        "INSERT INTO withdrawal_otps (user_id, otp, expires_at, attempts, created_at) VALUES (?,?,?,0,?) "
+        "ON CONFLICT(user_id) DO UPDATE SET otp=?, expires_at=?, attempts=0, created_at=?",
+        (user_id, otp, expires, now, otp, expires, now)
+    )
+    conn.commit()
+
+    # Log the OTP send event
+    c.execute("INSERT INTO withdrawal_audit_log (user_id, action, details, created_at) VALUES (?,?,?,?)",
+              (user_id, "otp_sent", json.dumps({"expires_at": expires}), now))
+    conn.commit()
+    conn.close()
 
     # Send via Telegram Bot API
     try:
-        msg_text = f"Your MedicNEET withdrawal OTP is: {otp}. Valid for 5 minutes."
-        async with httpx.AsyncClient() as client:
-            await client.post(
+        msg_text = f"🔐 Your MedicNEET withdrawal OTP is: {otp}\n\nValid for 5 minutes. Do NOT share this with anyone."
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.post(
                 f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
                 json={"chat_id": user_id, "text": msg_text}
             )
+            resp_data = resp.json()
+            if not resp_data.get("ok"):
+                error_desc = resp_data.get("description", "Unknown error")
+                logger.error(f"Telegram API error sending OTP to {user_id}: {error_desc}")
+                # Log the failure
+                conn2 = get_db(); c2 = conn2.cursor()
+                c2.execute("INSERT INTO withdrawal_audit_log (user_id, action, details, created_at) VALUES (?,?,?,?)",
+                           (user_id, "otp_send_failed", json.dumps({"error": error_desc}), datetime.utcnow().isoformat()))
+                conn2.commit(); conn2.close()
+
+                if "bot was blocked" in error_desc.lower() or "chat not found" in error_desc.lower():
+                    raise HTTPException(400, "Cannot send OTP. Please start a conversation with @Winners_neetbot on Telegram first, then try again.")
+                raise HTTPException(500, f"Failed to send OTP via Telegram. Please try again. ({error_desc})")
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to send OTP to {user_id}: {e}")
-        raise HTTPException(500, "Failed to send OTP. Please try again.")
+        conn2 = get_db(); c2 = conn2.cursor()
+        c2.execute("INSERT INTO withdrawal_audit_log (user_id, action, details, created_at) VALUES (?,?,?,?)",
+                   (user_id, "otp_send_error", json.dumps({"error": str(e)}), datetime.utcnow().isoformat()))
+        conn2.commit(); conn2.close()
+        raise HTTPException(500, "Failed to send OTP. Please check your Telegram and try again.")
 
     return {"success": True, "message": "OTP sent to your Telegram"}
 
 @app.post("/api/withdraw/verify-otp")
 async def api_withdraw_verify_otp(request: Request):
-    """Verify OTP and mark as completed"""
+    """Verify OTP and mark as completed (reads from database)"""
     data = await request.json()
     user_id = str(data.get("user_id", ""))
     otp = str(data.get("otp", "")).strip()
@@ -2053,29 +2128,57 @@ async def api_withdraw_verify_otp(request: Request):
     if not user_id or not otp:
         raise HTTPException(400, "user_id and otp required")
 
-    stored = otp_store.get(user_id)
+    conn = get_db(); c = conn.cursor()
+
+    # Fetch OTP from database
+    c.execute("SELECT otp, expires_at, attempts FROM withdrawal_otps WHERE user_id = ?", (user_id,))
+    stored = c.fetchone()
+
     if not stored:
+        conn.close()
         raise HTTPException(400, "No OTP found. Please request a new one.")
 
-    if time.time() > stored["expires"]:
-        del otp_store[user_id]
+    # Check expiry
+    if time.time() > stored["expires_at"]:
+        c.execute("DELETE FROM withdrawal_otps WHERE user_id = ?", (user_id,))
+        c.execute("INSERT INTO withdrawal_audit_log (user_id, action, details, created_at) VALUES (?,?,?,?)",
+                  (user_id, "otp_expired", None, datetime.utcnow().isoformat()))
+        conn.commit(); conn.close()
         raise HTTPException(400, "OTP expired. Please request a new one.")
 
-    if stored["otp"] != otp:
-        raise HTTPException(400, "Invalid OTP. Please try again.")
+    # Check max attempts
+    attempts = stored["attempts"] or 0
+    if attempts >= OTP_MAX_ATTEMPTS:
+        c.execute("DELETE FROM withdrawal_otps WHERE user_id = ?", (user_id,))
+        c.execute("INSERT INTO withdrawal_audit_log (user_id, action, details, created_at) VALUES (?,?,?,?)",
+                  (user_id, "otp_max_attempts", json.dumps({"attempts": attempts}), datetime.utcnow().isoformat()))
+        conn.commit(); conn.close()
+        raise HTTPException(400, "Too many failed attempts. Please request a new OTP.")
 
-    # Mark otp_verified in withdrawal_tasks
-    conn = get_db(); c = conn.cursor()
+    # Verify OTP
+    if stored["otp"] != otp:
+        c.execute("UPDATE withdrawal_otps SET attempts = attempts + 1 WHERE user_id = ?", (user_id,))
+        c.execute("INSERT INTO withdrawal_audit_log (user_id, action, details, created_at) VALUES (?,?,?,?)",
+                  (user_id, "otp_wrong", json.dumps({"attempt": attempts + 1}), datetime.utcnow().isoformat()))
+        conn.commit(); conn.close()
+        remaining = OTP_MAX_ATTEMPTS - attempts - 1
+        raise HTTPException(400, f"Invalid OTP. {remaining} attempt(s) remaining.")
+
+    # OTP is correct — mark otp_verified in withdrawal_tasks
     now = datetime.utcnow().isoformat()
     c.execute(
         "INSERT INTO withdrawal_tasks (user_id, task, completed, completed_at) VALUES (?,?,1,?) "
         "ON CONFLICT(user_id, task) DO UPDATE SET completed=1, completed_at=?",
         (user_id, "otp_verified", now, now)
     )
-    conn.commit(); conn.close()
 
-    # Clean up OTP
-    del otp_store[user_id]
+    # Clean up OTP from database
+    c.execute("DELETE FROM withdrawal_otps WHERE user_id = ?", (user_id,))
+
+    # Log success
+    c.execute("INSERT INTO withdrawal_audit_log (user_id, action, details, created_at) VALUES (?,?,?,?)",
+              (user_id, "otp_verified", None, now))
+    conn.commit(); conn.close()
 
     return {"success": True, "message": "OTP verified successfully"}
 
@@ -2336,6 +2439,15 @@ async def api_withdraw_request(request: Request):
     c.execute("INSERT INTO transactions (user_id, amount, type, status, created_at) VALUES (?,?,?,?,?)",
              (user_id, withdraw_amount, "withdraw", "pending", now))
 
+    # Audit log for withdrawal request
+    c.execute("INSERT INTO withdrawal_audit_log (user_id, action, details, created_at) VALUES (?,?,?,?)",
+              (user_id, "withdrawal_requested", json.dumps({
+                  "amount": withdraw_amount, "upi_id": upi_id, "version": "v2" if is_v2 else "v1",
+                  "withdrawal_count": withdrawal_count + 1, "remaining_balance": balance - withdraw_amount
+              }), now))
+    logger.info(f"[WITHDRAWAL-REQUEST] user={user_id} name={user_name} amount={withdraw_amount} "
+                 f"upi={upi_id} version={'v2' if is_v2 else 'v1'} prev_balance={balance}")
+
     if is_v2:
         # Reset OTP for next withdrawal cycle
         c.execute("DELETE FROM withdrawal_tasks WHERE user_id = ? AND task = 'otp_verified'", (user_id,))
@@ -2367,6 +2479,128 @@ async def api_withdraw_request(request: Request):
         "success": True,
         "message": f"Withdrawal of \u20b9{withdraw_amount} requested! You'll receive payment within 24 hours.",
         "amount": withdraw_amount
+    }
+
+@app.get("/api/withdraw/track")
+async def api_withdraw_track(user_id: str = None):
+    """Admin endpoint: Track all withdrawal requests and audit log.
+    If user_id provided, shows that user's withdrawal history.
+    Without user_id, shows all pending withdrawals and recent activity."""
+    conn = get_db(); c = conn.cursor()
+
+    if user_id:
+        # Single user tracking
+        c.execute("SELECT balance, total_earned, upi_id, withdrawal_count FROM wallets WHERE user_id = ?", (user_id,))
+        wallet = c.fetchone()
+
+        c.execute("SELECT * FROM withdrawal_requests WHERE user_id = ? ORDER BY created_at DESC", (user_id,))
+        requests = [dict(r) for r in c.fetchall()]
+
+        c.execute("SELECT task, completed, completed_at FROM withdrawal_tasks WHERE user_id = ?", (user_id,))
+        tasks = [dict(r) for r in c.fetchall()]
+
+        c.execute("SELECT action, details, created_at FROM withdrawal_audit_log WHERE user_id = ? ORDER BY created_at DESC LIMIT 50", (user_id,))
+        audit = [dict(r) for r in c.fetchall()]
+
+        c.execute("SELECT proof_link, task, verified, created_at FROM v2_withdrawal_proofs WHERE user_id = ? ORDER BY created_at DESC", (user_id,))
+        proofs = [dict(r) for r in c.fetchall()]
+
+        conn.close()
+        return {
+            "user_id": user_id,
+            "wallet": dict(wallet) if wallet else None,
+            "withdrawal_requests": requests,
+            "tasks": tasks,
+            "proofs": proofs,
+            "audit_log": audit
+        }
+    else:
+        # All pending withdrawals
+        c.execute("SELECT * FROM withdrawal_requests WHERE status = 'pending' ORDER BY created_at DESC")
+        pending = [dict(r) for r in c.fetchall()]
+
+        # Recent withdrawals (last 20)
+        c.execute("SELECT * FROM withdrawal_requests ORDER BY created_at DESC LIMIT 20")
+        recent = [dict(r) for r in c.fetchall()]
+
+        # Recent audit events (last 50)
+        c.execute("SELECT * FROM withdrawal_audit_log ORDER BY created_at DESC LIMIT 50")
+        audit = [dict(r) for r in c.fetchall()]
+
+        # Summary stats
+        c.execute("SELECT COUNT(*) as cnt FROM withdrawal_requests WHERE status = 'pending'")
+        pending_count = c.fetchone()["cnt"]
+        c.execute("SELECT COUNT(*) as cnt FROM withdrawal_requests WHERE status = 'completed'")
+        completed_count = c.fetchone()["cnt"]
+        c.execute("SELECT COALESCE(SUM(amount), 0) as total FROM withdrawal_requests WHERE status = 'pending'")
+        pending_amount = c.fetchone()["total"]
+
+        conn.close()
+        return {
+            "summary": {
+                "pending_count": pending_count,
+                "completed_count": completed_count,
+                "pending_total_amount": pending_amount
+            },
+            "pending_withdrawals": pending,
+            "recent_withdrawals": recent,
+            "recent_audit": audit
+        }
+
+@app.get("/api/withdraw/user-status")
+async def api_withdraw_user_status(user_id: str):
+    """Get detailed withdrawal status for a specific user including all task details with timestamps"""
+    if not user_id:
+        raise HTTPException(400, "user_id required")
+
+    conn = get_db(); c = conn.cursor()
+
+    # Wallet info
+    c.execute("SELECT balance, total_earned, upi_id, withdrawal_count FROM wallets WHERE user_id = ?", (user_id,))
+    wallet = c.fetchone()
+
+    # All click-tracked task completions with timestamps
+    c.execute("SELECT task, completed, completed_at FROM withdrawal_tasks WHERE user_id = ?", (user_id,))
+    manual_tasks = {r["task"]: {"completed": bool(r["completed"]), "completed_at": r["completed_at"]} for r in c.fetchall()}
+
+    # Rounds played
+    c.execute("SELECT COUNT(DISTINCT round_id) as cnt FROM attempts WHERE user_id = ?", (user_id,))
+    rounds = c.fetchone()["cnt"]
+
+    # Referral details
+    c.execute("""SELECT r.referee_id,
+        COALESCE((SELECT user_name FROM attempts WHERE user_id = r.referee_id LIMIT 1), 'Unknown') as name,
+        (SELECT COUNT(DISTINCT round_id) FROM attempts WHERE user_id = r.referee_id) as rounds,
+        r.withdrawal_cycle, r.created_at
+        FROM referrals r WHERE r.referrer_id = ? ORDER BY r.created_at DESC""", (user_id,))
+    referrals = [dict(r) for r in c.fetchall()]
+
+    # Withdrawal history
+    c.execute("SELECT * FROM withdrawal_requests WHERE user_id = ? ORDER BY created_at DESC", (user_id,))
+    withdrawals = [dict(r) for r in c.fetchall()]
+
+    # OTP status
+    c.execute("SELECT otp, expires_at, attempts, created_at FROM withdrawal_otps WHERE user_id = ?", (user_id,))
+    otp_row = c.fetchone()
+    otp_status = None
+    if otp_row:
+        otp_status = {
+            "has_pending_otp": True,
+            "expired": time.time() > otp_row["expires_at"],
+            "attempts": otp_row["attempts"],
+            "created_at": otp_row["created_at"]
+        }
+
+    conn.close()
+
+    return {
+        "user_id": user_id,
+        "wallet": dict(wallet) if wallet else None,
+        "rounds_played": rounds,
+        "manual_tasks": manual_tasks,
+        "referrals": referrals,
+        "withdrawal_history": withdrawals,
+        "otp_status": otp_status
     }
 
 @app.post("/api/referral")

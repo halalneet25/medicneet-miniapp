@@ -4006,8 +4006,6 @@
                     correct_answers: ['A','A','A','A'],
                     explanations: ['Test explanation','Test explanation','Test explanation','Test explanation'],
                     your_time_ms: tms,
-                    is_current_winner: false,
-                    in_lucky_pool: false,
                     rank: null,
                     leaderboard: [],
                     prize_window_active: false,
@@ -4108,28 +4106,12 @@
                 document.getElementById('resultSub').innerHTML = '💰 Your wallet is full! Withdraw ₹' + (data.wallet_balance || 50) + ' to start earning cash again.<br>Meanwhile, you\'re earning Medic Points!';
                 document.getElementById('resultTime').style.color = 'var(--green-dk)';
             }
-            else if (data.is_current_winner && inPrizeWindow) {
-                card.className = 'result-card win';
-                document.getElementById('resultIcon').textContent = '🏆';
-                document.getElementById('resultTitle').textContent = "SPEED WINNER!";
-                document.getElementById('resultTitle').className = 'result-title win-text';
-                document.getElementById('resultSub').textContent = '⚡ Speed Winner! Prize awarded at round end.';
-                document.getElementById('resultTime').style.color = 'var(--green)';
-            }
-            else if (data.in_lucky_pool && inPrizeWindow) {
-                card.className = 'result-card correct';
-                document.getElementById('resultIcon').textContent = '🎲';
-                document.getElementById('resultTitle').textContent = 'In Lucky Draw!';
-                document.getElementById('resultTitle').className = 'result-title correct-text';
-                document.getElementById('resultSub').textContent = '🎲 You\'re in the Lucky Draw! Results at round end.';
-                document.getElementById('resultTime').style.color = 'var(--green-dk)';
-            }
             else if (allCorrect && inPrizeWindow) {
                 card.className = 'result-card correct';
                 document.getElementById('resultIcon').textContent = '✅';
-                document.getElementById('resultTitle').textContent = 'All Correct!';
+                document.getElementById('resultTitle').textContent = data.rank ? '4/4 Correct! Ranked #' + data.rank : '4/4 Correct!';
                 document.getElementById('resultTitle').className = 'result-title correct-text';
-                document.getElementById('resultSub').textContent = '🎲 You\'re in the Lucky Draw! Results at round end.';
+                document.getElementById('resultSub').textContent = 'Top 2 fastest win ₹5 + 8 lucky winners drawn at round end!';
                 document.getElementById('resultTime').style.color = 'var(--green-dk)';
             }
             else if (allCorrect && !inPrizeWindow) {
@@ -4304,16 +4286,10 @@
             const top10Notif = document.getElementById('top10Notification');
             const top10Title = document.getElementById('top10Title');
             const top10Sub = document.getElementById('top10Sub');
-            if (data.is_current_winner && inPrizeWindow) {
-                top10Title.textContent = '⚡ Speed Winner! Prize awarded at round end.';
-                top10Sub.textContent = 'Top 5 fastest — results announced when round ends.';
+            if (allCorrect && inPrizeWindow && data.rank) {
+                top10Title.textContent = '🏅 You\'re ranked #' + data.rank + ' — results at round end!';
+                top10Sub.textContent = 'Top 2 fastest win ₹5 + 8 lucky winners drawn from all 4/4 scorers.';
                 top10Notif.style.display = 'block';
-            } else if (data.in_lucky_pool && inPrizeWindow) {
-                top10Title.textContent = '🎲 You\'re in the Lucky Draw!';
-                top10Sub.textContent = 'Results at round end. Good luck!';
-                top10Notif.style.display = 'block';
-                top10Notif.style.background = 'var(--orange-lt)';
-                top10Notif.style.borderColor = 'var(--orange)';
             } else {
                 top10Notif.style.display = 'none';
                 top10Notif.style.background = 'var(--green-lt)';
@@ -4328,8 +4304,7 @@
             // Wallet balance updates at round end, not on submit
 
             if (tg?.HapticFeedback) {
-                if (data.is_current_winner) tg.HapticFeedback.notificationOccurred('success');
-                else if (allCorrect) tg.HapticFeedback.notificationOccurred('warning');
+                if (allCorrect) tg.HapticFeedback.notificationOccurred('success');
                 else tg.HapticFeedback.notificationOccurred('error');
             }
 

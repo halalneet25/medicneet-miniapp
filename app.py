@@ -1028,8 +1028,6 @@ async def api_submit(request: Request):
         conn.close()
         return {"disqualified": True, "reason": "Suspicious answer speed detected. Each question requires minimum reading time."}
 
-    iw = False
-    in_lucky_pool = False
     # Check if still in prize window
     prize_ends_at = rnd["prize_ends_at"]
     in_prize_window = prize_ends_at and now <= prize_ends_at
@@ -1037,18 +1035,8 @@ async def api_submit(request: Request):
     if ic and in_prize_window and not rnd["announced"]:
         # Add to winners table (all 4/4 correct users during prize window)
         # Wallet crediting happens in send_winner_to_channel when prize window ends
-        # so final top 5 are determined once, not on every submit
         # Skip if round already announced (winners already processed)
         c.execute("INSERT OR IGNORE INTO winners (round_id,user_id,user_name,time_ms,prize_amount) VALUES (?,?,?,?,?)", (rid, uid, un, tms, 5))
-
-        # Check if user is currently in top 5 fastest (for UI feedback only, no crediting)
-        c.execute("SELECT user_id FROM winners WHERE round_id = ? ORDER BY time_ms ASC LIMIT 5", (rid,))
-        speed_winners = [r["user_id"] for r in c.fetchall()]
-
-        if uid in speed_winners:
-            iw = True
-        else:
-            in_lucky_pool = True
 
         # Update rounds table with fastest (1st place) winner
         c.execute("SELECT user_id, user_name, time_ms FROM winners WHERE round_id = ? ORDER BY time_ms ASC LIMIT 1", (rid,))
@@ -1138,11 +1126,10 @@ async def api_submit(request: Request):
     score = sum(1 for r in results if r)
 
     # Check if user qualifies for MedicPoints offer:
-    # Got 4/4 correct but NOT a speed winner and NOT in lucky pool (no cash prize)
-    # OR: user is capped (balance >= 50) and got 4/4 — they earn Medic Points instead of cash
-    eligible_for_medicpoints = all_correct and not disqualified and (
-        (not iw and not in_lucky_pool) or wallet_capped
-    )
+    # All 4/4 correct non-capped users see the CTA (winners are decided at round end,
+    # so we can't reliably exclude speed/lucky winners at submit time)
+    # Capped users already get MedicPoints automatically via send_winner_to_channel
+    eligible_for_medicpoints = all_correct and not disqualified and not wallet_capped
 
     # Anti-cheat: hide correct answers and per-question results during prize window
     # so users can't use one account to see answers and another to submit them
@@ -1154,8 +1141,6 @@ async def api_submit(request: Request):
             "correct_answers": None,
             "explanations": None,
             "your_time_ms": tms,
-            "is_current_winner": iw,
-            "in_lucky_pool": in_lucky_pool,
             "rank": rank,
             "leaderboard": lb,
             "prize_window_active": True,
@@ -1174,8 +1159,6 @@ async def api_submit(request: Request):
         "correct_answers": correct_answers,
         "explanations": None,
         "your_time_ms": tms,
-        "is_current_winner": iw,
-        "in_lucky_pool": in_lucky_pool,
         "rank": rank,
         "leaderboard": lb,
         "prize_window_active": False,

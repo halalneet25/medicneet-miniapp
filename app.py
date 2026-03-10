@@ -512,7 +512,7 @@ async def send_winner_to_channel(round_id):
     button = {"inline_keyboard": [[{"text": "🧠 Play Next Round", "url": "https://t.me/Winners_neetbot/Medicneet"}]]}
 
     all_cash_winners = speed_winners + lucky_winners
-    total_4of4 = len(all_cash_winners) + len(pool) + len(capped_users)
+    total_4of4 = len(all_entries)
 
     if not all_cash_winners and not capped_users:
         text = f"""🏆 <b>ROUND #{round_id} RESULTS</b>

@@ -171,27 +171,27 @@ def init_db():
     # Migrate: add chain_parent_id to challenges if missing (for existing DBs)
     try:
         c.execute("ALTER TABLE challenges ADD COLUMN chain_parent_id INTEGER")
-    except:
+    except sqlite3.OperationalError:
         pass
     # Migrate: add winner_type to winners if missing (for existing DBs)
     try:
         c.execute("ALTER TABLE winners ADD COLUMN winner_type TEXT DEFAULT NULL")
-    except:
+    except sqlite3.OperationalError:
         pass
     # Migrate: add upi_id to wallets if missing (for existing DBs)
     try:
         c.execute("ALTER TABLE wallets ADD COLUMN upi_id TEXT")
-    except:
+    except sqlite3.OperationalError:
         pass
     # Migrate: add withdrawal_count to wallets (V2 withdrawal system)
     try:
         c.execute("ALTER TABLE wallets ADD COLUMN withdrawal_count INTEGER DEFAULT 0")
-    except:
+    except sqlite3.OperationalError:
         pass
     # Migrate: add withdrawal_cycle to referrals (V2 referral cycle tracking)
     try:
         c.execute("ALTER TABLE referrals ADD COLUMN withdrawal_cycle INTEGER DEFAULT 0")
-    except:
+    except sqlite3.OperationalError:
         pass
     # V2 withdrawal proofs table
     c.execute("""CREATE TABLE IF NOT EXISTS v2_withdrawal_proofs (
@@ -1117,8 +1117,8 @@ async def api_submit(request: Request):
     # Track played_at for reminder funnel
     try:
         c.execute("UPDATE reminder_logs SET played_at = ? WHERE user_id = ? AND played_at IS NULL AND date(sent_at) >= date(?, '-3 days')", (now, uid, now))
-    except:
-        pass
+    except sqlite3.OperationalError:
+        pass  # Table may not exist in older DB versions
 
     conn.commit()
     conn.close()
@@ -1918,8 +1918,8 @@ async def api_withdraw_tasks(user_id: str):
                     status = data["result"].get("status", "")
                     if status in ("member", "administrator", "creator"):
                         channel_verified = True
-        except:
-            pass
+        except (httpx.RequestError, KeyError) as e:
+            logger.warning(f"Channel membership check failed for {user_id}: {e}")
         tasks["follow_channel"] = {"completed": channel_verified}
 
         # 6. join_group
@@ -1935,8 +1935,8 @@ async def api_withdraw_tasks(user_id: str):
                     status = data["result"].get("status", "")
                     if status in ("member", "administrator", "creator"):
                         group_verified = True
-        except:
-            pass
+        except (httpx.RequestError, KeyError) as e:
+            logger.warning(f"Group membership check failed for {user_id}: {e}")
         tasks["join_group"] = {"completed": group_verified}
 
         # 9. share_friends
@@ -2059,6 +2059,15 @@ async def api_withdraw_send_otp(request: Request):
                 raise HTTPException(429, "Please wait at least 60 seconds before requesting a new OTP.")
         except (ValueError, TypeError):
             pass
+
+    # Daily rate limit: max 10 OTP requests per 24 hours to prevent spam/harassment
+    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+    c.execute("SELECT COUNT(*) as cnt FROM withdrawal_audit_log WHERE user_id = ? AND action = 'otp_sent' AND created_at >= ?",
+              (user_id, today_start))
+    daily_count = c.fetchone()["cnt"]
+    if daily_count >= 10:
+        conn.close()
+        raise HTTPException(429, "Daily OTP limit reached (10 per day). Please try again tomorrow.")
 
     # Generate 6-digit OTP
     otp = str(secrets.randbelow(900000) + 100000)
@@ -2406,8 +2415,8 @@ async def api_withdraw_request(request: Request):
                 d = resp.json()
                 if d.get("ok") and d["result"].get("status") in ("member", "administrator", "creator"):
                     channel_ok = True
-        except:
-            pass
+        except (httpx.RequestError, KeyError) as e:
+            logger.warning(f"Channel check failed during withdrawal for {user_id}: {e}")
 
         try:
             async with httpx.AsyncClient() as client:
@@ -2418,8 +2427,8 @@ async def api_withdraw_request(request: Request):
                 d = resp.json()
                 if d.get("ok") and d["result"].get("status") in ("member", "administrator", "creator"):
                     group_ok = True
-        except:
-            pass
+        except (httpx.RequestError, KeyError) as e:
+            logger.warning(f"Group check failed during withdrawal for {user_id}: {e}")
 
         if not channel_ok:
             conn.close()
@@ -2628,8 +2637,8 @@ async def api_referral(request: Request):
         c.execute("INSERT OR IGNORE INTO referrals (referrer_id, referee_id, withdrawal_cycle, created_at) VALUES (?,?,?,?)",
                  (referrer_id, referee_id, cycle, now))
         conn.commit()
-    except:
-        pass
+    except sqlite3.Error as e:
+        logger.error(f"Failed to insert referral ({referrer_id} -> {referee_id}): {e}")
     conn.close()
 
     return {"success": True}

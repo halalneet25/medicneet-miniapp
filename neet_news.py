@@ -11,7 +11,7 @@ STRICT RULES:
 - Current date awareness — only news from last 48 hours.
 - No speculation, no rumors, no coaching institute predictions.
 """
-import json, urllib.request, os, ssl
+import json, httpx, os
 from datetime import datetime, timezone, timedelta
 
 BOT_TOKEN = "8574043659:AAEQHtEmevdGoQFcpLmWl8vsc6GSv74Pn0s"
@@ -99,26 +99,25 @@ Respond with JSON only. No other text."""
         "x-api-key": ANTHROPIC_API_KEY,
         "anthropic-version": "2023-06-01",
     }
-    req = urllib.request.Request(
-        "https://api.anthropic.com/v1/messages",
-        data=json.dumps(payload).encode("utf-8"),
-        headers=headers,
-        method="POST"
-    )
     try:
-        with urllib.request.urlopen(req, timeout=120) as resp:
-            result = json.loads(resp.read().decode("utf-8"))
-            text = ""
-            for block in result.get("content", []):
-                if block.get("type") == "text":
-                    text += block.get("text", "")
-            return text.strip()
-    except urllib.error.HTTPError as e:
-        body = e.read().decode("utf-8", errors="replace")
-        print(f"Claude API HTTP error {e.code}: {body}")
+        resp = httpx.post(
+            "https://api.anthropic.com/v1/messages",
+            json=payload,
+            headers=headers,
+            timeout=120
+        )
+        resp.raise_for_status()
+        result = resp.json()
+        text = ""
+        for block in result.get("content", []):
+            if block.get("type") == "text":
+                text += block.get("text", "")
+        return text.strip()
+    except httpx.HTTPStatusError as e:
+        print(f"Claude API HTTP error {e.response.status_code}: {e.response.text}")
         return None
-    except Exception as e:
-        print(f"Claude API error: {e}")
+    except httpx.RequestError as e:
+        print(f"Claude API request error: {e}")
         return None
 
 
@@ -201,6 +200,10 @@ def save_news_json(data):
     except (FileNotFoundError, json.JSONDecodeError):
         archive = []
 
+    # Deduplicate archive by date — keep only one entry per date (latest wins)
+    today_date = data.get("date", datetime.now(IST).strftime("%Y-%m-%d"))
+    archive = [d for d in archive if d.get("date") != today_date]
+
     # Clean existing archive: remove duplicate headlines across all days
     all_seen = set()
     for day_data in archive:
@@ -278,44 +281,41 @@ def send_telegram(text):
         "text": text,
         "disable_web_page_preview": False
     }
-    req = urllib.request.Request(
-        f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-        method="POST"
-    )
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            result = json.loads(resp.read().decode("utf-8"))
-            if result.get("ok"):
-                print(f"Sent to Telegram. Message ID: {result['result']['message_id']}")
-                return True
-            else:
-                print(f"Telegram error: {result}")
-                return False
-    except urllib.error.HTTPError as e:
-        body = e.read().decode("utf-8", errors="replace")
-        print(f"Telegram HTTP error {e.code}: {body}")
+        resp = httpx.post(
+            f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
+            json=payload,
+            timeout=15
+        )
+        resp.raise_for_status()
+        result = resp.json()
+        if result.get("ok"):
+            print(f"Sent to Telegram. Message ID: {result['result']['message_id']}")
+            return True
+        else:
+            print(f"Telegram error: {result}")
+            return False
+    except httpx.HTTPStatusError as e:
+        print(f"Telegram HTTP error {e.response.status_code}: {e.response.text}")
         # Fallback: strip markdown and send plain
         plain = text.replace("*", "").replace("_", "")
         payload["parse_mode"] = ""
         payload["text"] = plain
-        req2 = urllib.request.Request(
-            f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-            method="POST"
-        )
         try:
-            with urllib.request.urlopen(req2, timeout=15) as resp2:
-                result2 = json.loads(resp2.read().decode("utf-8"))
-                if result2.get("ok"):
-                    print(f"Sent plain text fallback. Message ID: {result2['result']['message_id']}")
-                    return True
-        except Exception as e2:
+            resp2 = httpx.post(
+                f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
+                json=payload,
+                timeout=15
+            )
+            resp2.raise_for_status()
+            result2 = resp2.json()
+            if result2.get("ok"):
+                print(f"Sent plain text fallback. Message ID: {result2['result']['message_id']}")
+                return True
+        except (httpx.HTTPStatusError, httpx.RequestError) as e2:
             print(f"Plain text fallback also failed: {e2}")
         return False
-    except Exception as e:
+    except httpx.RequestError as e:
         print(f"Telegram send error: {e}")
         return False
 
@@ -349,15 +349,17 @@ def deduplicate_news(news_data):
         else:
             print(f"  DEDUP (batch): Removed duplicate headline: {item.get('headline', '')}")
 
-    # --- Step 2: Remove duplicates against full archive (all 30 days, not just yesterday) ---
+    # --- Step 2: Remove duplicates against recent archive (last 7 days to avoid unbounded growth) ---
     archive_path = NEWS_JSON_PATH.replace(".json", "_archive.json")
     archive_headlines = set()
     try:
         with open(archive_path, "r") as f:
             archive = json.load(f)
+        cutoff = (datetime.now(IST) - timedelta(days=7)).strftime("%Y-%m-%d")
         for day_data in archive:
-            for arch_item in day_data.get("items", []):
-                archive_headlines.add(_normalize_headline(arch_item.get("headline", "")))
+            if day_data.get("date", "") >= cutoff:
+                for arch_item in day_data.get("items", []):
+                    archive_headlines.add(_normalize_headline(arch_item.get("headline", "")))
     except (FileNotFoundError, json.JSONDecodeError):
         archive = []
 

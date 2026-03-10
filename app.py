@@ -1173,7 +1173,6 @@ async def api_submit(request: Request):
         "results": results,
         "correct_answers": correct_answers,
         "explanations": None,
-        "correct_answers": None,
         "your_time_ms": tms,
         "is_current_winner": iw,
         "in_lucky_pool": in_lucky_pool,

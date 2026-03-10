@@ -4,7 +4,7 @@ load_dotenv()
 MedicNEET Telegram Mini App - Cash Prize Quiz
 Backend: FastAPI + SQLite + Daily Email Export
 """
-import os, io, csv, json, time, hashlib, hmac, sqlite3, asyncio, logging, smtplib, string, random, html as html_lib
+import os, io, csv, json, time, hashlib, hmac, sqlite3, asyncio, logging, smtplib, string, random, secrets, html as html_lib
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email.mime.text import MIMEText
@@ -153,33 +153,45 @@ def init_db():
             user_id TEXT,
             event TEXT NOT NULL,
             data TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP)""",
+        """CREATE TABLE IF NOT EXISTS app_clicks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT NOT NULL,
+            source TEXT DEFAULT 'unknown',
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP)""",
+        """CREATE TABLE IF NOT EXISTS study_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT NOT NULL,
+            event_type TEXT NOT NULL,
+            item_name TEXT,
+            item_url TEXT,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP)"""
     ]:
         c.execute(sql)
     # Migrate: add chain_parent_id to challenges if missing (for existing DBs)
     try:
         c.execute("ALTER TABLE challenges ADD COLUMN chain_parent_id INTEGER")
-    except:
+    except sqlite3.OperationalError:
         pass
     # Migrate: add winner_type to winners if missing (for existing DBs)
     try:
         c.execute("ALTER TABLE winners ADD COLUMN winner_type TEXT DEFAULT NULL")
-    except:
+    except sqlite3.OperationalError:
         pass
     # Migrate: add upi_id to wallets if missing (for existing DBs)
     try:
         c.execute("ALTER TABLE wallets ADD COLUMN upi_id TEXT")
-    except:
+    except sqlite3.OperationalError:
         pass
     # Migrate: add withdrawal_count to wallets (V2 withdrawal system)
     try:
         c.execute("ALTER TABLE wallets ADD COLUMN withdrawal_count INTEGER DEFAULT 0")
-    except:
+    except sqlite3.OperationalError:
         pass
     # Migrate: add withdrawal_cycle to referrals (V2 referral cycle tracking)
     try:
         c.execute("ALTER TABLE referrals ADD COLUMN withdrawal_cycle INTEGER DEFAULT 0")
-    except:
+    except sqlite3.OperationalError:
         pass
     # V2 withdrawal proofs table
     c.execute("""CREATE TABLE IF NOT EXISTS v2_withdrawal_proofs (
@@ -500,7 +512,7 @@ async def send_winner_to_channel(round_id):
     button = {"inline_keyboard": [[{"text": "🧠 Play Next Round", "url": "https://t.me/Winners_neetbot/Medicneet"}]]}
 
     all_cash_winners = speed_winners + lucky_winners
-    total_4of4 = len(all_cash_winners) + len(pool) + len(capped_users)
+    total_4of4 = len(all_entries)
 
     if not all_cash_winners and not capped_users:
         text = f"""🏆 <b>ROUND #{round_id} RESULTS</b>
@@ -1016,8 +1028,6 @@ async def api_submit(request: Request):
         conn.close()
         return {"disqualified": True, "reason": "Suspicious answer speed detected. Each question requires minimum reading time."}
 
-    iw = False
-    in_lucky_pool = False
     # Check if still in prize window
     prize_ends_at = rnd["prize_ends_at"]
     in_prize_window = prize_ends_at and now <= prize_ends_at
@@ -1025,18 +1035,8 @@ async def api_submit(request: Request):
     if ic and in_prize_window and not rnd["announced"]:
         # Add to winners table (all 4/4 correct users during prize window)
         # Wallet crediting happens in send_winner_to_channel when prize window ends
-        # so final top 5 are determined once, not on every submit
         # Skip if round already announced (winners already processed)
         c.execute("INSERT OR IGNORE INTO winners (round_id,user_id,user_name,time_ms,prize_amount) VALUES (?,?,?,?,?)", (rid, uid, un, tms, 5))
-
-        # Check if user is currently in top 5 fastest (for UI feedback only, no crediting)
-        c.execute("SELECT user_id FROM winners WHERE round_id = ? ORDER BY time_ms ASC LIMIT 5", (rid,))
-        speed_winners = [r["user_id"] for r in c.fetchall()]
-
-        if uid in speed_winners:
-            iw = True
-        else:
-            in_lucky_pool = True
 
         # Update rounds table with fastest (1st place) winner
         c.execute("SELECT user_id, user_name, time_ms FROM winners WHERE round_id = ? ORDER BY time_ms ASC LIMIT 1", (rid,))
@@ -1117,8 +1117,8 @@ async def api_submit(request: Request):
     # Track played_at for reminder funnel
     try:
         c.execute("UPDATE reminder_logs SET played_at = ? WHERE user_id = ? AND played_at IS NULL AND date(sent_at) >= date(?, '-3 days')", (now, uid, now))
-    except:
-        pass
+    except sqlite3.OperationalError:
+        pass  # Table may not exist in older DB versions
 
     conn.commit()
     conn.close()
@@ -1126,11 +1126,10 @@ async def api_submit(request: Request):
     score = sum(1 for r in results if r)
 
     # Check if user qualifies for MedicPoints offer:
-    # Got 4/4 correct but NOT a speed winner and NOT in lucky pool (no cash prize)
-    # OR: user is capped (balance >= 50) and got 4/4 — they earn Medic Points instead of cash
-    eligible_for_medicpoints = all_correct and not disqualified and (
-        (not iw and not in_lucky_pool) or wallet_capped
-    )
+    # All 4/4 correct non-capped users see the CTA (winners are decided at round end,
+    # so we can't reliably exclude speed/lucky winners at submit time)
+    # Capped users already get MedicPoints automatically via send_winner_to_channel
+    eligible_for_medicpoints = all_correct and not disqualified and not wallet_capped
 
     # Anti-cheat: hide correct answers and per-question results during prize window
     # so users can't use one account to see answers and another to submit them
@@ -1142,8 +1141,6 @@ async def api_submit(request: Request):
             "correct_answers": None,
             "explanations": None,
             "your_time_ms": tms,
-            "is_current_winner": iw,
-            "in_lucky_pool": in_lucky_pool,
             "rank": rank,
             "leaderboard": lb,
             "prize_window_active": True,
@@ -1161,10 +1158,7 @@ async def api_submit(request: Request):
         "results": results,
         "correct_answers": correct_answers,
         "explanations": None,
-        "correct_answers": None,
         "your_time_ms": tms,
-        "is_current_winner": iw,
-        "in_lucky_pool": in_lucky_pool,
         "rank": rank,
         "leaderboard": lb,
         "prize_window_active": False,
@@ -1348,7 +1342,7 @@ async def api_export_emails():
 # ─── CHALLENGE SYSTEM ─────────────────────────────────────────
 
 def generate_challenge_code():
-    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+    return ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(8))
 
 @app.post("/api/challenge/create")
 async def api_challenge_create(request: Request):
@@ -1924,8 +1918,8 @@ async def api_withdraw_tasks(user_id: str):
                     status = data["result"].get("status", "")
                     if status in ("member", "administrator", "creator"):
                         channel_verified = True
-        except:
-            pass
+        except (httpx.RequestError, KeyError) as e:
+            logger.warning(f"Channel membership check failed for {user_id}: {e}")
         tasks["follow_channel"] = {"completed": channel_verified}
 
         # 6. join_group
@@ -1941,8 +1935,8 @@ async def api_withdraw_tasks(user_id: str):
                     status = data["result"].get("status", "")
                     if status in ("member", "administrator", "creator"):
                         group_verified = True
-        except:
-            pass
+        except (httpx.RequestError, KeyError) as e:
+            logger.warning(f"Group membership check failed for {user_id}: {e}")
         tasks["join_group"] = {"completed": group_verified}
 
         # 9. share_friends
@@ -2066,8 +2060,17 @@ async def api_withdraw_send_otp(request: Request):
         except (ValueError, TypeError):
             pass
 
+    # Daily rate limit: max 10 OTP requests per 24 hours to prevent spam/harassment
+    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+    c.execute("SELECT COUNT(*) as cnt FROM withdrawal_audit_log WHERE user_id = ? AND action = 'otp_sent' AND created_at >= ?",
+              (user_id, today_start))
+    daily_count = c.fetchone()["cnt"]
+    if daily_count >= 10:
+        conn.close()
+        raise HTTPException(429, "Daily OTP limit reached (10 per day). Please try again tomorrow.")
+
     # Generate 6-digit OTP
-    otp = str(random.randint(100000, 999999))
+    otp = str(secrets.randbelow(900000) + 100000)
     expires = time.time() + 300  # 5 minutes
     now = datetime.utcnow().isoformat()
 
@@ -2296,6 +2299,12 @@ async def api_withdraw_request(request: Request):
     if not user_id:
         raise HTTPException(400, "user_id required")
 
+    # Validate amount: must be a positive number >= 50 if provided
+    if amount is not None:
+        if not isinstance(amount, (int, float)) or amount < 50:
+            raise HTTPException(400, "Invalid withdrawal amount. Minimum is ₹50")
+        amount = int(amount)
+
     conn = get_db(); c = conn.cursor()
 
     # Verify balance and get withdrawal_count
@@ -2406,8 +2415,8 @@ async def api_withdraw_request(request: Request):
                 d = resp.json()
                 if d.get("ok") and d["result"].get("status") in ("member", "administrator", "creator"):
                     channel_ok = True
-        except:
-            pass
+        except (httpx.RequestError, KeyError) as e:
+            logger.warning(f"Channel check failed during withdrawal for {user_id}: {e}")
 
         try:
             async with httpx.AsyncClient() as client:
@@ -2418,8 +2427,8 @@ async def api_withdraw_request(request: Request):
                 d = resp.json()
                 if d.get("ok") and d["result"].get("status") in ("member", "administrator", "creator"):
                     group_ok = True
-        except:
-            pass
+        except (httpx.RequestError, KeyError) as e:
+            logger.warning(f"Group check failed during withdrawal for {user_id}: {e}")
 
         if not channel_ok:
             conn.close()
@@ -2429,7 +2438,7 @@ async def api_withdraw_request(request: Request):
             raise HTTPException(400, "Please join @neetbiotraps group first")
 
     # All checks passed - process withdrawal
-    withdraw_amount = amount if amount and amount <= balance else balance
+    withdraw_amount = amount if amount and 50 <= amount <= balance else balance
     now = datetime.utcnow().isoformat()
 
     c.execute("UPDATE wallets SET balance = balance - ?, withdrawal_count = withdrawal_count + 1, updated_at = ? WHERE user_id = ?",
@@ -2628,8 +2637,8 @@ async def api_referral(request: Request):
         c.execute("INSERT OR IGNORE INTO referrals (referrer_id, referee_id, withdrawal_cycle, created_at) VALUES (?,?,?,?)",
                  (referrer_id, referee_id, cycle, now))
         conn.commit()
-    except:
-        pass
+    except sqlite3.Error as e:
+        logger.error(f"Failed to insert referral ({referrer_id} -> {referee_id}): {e}")
     conn.close()
 
     return {"success": True}

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import sqlite3, json, urllib.request, os
+import sqlite3, json, httpx, os
 from datetime import datetime
 
 DB_PATH = "/home/opc/medicneet-miniapp/medicneet.db"
@@ -71,17 +71,17 @@ def get_db_data():
     c.execute("SELECT user_id, user_name, round_id, question_times FROM disqualifications WHERE round_id >= ? AND round_id <= ?", (min_round, max_round))
     tonight_dqs = [dict(r) for r in c.fetchall()]
     tonight_player_ids = list(set(a["user_id"] for a in tonight_attempts))
-    
+
     # Sort players by interest: winners first, then multi-round, then DQs, then new
     def player_score(pid):
         wins = sum(1 for a in tonight_attempts if a["user_id"] == pid and a["is_correct"] == 1)
         rounds = sum(1 for a in tonight_attempts if a["user_id"] == pid)
         dqs = sum(1 for d in tonight_dqs if d["user_id"] == pid)
         return (wins * 10 + rounds * 3 + dqs * 5)
-    
+
     tonight_player_ids.sort(key=player_score, reverse=True)
     tonight_player_ids = tonight_player_ids[:20]  # Top 20 most interesting
-    
+
     player_histories = {}
     for pid in tonight_player_ids:
         c.execute("SELECT COUNT(*) FROM attempts WHERE user_id = ?", (pid,))
@@ -114,32 +114,38 @@ def get_db_data():
 def call_claude(data):
     payload = {"model": "claude-haiku-4-5-20251001", "max_tokens": 1500, "system": SYSTEM_PROMPT, "messages": [{"role": "user", "content": f"Here is tonight's data. Rant about it. Get angry at the brutal rounds. Roast the cheaters. Hype the grinders. Make every player feel something when they read this.\n\n{json.dumps(data, default=str)}"}]}
     headers = {"Content-Type": "application/json", "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01"}
-    req = urllib.request.Request("https://api.anthropic.com/v1/messages", data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST")
     try:
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            result = json.loads(resp.read().decode("utf-8"))
-            text = ""
-            for block in result.get("content", []):
-                if block.get("type") == "text":
-                    text += block.get("text", "")
-            return text.strip()
-    except Exception as e:
-        print(f"Claude API error: {e}")
+        resp = httpx.post("https://api.anthropic.com/v1/messages", json=payload, headers=headers, timeout=60)
+        resp.raise_for_status()
+        result = resp.json()
+        text = ""
+        for block in result.get("content", []):
+            if block.get("type") == "text":
+                text += block.get("text", "")
+        return text.strip()
+    except httpx.HTTPStatusError as e:
+        print(f"Claude API HTTP error {e.response.status_code}: {e.response.text}")
+        return None
+    except httpx.RequestError as e:
+        print(f"Claude API request error: {e}")
         return None
 
 def send_telegram(text):
     payload = {"chat_id": CHANNEL, "parse_mode": "Markdown", "text": text}
-    req = urllib.request.Request(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", data=json.dumps(payload).encode("utf-8"), headers={"Content-Type": "application/json"}, method="POST")
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            result = json.loads(resp.read().decode("utf-8"))
-            if result.get("ok"):
-                print(f"Sent. Message ID: {result['result']['message_id']}")
-                return True
-            else:
-                print(f"Telegram error: {result}")
-                return False
-    except Exception as e:
+        resp = httpx.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", json=payload, timeout=10)
+        resp.raise_for_status()
+        result = resp.json()
+        if result.get("ok"):
+            print(f"Sent. Message ID: {result['result']['message_id']}")
+            return True
+        else:
+            print(f"Telegram error: {result}")
+            return False
+    except httpx.HTTPStatusError as e:
+        print(f"Telegram HTTP error {e.response.status_code}: {e.response.text}")
+        return False
+    except httpx.RequestError as e:
         print(f"Telegram send error: {e}")
         return False
 

@@ -4,7 +4,7 @@ load_dotenv()
 MedicNEET Telegram Mini App - Cash Prize Quiz
 Backend: FastAPI + SQLite + Daily Email Export
 """
-import os, io, csv, json, time, hashlib, hmac, sqlite3, asyncio, logging, smtplib, string, random, html as html_lib
+import os, io, csv, json, time, hashlib, hmac, sqlite3, asyncio, logging, smtplib, string, random, secrets, html as html_lib
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email.mime.text import MIMEText
@@ -1360,7 +1360,7 @@ async def api_export_emails():
 # ─── CHALLENGE SYSTEM ─────────────────────────────────────────
 
 def generate_challenge_code():
-    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+    return ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(8))
 
 @app.post("/api/challenge/create")
 async def api_challenge_create(request: Request):
@@ -2079,7 +2079,7 @@ async def api_withdraw_send_otp(request: Request):
             pass
 
     # Generate 6-digit OTP
-    otp = str(random.randint(100000, 999999))
+    otp = str(secrets.randbelow(900000) + 100000)
     expires = time.time() + 300  # 5 minutes
     now = datetime.utcnow().isoformat()
 

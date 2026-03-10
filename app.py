@@ -2308,6 +2308,12 @@ async def api_withdraw_request(request: Request):
     if not user_id:
         raise HTTPException(400, "user_id required")
 
+    # Validate amount: must be a positive number >= 50 if provided
+    if amount is not None:
+        if not isinstance(amount, (int, float)) or amount < 50:
+            raise HTTPException(400, "Invalid withdrawal amount. Minimum is ₹50")
+        amount = int(amount)
+
     conn = get_db(); c = conn.cursor()
 
     # Verify balance and get withdrawal_count
@@ -2441,7 +2447,7 @@ async def api_withdraw_request(request: Request):
             raise HTTPException(400, "Please join @neetbiotraps group first")
 
     # All checks passed - process withdrawal
-    withdraw_amount = amount if amount and amount <= balance else balance
+    withdraw_amount = amount if amount and 50 <= amount <= balance else balance
     now = datetime.utcnow().isoformat()
 
     c.execute("UPDATE wallets SET balance = balance - ?, withdrawal_count = withdrawal_count + 1, updated_at = ? WHERE user_id = ?",

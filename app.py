@@ -153,6 +153,18 @@ def init_db():
             user_id TEXT,
             event TEXT NOT NULL,
             data TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP)""",
+        """CREATE TABLE IF NOT EXISTS app_clicks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT NOT NULL,
+            source TEXT DEFAULT 'unknown',
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP)""",
+        """CREATE TABLE IF NOT EXISTS study_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT NOT NULL,
+            event_type TEXT NOT NULL,
+            item_name TEXT,
+            item_url TEXT,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP)"""
     ]:
         c.execute(sql)

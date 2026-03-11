@@ -528,60 +528,68 @@ Better luck next time!
 
 🍎 <b>What are Medic Points?</b> Earn them by solving questions on the MedicNEET App. Link your email to transfer points. Top scorer wins iPad + Apple Pencil after NEET 2026!"""
     elif not all_cash_winners and capped_users:
-        # All 4/4 scorers were capped
-        capped_lines = []
-        for cu in capped_users:
-            name = html_lib.escape(cu["user_name"] or "Anonymous")
-            capped_lines.append(f"🎯 {name} — 20 Medic Points")
-        capped_text = "\n".join(capped_lines)
+        # All 4/4 scorers were capped — show merit list + medic points
+        merit_lines = []
+        for i, entry in enumerate(all_entries, start=1):
+            name = html_lib.escape(entry["user_name"] or "Anonymous")
+            time_sec = entry["time_ms"] / 1000
+            merit_lines.append(f"#{i} {name} — {time_sec:.1f}s")
+            if i >= 10:
+                break
+        merit_text = "\n".join(merit_lines)
+        remaining = len(all_entries) - min(10, len(all_entries))
+        remaining_line = f"\n... and {remaining} more" if remaining > 0 else ""
+
         text = f"""🏆 <b>ROUND #{round_id} RESULTS</b>
 
-All winners earned Medic Points this round!
+📋 <b>MERIT LIST (4/4 Correct):</b>
+{merit_text}{remaining_line}
 
-🎯 <b>Medic Points Earned:</b>
-{capped_text}
+🎯 <b>All scorers earn +20 MedicPoints!</b>
+(Wallets full — withdraw to earn cash again)
 
 👥 {total_4of4}/{total_participants} scored 4/4!
 
 🔥 Rounds daily at 7:00, 7:30, 8:00, 8:30 PM IST!"""
     else:
-        sections = []
+        # ── MERIT LIST: Top 10 by speed ──
+        merit_lines = []
+        for i, entry in enumerate(all_entries, start=1):
+            name = html_lib.escape(entry["user_name"] or "Anonymous")
+            time_sec = entry["time_ms"] / 1000
+            merit_lines.append(f"#{i} {name} — {time_sec:.1f}s")
+            if i >= 10:
+                break
+        merit_text = "\n".join(merit_lines)
+        remaining = len(all_entries) - min(10, len(all_entries))
+        remaining_line = f"\n... and {remaining} more scored 4/4" if remaining > 0 else ""
+
+        # ── PRIZE DISTRIBUTION ──
+        prize_sections = []
 
         if speed_winners:
             speed_lines = []
             for i, w in enumerate(speed_winners, start=1):
                 name = html_lib.escape(w["user_name"] or "Anonymous")
-                time_sec = w["time_ms"] / 1000
-                speed_lines.append(f"{i}. {name} — {time_sec:.1f}s — ₹{CASH_PRIZE} ✅")
-            sections.append("⚡ <b>Speed Winners (Top 2):</b>\n" + "\n".join(speed_lines))
+                speed_lines.append(f"{i}. {name} — ₹{CASH_PRIZE} ✅")
+            prize_sections.append("⚡ <b>Speed Prize (Top 2):</b>\n" + "\n".join(speed_lines))
 
         if lucky_winners:
             lucky_lines = []
             for w in lucky_winners:
                 name = html_lib.escape(w["user_name"] or "Anonymous")
                 lucky_lines.append(f"🍀 {name} — ₹{CASH_PRIZE} ✅")
-            sections.append("🎲 <b>Lucky Winners:</b>\n" + "\n".join(lucky_lines))
+            prize_sections.append("🎲 <b>Lucky Draw:</b>\n" + "\n".join(lucky_lines))
 
         if capped_users:
             capped_lines = []
             for cu in capped_users:
                 name = html_lib.escape(cu["user_name"] or "Anonymous")
                 capped_lines.append(f"🎯 {name} — 20 Medic Points")
-            sections.append("🎯 <b>Wallet Full — Medic Points:</b>\n" + "\n".join(capped_lines))
+            prize_sections.append("🎯 <b>Wallet Full — Medic Points:</b>\n" + "\n".join(capped_lines))
 
-        winner_text = "\n\n".join(sections)
+        prize_text = "\n\n".join(prize_sections)
         total_prize = len(all_cash_winners) * CASH_PRIZE
-
-        # Collect names of 4/4 scorers who didn't win cash or capped points
-        winner_ids = set(w["user_id"] for w in all_cash_winners)
-        capped_ids = set(cu["user_id"] for cu in capped_users)
-        also_4of4 = [html_lib.escape(e["user_name"] or "Anonymous") for e in all_entries if e["user_id"] not in winner_ids and e["user_id"] not in capped_ids]
-        also_line = ""
-        if also_4of4:
-            also_line = f"\n\n✅ Also scored 4/4: {', '.join(also_4of4)}"
-        medic_points_line = ""
-        if also_4of4:
-            medic_points_line = f"{also_line}\n🎯 All earn 20 Medic Points on the MedicNEET App! 🍎"
 
         # Check for DQs this round
         c2 = conn.cursor()
@@ -596,12 +604,25 @@ All winners earned Medic Points this round!
                 dq_entries.append(f"❌ {name} — speed violation ({total}/3 strikes)")
             dq_line = "\n\n🚫 <b>Disqualified:</b>\n" + "\n".join(dq_entries)
 
+        # Non-cash 4/4 scorers get MedicPoints mention
+        winner_ids = set(w["user_id"] for w in all_cash_winners)
+        capped_ids = set(cu["user_id"] for cu in capped_users)
+        also_4of4 = [e for e in all_entries if e["user_id"] not in winner_ids and e["user_id"] not in capped_ids]
+        medic_line = ""
+        if also_4of4:
+            medic_line = f"\n\n🏅 All {total_4of4} scorers earn +20 MedicPoints on the MedicNEET App!"
+
         text = f"""🏆 <b>ROUND #{round_id} RESULTS</b>
 
-{winner_text}{dq_line}
+📋 <b>MERIT LIST (4/4 Correct by Speed):</b>
+{merit_text}{remaining_line}
+
+💰 <b>PRIZE DISTRIBUTION:</b>
+
+{prize_text}{dq_line}
 
 💰 Total paid: ₹{total_prize}
-👥 {total_4of4}/{total_participants} scored 4/4!{medic_points_line}
+👥 {total_4of4}/{total_participants} scored 4/4!{medic_line}
 
 🔥 Rounds daily at 7:00, 7:30, 8:00, 8:30 PM IST!"""
 

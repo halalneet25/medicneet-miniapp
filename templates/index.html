@@ -3275,6 +3275,31 @@
             </div>
         </div>
 
+        <!-- MedicPoints Deferred Popup: shown on next visit after round ends -->
+        <div id="mpDeferredModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:300;display:none;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)this.style.display='none'">
+            <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);border:2px solid #f59e0b;border-radius:20px;padding:24px;max-width:360px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+                <div style="font-size:40px;margin-bottom:10px">🏅</div>
+                <div style="font-size:20px;font-weight:900;color:#fde68a;margin-bottom:6px">You scored 4/4!</div>
+                <div style="font-size:13px;font-weight:700;color:#fbbf24;margin-bottom:14px">You didn't win the cash prize this round, but here's something BIGGER...</div>
+                <div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border-radius:14px;padding:14px;margin-bottom:14px">
+                    <div style="font-size:28px;font-weight:900;color:#d97706">+20 MedicPoints</div>
+                    <div style="font-size:12px;font-weight:700;color:#92400e;margin-top:4px">MedicPoints are earned by solving questions regularly from the MedicNEET app</div>
+                    <div style="font-size:14px;font-weight:900;color:#b45309;margin-top:8px">🏆 Top MedicPoints winner gets an Apple iPad + Apple Pencil!</div>
+                </div>
+                <div id="mpDeferredEmailForm">
+                    <div style="font-size:13px;font-weight:700;color:#e2e8f0;margin-bottom:8px">Enter your email to get the install link & 20 points preloaded:</div>
+                    <input type="email" id="mpDeferredEmailInput" placeholder="your.email@gmail.com" style="width:100%;box-sizing:border-box;padding:12px 16px;border:2px solid #f59e0b;border-radius:12px;font-size:15px;font-weight:700;background:#0f172a;color:#fde68a;text-align:center;outline:none;margin-bottom:10px">
+                    <button id="mpDeferredClaimBtn" onclick="claimDeferredMedicPoints()" style="width:100%;padding:14px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:15px;font-weight:900;border:none;border-radius:14px;cursor:pointer;box-shadow:0 3px 0 #92400e">Claim 20 MedicPoints & Get App Link</button>
+                </div>
+                <div id="mpDeferredClaimSuccess" style="display:none">
+                    <div style="font-size:15px;font-weight:800;color:#34d399;margin-bottom:8px">20 MedicPoints loaded! ✅</div>
+                    <div style="font-size:13px;font-weight:700;color:#e2e8f0;margin-bottom:12px">Download MedicNEET app and sign in with <strong id="mpDeferredClaimedEmail" style="color:#fde68a"></strong> — your 20 points are already waiting!</div>
+                    <a id="mpDeferredAppLink" href="{{ playstore_link }}" target="_blank" style="display:inline-block;background:linear-gradient(135deg,#34d399,#059669);color:#fff;font-size:14px;font-weight:900;padding:12px 24px;border-radius:12px;text-decoration:none;box-shadow:0 3px 0 #047857">Download MedicNEET App</a>
+                </div>
+                <button onclick="document.getElementById('mpDeferredModal').style.display='none'" style="margin-top:12px;background:none;border:none;color:#94a3b8;font-size:13px;font-weight:700;cursor:pointer">Maybe later</button>
+            </div>
+        </div>
+
     <div class="bottom-nav">
         <div class="nav-item active" onclick="switchTab('quiz')">
             <div class="nav-icon">⚡</div>
@@ -4011,8 +4036,6 @@
                     prize_window_active: false,
                     challenge_result: null,
                     wallet_balance: null,
-                    eligible_for_medicpoints: allA,
-                    medicpoints_amount: allA ? 20 : 0,
                     round_id: 99999
                 };
                 setTimeout(() => showResult(fakeData, tms), 500);
@@ -4133,19 +4156,9 @@
 
             document.getElementById('resultTime').textContent = ts;
 
-            // Show MedicPoints CTA for 4/4 users who didn't win cash
-            const mpCTA = document.getElementById('medicPointsCTA');
-            if (data.eligible_for_medicpoints) {
-                mpCTA.style.display = 'block';
-                // Store round_id for claim
-                mpCTA.dataset.roundId = data.round_id;
-                // Reset form state
-                document.getElementById('mpEmailForm').style.display = 'block';
-                document.getElementById('mpClaimSuccess').style.display = 'none';
-                document.getElementById('mpEmailInput').value = '';
-            } else {
-                mpCTA.style.display = 'none';
-            }
+            // MedicPoints CTA is now shown as a deferred popup on next app visit
+            // (after round ends and winners are decided), not at submit time
+            document.getElementById('medicPointsCTA').style.display = 'none';
 
             // During prize window, hide explanations and per-question breakdown
             // to prevent multi-account cheating
@@ -4811,6 +4824,79 @@
                 btn.disabled = false;
                 btn.textContent = 'Claim 20 MedicPoints & Get App Link';
                 console.error('MedicPoints claim failed:', e);
+            }
+        }
+
+        // ─── Deferred MedicPoints popup (shown on next visit after round ends) ───
+        let pendingMpRoundId = null;
+
+        async function checkPendingMedicPoints() {
+            try {
+                const res = await fetch(`${API}/api/medicpoints/pending?user_id=${userId}`);
+                if (!res.ok) return;
+                const data = await res.json();
+                if (data.eligible) {
+                    pendingMpRoundId = data.round_id;
+                    const modal = document.getElementById('mpDeferredModal');
+                    modal.style.display = 'flex';
+                    // Reset form state
+                    document.getElementById('mpDeferredEmailForm').style.display = 'block';
+                    document.getElementById('mpDeferredClaimSuccess').style.display = 'none';
+                    document.getElementById('mpDeferredEmailInput').value = '';
+                }
+            } catch(e) {
+                console.error('Pending MedicPoints check failed:', e);
+            }
+        }
+
+        async function claimDeferredMedicPoints() {
+            const emailInput = document.getElementById('mpDeferredEmailInput');
+            const email = emailInput.value.trim().toLowerCase();
+            if (!email || !email.includes('@')) {
+                emailInput.style.borderColor = '#ef4444';
+                return;
+            }
+            // Catch common email domain typos
+            const domain = email.split('@')[1] || '';
+            const typoMap = {
+                'gmail.co': 'gmail.com', 'gmail.con': 'gmail.com', 'gmail.cm': 'gmail.com',
+                'gmail.om': 'gmail.com', 'gmai.com': 'gmail.com', 'gmial.com': 'gmail.com',
+                'gamil.com': 'gmail.com', 'gmal.com': 'gmail.com', 'gnail.com': 'gmail.com',
+                'yahoo.co': 'yahoo.com', 'yahoo.con': 'yahoo.com',
+                'outlok.com': 'outlook.com', 'outloo.com': 'outlook.com',
+                'hotmal.com': 'hotmail.com', 'hotmai.com': 'hotmail.com',
+            };
+            if (typoMap[domain]) {
+                const corrected = email.replace('@' + domain, '@' + typoMap[domain]);
+                if (confirm('Did you mean ' + corrected + '?\n\nClick OK to use the corrected email, or Cancel to keep ' + email)) {
+                    emailInput.value = corrected;
+                    return claimDeferredMedicPoints();
+                }
+            }
+            const btn = document.getElementById('mpDeferredClaimBtn');
+            btn.disabled = true;
+            btn.textContent = 'Loading...';
+            try {
+                const res = await fetch(`${API}/api/medicpoints/claim`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({email: email, user_id: userId, user_name: userName, round_id: pendingMpRoundId})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('mpDeferredEmailForm').style.display = 'none';
+                    document.getElementById('mpDeferredClaimSuccess').style.display = 'block';
+                    document.getElementById('mpDeferredClaimedEmail').textContent = email;
+                    trackEvent('medicpoints_claimed', {email: email, round_id: pendingMpRoundId, points: 20});
+                } else {
+                    btn.disabled = false;
+                    btn.textContent = 'Claim 20 MedicPoints & Get App Link';
+                    alert(data.reason || 'Something went wrong. Try again.');
+                }
+            } catch(e) {
+                btn.disabled = false;
+                btn.textContent = 'Claim 20 MedicPoints & Get App Link';
+                console.error('Deferred MedicPoints claim failed:', e);
             }
         }
 
@@ -6162,6 +6248,7 @@
         loadCurrentRound();
         loadWallet();
         checkChallengeNotifications();
+        checkPendingMedicPoints();
 
         /* ── Blur overlay with countdown on tab switch ── */
         (function() {

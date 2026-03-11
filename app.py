@@ -515,8 +515,9 @@ async def send_winner_to_channel(round_id):
     all_cash_winners = speed_winners + lucky_winners
     total_4of4 = len(all_entries)
 
-    if not all_cash_winners and not capped_users:
-        text = f"""🏆 <b>ROUND #{round_id} RESULTS</b>
+    # ── MESSAGE 1: MERIT LIST (all 4/4 scorers ranked by speed) ──
+    if total_4of4 == 0:
+        merit_msg = f"""🏆 <b>ROUND #{round_id} RESULTS</b>
 
 No winners this round! 😢
 Nobody scored 4/4 correct.
@@ -524,68 +525,51 @@ Nobody scored 4/4 correct.
 👥 {total_participants} players attempted
 
 Better luck next time!
-🔥 Rounds daily at 7:00, 7:30, 8:00, 8:30 PM IST!
-
-🍎 <b>What are Medic Points?</b> Earn them by solving questions on the MedicNEET App. Link your email to transfer points. Top scorer wins iPad + Apple Pencil after NEET 2026!"""
-    elif not all_cash_winners and capped_users:
-        # All 4/4 scorers were capped — show merit list + medic points
-        merit_lines = []
-        for i, entry in enumerate(all_entries, start=1):
-            name = html_lib.escape(entry["user_name"] or "Anonymous")
-            time_sec = entry["time_ms"] / 1000
-            merit_lines.append(f"#{i} {name} — {time_sec:.1f}s")
-            if i >= 10:
-                break
-        merit_text = "\n".join(merit_lines)
-        remaining = len(all_entries) - min(10, len(all_entries))
-        remaining_line = f"\n... and {remaining} more" if remaining > 0 else ""
-
-        text = f"""🏆 <b>ROUND #{round_id} RESULTS</b>
-
-📋 <b>MERIT LIST (4/4 Correct):</b>
-{merit_text}{remaining_line}
-
-🎯 <b>All scorers earn +20 MedicPoints!</b>
-(Wallets full — withdraw to earn cash again)
-
-👥 {total_4of4}/{total_participants} scored 4/4!
-
 🔥 Rounds daily at 7:00, 7:30, 8:00, 8:30 PM IST!"""
     else:
-        # ── MERIT LIST: Top 10 by speed ──
         merit_lines = []
         for i, entry in enumerate(all_entries, start=1):
             name = html_lib.escape(entry["user_name"] or "Anonymous")
             time_sec = entry["time_ms"] / 1000
             merit_lines.append(f"#{i} {name} — {time_sec:.1f}s")
-            if i >= 10:
-                break
         merit_text = "\n".join(merit_lines)
-        remaining = len(all_entries) - min(10, len(all_entries))
-        remaining_line = f"\n... and {remaining} more scored 4/4" if remaining > 0 else ""
 
-        # ── PRIZE DISTRIBUTION ──
+        merit_msg = f"""🏆 <b>ROUND #{round_id} RESULTS</b>
+
+📋 <b>MERIT LIST — 4/4 Correct (Ranked by Speed):</b>
+
+{merit_text}
+
+👥 {total_4of4}/{total_participants} scored 4/4!
+🏅 All scorers earn +20 MedicPoints!
+
+🔥 Rounds daily at 7:00, 7:30, 8:00, 8:30 PM IST!"""
+
+    # ── MESSAGE 2: PRIZE DISTRIBUTION (only if there are prizes to announce) ──
+    prize_msg = None
+    if all_cash_winners or capped_users:
         prize_sections = []
 
         if speed_winners:
             speed_lines = []
             for i, w in enumerate(speed_winners, start=1):
                 name = html_lib.escape(w["user_name"] or "Anonymous")
-                speed_lines.append(f"{i}. {name} — ₹{CASH_PRIZE} ✅")
-            prize_sections.append("⚡ <b>Speed Prize (Top 2):</b>\n" + "\n".join(speed_lines))
+                time_sec = w["time_ms"] / 1000
+                speed_lines.append(f"{i}. {name} — {time_sec:.1f}s — ₹{CASH_PRIZE} ✅")
+            prize_sections.append("⚡ <b>Speed Prize (Top 2 Fastest):</b>\n" + "\n".join(speed_lines))
 
         if lucky_winners:
             lucky_lines = []
             for w in lucky_winners:
                 name = html_lib.escape(w["user_name"] or "Anonymous")
                 lucky_lines.append(f"🍀 {name} — ₹{CASH_PRIZE} ✅")
-            prize_sections.append("🎲 <b>Lucky Draw:</b>\n" + "\n".join(lucky_lines))
+            prize_sections.append("🎲 <b>Lucky Draw Winners:</b>\n" + "\n".join(lucky_lines))
 
         if capped_users:
             capped_lines = []
             for cu in capped_users:
                 name = html_lib.escape(cu["user_name"] or "Anonymous")
-                capped_lines.append(f"🎯 {name} — 20 Medic Points")
+                capped_lines.append(f"🎯 {name} — +20 Medic Points (wallet full)")
             prize_sections.append("🎯 <b>Wallet Full — Medic Points:</b>\n" + "\n".join(capped_lines))
 
         prize_text = "\n\n".join(prize_sections)
@@ -604,32 +588,29 @@ Better luck next time!
                 dq_entries.append(f"❌ {name} — speed violation ({total}/3 strikes)")
             dq_line = "\n\n🚫 <b>Disqualified:</b>\n" + "\n".join(dq_entries)
 
-        # Non-cash 4/4 scorers get MedicPoints mention
-        winner_ids = set(w["user_id"] for w in all_cash_winners)
-        capped_ids = set(cu["user_id"] for cu in capped_users)
-        also_4of4 = [e for e in all_entries if e["user_id"] not in winner_ids and e["user_id"] not in capped_ids]
-        medic_line = ""
-        if also_4of4:
-            medic_line = f"\n\n🏅 All {total_4of4} scorers earn +20 MedicPoints on the MedicNEET App!"
-
-        text = f"""🏆 <b>ROUND #{round_id} RESULTS</b>
-
-📋 <b>MERIT LIST (4/4 Correct by Speed):</b>
-{merit_text}{remaining_line}
-
-💰 <b>PRIZE DISTRIBUTION:</b>
+        prize_msg = f"""💰 <b>ROUND #{round_id} — PRIZE DISTRIBUTION</b>
 
 {prize_text}{dq_line}
 
-💰 Total paid: ₹{total_prize}
-👥 {total_4of4}/{total_participants} scored 4/4!{medic_line}
+💰 Total paid this round: ₹{total_prize}
+💵 Cash is auto-credited to your wallet!"""
 
-🔥 Rounds daily at 7:00, 7:30, 8:00, 8:30 PM IST!"""
-
+    # ── SEND BOTH MESSAGES ──
     try:
         async with httpx.AsyncClient() as client:
-            resp = await client.post(f"{url}/sendMessage", json={"chat_id": CHANNEL_ID, "text": text, "parse_mode": "HTML", "reply_markup": button})
-            logger.info(f"Round {round_id} announcement: {resp.status_code}")
+            # Message 1: Merit list
+            resp1 = await client.post(f"{url}/sendMessage", json={"chat_id": CHANNEL_ID, "text": merit_msg, "parse_mode": "HTML"})
+            logger.info(f"Round {round_id} merit announcement: {resp1.status_code}")
+
+            # Message 2: Prize distribution (with Play button)
+            if prize_msg:
+                resp2 = await client.post(f"{url}/sendMessage", json={"chat_id": CHANNEL_ID, "text": prize_msg, "parse_mode": "HTML", "reply_markup": button})
+                logger.info(f"Round {round_id} prize announcement: {resp2.status_code}")
+            else:
+                # No prizes — attach play button to the merit message won't work (already sent)
+                # Send a follow-up nudge
+                nudge = "🍎 <b>What are Medic Points?</b> Earn them by solving questions on the MedicNEET App. Top scorer wins iPad + Apple Pencil after NEET 2026!"
+                await client.post(f"{url}/sendMessage", json={"chat_id": CHANNEL_ID, "text": nudge, "parse_mode": "HTML", "reply_markup": button})
     except Exception as e:
         logger.error(f"Failed to send round {round_id} announcement: {e}")
     finally:

@@ -1129,6 +1129,18 @@ async def api_submit(request: Request):
     # MedicPoints eligibility is now determined AFTER the round ends (in send_winner_to_channel)
     # and shown as a popup on the user's next visit. No longer shown at submit time.
 
+    # Build teaser explanation: pick first available explanation, truncate to ~100 chars
+    teaser = None
+    teaser_q_index = None
+    for i, exp in enumerate(explanations):
+        if exp and exp.strip():
+            truncated = exp.strip()[:120]
+            if len(exp.strip()) > 120:
+                truncated = truncated.rsplit(' ', 1)[0] + '...'
+            teaser = truncated
+            teaser_q_index = i
+            break
+
     # Anti-cheat: hide correct answers and per-question results during prize window
     # so users can't use one account to see answers and another to submit them
     if in_prize_window:
@@ -1138,6 +1150,8 @@ async def api_submit(request: Request):
             "results": None,
             "correct_answers": None,
             "explanations": None,
+            "teaser_explanation": teaser,
+            "teaser_q_index": teaser_q_index,
             "your_time_ms": tms,
             "rank": rank,
             "leaderboard": lb,
@@ -1154,6 +1168,8 @@ async def api_submit(request: Request):
         "results": results,
         "correct_answers": correct_answers,
         "explanations": None,
+        "teaser_explanation": teaser,
+        "teaser_q_index": teaser_q_index,
         "your_time_ms": tms,
         "rank": rank,
         "leaderboard": lb,
@@ -3109,3 +3125,35 @@ async def api_medicpoints_pending(request: Request):
     if row:
         return {"eligible": True, "round_id": row["round_id"], "points": 20}
     return {"eligible": False}
+
+
+@app.get("/api/medicpoints/balance")
+async def api_medicpoints_balance(user_id: str):
+    """
+    Get total MedicPoints earned by a user across all rounds.
+    Counts from winners table (4/4 scores) as source of truth.
+    """
+    if not user_id:
+        raise HTTPException(400, "user_id required")
+
+    conn = get_db()
+    c = conn.cursor()
+
+    # Count all rounds where user got 4/4 (exists in winners table)
+    c.execute("SELECT COUNT(*) as cnt FROM winners WHERE user_id = ?", (user_id,))
+    total_rounds_won = c.fetchone()["cnt"]
+    total_points = total_rounds_won * 20
+
+    # Check how many were claimed via email
+    c.execute("SELECT COUNT(*) as cnt FROM medicpoints_claims WHERE telegram_id = ?", (user_id,))
+    claimed_rounds = c.fetchone()["cnt"]
+    claimed_points = claimed_rounds * 20
+
+    conn.close()
+
+    return {
+        "total_points": total_points,
+        "unclaimed_points": total_points - claimed_points,
+        "total_rounds_won": total_rounds_won,
+        "claimed_rounds": claimed_rounds
+    }

@@ -499,8 +499,9 @@ async def send_winner_to_channel(round_id):
             c.execute("INSERT INTO transactions (user_id, amount, type, round_id, status, created_at) VALUES (?,?,?,?,?,?)",
                      (lw["user_id"], 5, "win", round_id, "completed", now))
 
-    # Step 7: Remove non-winners from winners table
-    c.execute("DELETE FROM winners WHERE round_id = ? AND (winner_type IS NULL OR winner_type = '')", (round_id,))
+    # Step 7: Mark non-winners as eligible for MedicPoints (instead of deleting)
+    # These users got 4/4 but didn't win cash — they can claim MedicPoints on next visit
+    c.execute("UPDATE winners SET winner_type = 'medicpoints_eligible' WHERE round_id = ? AND (winner_type IS NULL OR winner_type = '')", (round_id,))
 
     conn.commit()
 
@@ -1125,11 +1126,8 @@ async def api_submit(request: Request):
 
     score = sum(1 for r in results if r)
 
-    # Check if user qualifies for MedicPoints offer:
-    # All 4/4 correct non-capped users see the CTA (winners are decided at round end,
-    # so we can't reliably exclude speed/lucky winners at submit time)
-    # Capped users already get MedicPoints automatically via send_winner_to_channel
-    eligible_for_medicpoints = all_correct and not disqualified and not wallet_capped
+    # MedicPoints eligibility is now determined AFTER the round ends (in send_winner_to_channel)
+    # and shown as a popup on the user's next visit. No longer shown at submit time.
 
     # Anti-cheat: hide correct answers and per-question results during prize window
     # so users can't use one account to see answers and another to submit them
@@ -1147,8 +1145,6 @@ async def api_submit(request: Request):
             "challenge_result": challenge_result,
             "wallet_balance": wallet_balance,
             "wallet_capped": wallet_capped,
-            "eligible_for_medicpoints": eligible_for_medicpoints,
-            "medicpoints_amount": 20 if eligible_for_medicpoints else 0,
             "round_id": rid
         }
 
@@ -1165,8 +1161,6 @@ async def api_submit(request: Request):
         "challenge_result": challenge_result,
         "wallet_balance": wallet_balance,
         "wallet_capped": wallet_capped,
-        "eligible_for_medicpoints": eligible_for_medicpoints,
-        "medicpoints_amount": 20 if eligible_for_medicpoints else 0,
         "round_id": rid
     }
 
@@ -3080,3 +3074,38 @@ async def api_medicpoints_status(request: Request):
     if not uid or not round_id:
         raise HTTPException(400, "user_id and round_id required")
     return get_claim_status(uid, int(round_id))
+
+
+@app.get("/api/medicpoints/pending")
+async def api_medicpoints_pending(request: Request):
+    """
+    Check if user has unclaimed MedicPoints from a completed round.
+    Called on app load to show deferred MedicPoints popup.
+
+    Returns the most recent eligible round (if any) where user got 4/4
+    but didn't win cash, and hasn't yet claimed MedicPoints.
+    """
+    uid = request.query_params.get("user_id", "")
+    if not uid:
+        raise HTTPException(400, "user_id required")
+
+    conn = get_db()
+    c = conn.cursor()
+
+    # Find the most recent round where user is medicpoints_eligible
+    # and hasn't already claimed MedicPoints for that round
+    c.execute("""
+        SELECT w.round_id, w.user_name, w.time_ms
+        FROM winners w
+        LEFT JOIN medicpoints_claims mc ON mc.telegram_id = ? AND mc.round_id = w.round_id
+        WHERE w.user_id = ? AND w.winner_type = 'medicpoints_eligible'
+          AND mc.id IS NULL
+        ORDER BY w.round_id DESC
+        LIMIT 1
+    """, (uid, uid))
+    row = c.fetchone()
+    conn.close()
+
+    if row:
+        return {"eligible": True, "round_id": row["round_id"], "points": 20}
+    return {"eligible": False}

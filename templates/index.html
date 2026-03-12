@@ -3753,7 +3753,7 @@
             // Hide prize timer for test mode
             document.getElementById('timerSection').style.display = 'none';
             document.getElementById('practiceModeBanner').style.display = 'block';
-            document.getElementById('practiceModeBanner').innerHTML = '<span style="font-weight:800;color:#d97706;font-size:13px">🧪 TEST MODE — All answers are A. Testing MedicPoints flow.</span>';
+            document.getElementById('practiceModeBanner').innerHTML = '<span style="font-weight:800;color:#d97706;font-size:13px">🧪 TEST MODE — All answers are A. Testing 4/4 Winner Flow (Prize Window Active).</span>';
             showScreen('quizScreen');
             setupQuizToggle();
             startStopwatch();
@@ -4033,7 +4033,7 @@
             hasAttempted = true;
             const tms = stopStopwatch();
 
-            // Test mode: simulate 4/4 no-cash response locally
+            // Test mode: simulate 4/4 winner flow (prize window active)
             if (_isTestMode) {
                 lastTimeMs = tms;
                 const allA = userAnswers.every(a => a === 'A');
@@ -4041,13 +4041,19 @@
                 const fakeData = {
                     all_correct: allA,
                     score: score,
-                    results: userAnswers.map(a => a === 'A'),
-                    correct_answers: ['A','A','A','A'],
-                    explanations: ['Test explanation','Test explanation','Test explanation','Test explanation'],
+                    results: null,           // hidden during prize window
+                    correct_answers: null,    // hidden during prize window
+                    explanations: null,       // hidden during prize window
                     your_time_ms: tms,
-                    rank: null,
-                    leaderboard: [],
-                    prize_window_active: false,
+                    rank: allA ? 3 : null,    // simulate rank #3 if all correct
+                    leaderboard: allA ? [
+                        { rank: 1, user_name: 'TestUser_Speed1', time_ms: Math.max(4000, tms - 3000), score: 4 },
+                        { rank: 2, user_name: 'TestUser_Speed2', time_ms: Math.max(5000, tms - 1500), score: 4 },
+                        { rank: 3, user_name: userName || 'You', time_ms: tms, score: 4 }
+                    ] : [],
+                    prize_window_active: true,
+                    teaser_explanation: 'Mitochondria is called the powerhouse of the cell because it produces ATP through oxidative phosphorylation.',
+                    teaser_q_index: 0,
                     challenge_result: null,
                     wallet_balance: null,
                     round_id: 99999

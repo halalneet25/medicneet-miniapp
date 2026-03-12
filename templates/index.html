@@ -4038,12 +4038,18 @@
                 lastTimeMs = tms;
                 const allA = userAnswers.every(a => a === 'A');
                 const score = userAnswers.filter(a => a === 'A').length;
+                const fakeResults = userAnswers.map(a => a === 'A');
                 const fakeData = {
                     all_correct: allA,
                     score: score,
-                    results: null,           // hidden during prize window
+                    results: fakeResults,
                     correct_answers: null,    // hidden during prize window
-                    explanations: null,       // hidden during prize window
+                    explanations: [
+                        'Mitochondria is called the powerhouse of the cell because it produces ATP through oxidative phosphorylation, which occurs in the inner...',
+                        'DNA replication is semi-conservative, meaning each new double helix consists of one original strand and one newly synthesized strand, as...',
+                        'ATP (adenosine triphosphate) is primarily produced in the mitochondria through the process of oxidative phosphorylation during cellular...',
+                        'Enzymes are biological catalysts made up of proteins. They have a specific 3D structure with an active site that binds to substrates and...'
+                    ],
                     your_time_ms: tms,
                     rank: allA ? 3 : null,    // simulate rank #3 if all correct
                     leaderboard: allA ? [
@@ -4052,7 +4058,7 @@
                         { rank: 3, user_name: userName || 'You', time_ms: tms, score: 4 }
                     ] : [],
                     prize_window_active: true,
-                    teaser_explanation: 'Mitochondria is called the powerhouse of the cell because it produces ATP through oxidative phosphorylation.',
+                    teaser_explanation: 'Mitochondria is called the powerhouse of the cell because it produces ATP through oxidative phosphorylation, which occurs in the inner...',
                     teaser_q_index: 0,
                     challenge_result: null,
                     wallet_balance: null,
@@ -4212,23 +4218,37 @@
             const reviewContainer = document.getElementById('questionsReviewContainer');
 
             if (inPrizeWindow) {
-                // Prize window active: show score summary + teaser + single CTA
+                // Prize window active: show per-question breakdown with truncated explanations
                 expCard.style.display = 'none';
-                let prizeHTML = `<div style="background:var(--bg2);border:2px solid var(--border);border-radius:16px;padding:18px;margin-bottom:10px;box-shadow:0 3px 0 var(--border);text-align:center">
-                    <div style="font-size:15px;font-weight:800;color:var(--txt);margin-bottom:6px">You got ${correctCount}/4 correct</div>
-                    <div style="font-size:13px;font-weight:600;color:var(--txt2)">Full question breakdown with correct answers will appear here after the prize window ends.</div>
-                    <div style="margin-top:10px;font-size:12px;color:var(--txt3)">You can also review all your past rounds anytime in <strong>My Rounds</strong> below.</div>
-                </div>`;
+                let prizeHTML = '';
 
-                // Teaser explanation (available even during prize window)
-                if (data.teaser_explanation) {
-                    prizeHTML += `<div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:2px solid var(--green);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:0 3px 0 var(--green-dk)">
-                        <div style="font-size:13px;font-weight:800;color:var(--green-dk);margin-bottom:6px">Q${(data.teaser_q_index || 0) + 1} Explanation Preview:</div>
-                        <div style="font-size:13px;font-weight:600;color:var(--txt2);font-style:italic">"${data.teaser_explanation}"</div>
-                    </div>`;
+                // Per-question cards showing right/wrong + truncated explanation
+                if (currentRound?.questions && data.results) {
+                    prizeHTML += '<div style="margin-bottom:12px">';
+                    currentRound.questions.forEach((q, idx) => {
+                        const isCorrect = data.results[idx];
+                        const userAnswer = userAnswers[idx];
+                        const icon = isCorrect ? '✅' : '❌';
+                        const borderColor = isCorrect ? 'var(--green)' : 'var(--red, #ef4444)';
+                        const bgColor = isCorrect ? 'linear-gradient(135deg,#f0fdf4,#dcfce7)' : 'linear-gradient(135deg,#fef2f2,#fee2e2)';
+                        const truncExp = data.explanations && data.explanations[idx] ? data.explanations[idx] : null;
+
+                        prizeHTML += `
+                            <div style="background:${bgColor};border:2px solid ${borderColor};border-radius:16px;padding:14px;margin-bottom:10px;box-shadow:0 3px 0 ${borderColor}">
+                                <div style="font-size:14px;font-weight:800;color:var(--txt);margin-bottom:4px">
+                                    ${icon} Question ${idx + 1}/4
+                                </div>
+                                <div style="font-size:13px;font-weight:600;color:var(--txt2);margin-bottom:6px">
+                                    Your answer: <strong>${userAnswer || 'None'}</strong>
+                                </div>
+                                ${truncExp ? `<div style="font-size:12px;font-weight:600;color:var(--txt3);font-style:italic;border-top:1px solid ${borderColor};padding-top:6px">"${truncExp}"</div>` : ''}
+                            </div>
+                        `;
+                    });
+                    prizeHTML += '</div>';
                 }
 
-                // Single prominent CTA
+                // CTA to install app for full explanations
                 prizeHTML += `<div onclick="openPlayStore('result_single_cta')" style="cursor:pointer;background:linear-gradient(135deg,#3b82f6,#1d4ed8);border:2px solid #1e40af;border-radius:18px;padding:18px;text-align:center;box-shadow:0 4px 0 #1e3a8a;margin-bottom:12px">
                     <div style="font-size:16px;font-weight:900;color:#fff;margin-bottom:4px">Get Full Explanations + Win iPad</div>
                     <div style="font-size:12px;font-weight:700;color:#bfdbfe">Install MedicNEET App — Top scorer wins Apple iPad + Pencil!</div>

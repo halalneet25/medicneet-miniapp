@@ -1143,15 +1143,26 @@ async def api_submit(request: Request):
             teaser_q_index = i
             break
 
-    # Anti-cheat: hide correct answers and per-question results during prize window
-    # so users can't use one account to see answers and another to submit them
+    # Build truncated explanations for all questions (shown during prize window)
+    truncated_explanations = []
+    for exp in explanations:
+        if exp and exp.strip():
+            t = exp.strip()[:120]
+            if len(exp.strip()) > 120:
+                t = t.rsplit(' ', 1)[0] + '...'
+            truncated_explanations.append(t)
+        else:
+            truncated_explanations.append(None)
+
+    # Anti-cheat: hide correct answers during prize window
+    # but show right/wrong results and truncated explanations
     if in_prize_window:
         return {
             "all_correct": all_correct,
             "score": score,
-            "results": None,
+            "results": results,
             "correct_answers": None,
-            "explanations": None,
+            "explanations": truncated_explanations,
             "teaser_explanation": teaser,
             "teaser_q_index": teaser_q_index,
             "your_time_ms": tms,

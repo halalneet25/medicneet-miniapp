@@ -4852,9 +4852,22 @@
             document.body.removeChild(textarea);
         }
 
+        function fixEmailDomain(email) {
+            // Fix double-domain: user@gmail.com@gmail.com -> user@gmail.com
+            const atCount = (email.match(/@/g) || []).length;
+            if (atCount > 1) {
+                const parts = email.split('@');
+                email = parts[0] + '@' + parts[parts.length - 1];
+            }
+            return email;
+        }
+
+        let mpClaimInProgress = false;
         async function claimMedicPoints() {
+            if (mpClaimInProgress) return;
             const emailInput = document.getElementById('mpEmailInput');
-            const email = emailInput.value.trim().toLowerCase();
+            let email = fixEmailDomain(emailInput.value.trim().toLowerCase());
+            emailInput.value = email;
             if (!email || !email.includes('@')) {
                 emailInput.style.borderColor = '#ef4444';
                 return;
@@ -4877,10 +4890,18 @@
                 }
             }
             const btn = document.getElementById('mpClaimBtn');
+            mpClaimInProgress = true;
             btn.disabled = true;
             btn.textContent = 'Loading...';
             try {
                 const roundId = document.getElementById('medicPointsCTA').dataset.roundId;
+                if (!roundId || roundId === 'undefined') {
+                    alert('Round data not available. Please try again on your next visit.');
+                    mpClaimInProgress = false;
+                    btn.disabled = false;
+                    btn.textContent = 'Claim 20 MedicPoints & Get App Link';
+                    return;
+                }
                 const res = await fetch(`${API}/api/medicpoints/claim`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
@@ -4902,6 +4923,8 @@
                 btn.disabled = false;
                 btn.textContent = 'Claim 20 MedicPoints & Get App Link';
                 console.error('MedicPoints claim failed:', e);
+            } finally {
+                mpClaimInProgress = false;
             }
         }
 
@@ -4927,9 +4950,12 @@
             }
         }
 
+        let mpDeferredClaimInProgress = false;
         async function claimDeferredMedicPoints() {
+            if (mpDeferredClaimInProgress) return;
             const emailInput = document.getElementById('mpDeferredEmailInput');
-            const email = emailInput.value.trim().toLowerCase();
+            let email = fixEmailDomain(emailInput.value.trim().toLowerCase());
+            emailInput.value = email;
             if (!email || !email.includes('@')) {
                 emailInput.style.borderColor = '#ef4444';
                 return;
@@ -4951,7 +4977,12 @@
                     return claimDeferredMedicPoints();
                 }
             }
+            if (!pendingMpRoundId) {
+                alert('No pending round found. Please try again later.');
+                return;
+            }
             const btn = document.getElementById('mpDeferredClaimBtn');
+            mpDeferredClaimInProgress = true;
             btn.disabled = true;
             btn.textContent = 'Loading...';
             try {
@@ -4975,6 +5006,8 @@
                 btn.disabled = false;
                 btn.textContent = 'Claim 20 MedicPoints & Get App Link';
                 console.error('Deferred MedicPoints claim failed:', e);
+            } finally {
+                mpDeferredClaimInProgress = false;
             }
         }
 
@@ -6367,8 +6400,8 @@
         loadWallet();
         checkChallengeNotifications();
         updateMedicPointsDisplay(); // Show cached MedicPoints immediately
-        // Deferred MedicPoints modal disabled — points now awarded instantly on result screen
-        // checkPendingMedicPoints();
+        // Re-enabled: deferred popup for users who didn't get auto-credited (no email on file)
+        checkPendingMedicPoints();
 
         /* ── Blur overlay with countdown on tab switch ── */
         (function() {

@@ -14,7 +14,7 @@ from contextlib import asynccontextmanager
 from urllib.parse import parse_qsl
 import httpx
 from fastapi import FastAPI, Request, HTTPException
-from medicpoints import preload_points_for_email, get_claim_status, init_medicpoints_table, get_user_medicpoints, upload_to_google_drive, flush_pending_medicpoints
+from medicpoints import preload_points_for_email, get_claim_status, init_medicpoints_table, get_user_medicpoints, upload_to_google_drive, flush_pending_medicpoints, auto_credit_medicpoints
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -504,6 +504,19 @@ async def send_winner_to_channel(round_id):
     c.execute("UPDATE winners SET winner_type = 'medicpoints_eligible' WHERE round_id = ? AND (winner_type IS NULL OR winner_type = '')", (round_id,))
 
     conn.commit()
+
+    # Step 8: Auto-credit MedicPoints to Firebase for users with email on file
+    # Collect all medic-point eligible users (capped + non-cash winners)
+    medic_users = []
+    c.execute("SELECT user_id, user_name FROM winners WHERE round_id = ? AND winner_type IN ('capped_medic', 'medicpoints_eligible')", (round_id,))
+    for row in c.fetchall():
+        medic_users.append({"user_id": row["user_id"], "user_name": row["user_name"]})
+    if medic_users:
+        try:
+            result = auto_credit_medicpoints(round_id, medic_users)
+            logger.info(f"Round {round_id} auto-credit: {result}")
+        except Exception as e:
+            logger.error(f"Round {round_id} auto-credit failed: {e}")
 
     # Get total participants count
     c.execute("SELECT COUNT(DISTINCT user_id) as cnt FROM attempts WHERE round_id = ?", (round_id,))
@@ -3169,4 +3182,59 @@ async def api_medicpoints_balance(user_id: str):
         "unclaimed_points": total_points - claimed_points,
         "total_rounds_won": total_rounds_won,
         "claimed_rounds": claimed_rounds
+    }
+
+
+@app.post("/api/medicpoints/flush-unclaimed")
+async def api_medicpoints_flush_unclaimed():
+    """
+    Bulk-credit MedicPoints for all users who have unclaimed rounds
+    but already have an email on file from a previous successful claim.
+    Safe to call multiple times (idempotent via dedup check).
+    """
+    conn = get_db()
+    c = conn.cursor()
+
+    # Find all unclaimed (winner_type in capped_medic/medicpoints_eligible, no claim row)
+    c.execute("""
+        SELECT w.round_id, w.user_id, w.user_name
+        FROM winners w
+        LEFT JOIN medicpoints_claims mc ON mc.telegram_id = w.user_id AND mc.round_id = w.round_id AND mc.firebase_preloaded = 1
+        WHERE w.winner_type IN ('capped_medic', 'medicpoints_eligible')
+          AND mc.id IS NULL
+        ORDER BY w.round_id ASC
+    """)
+    unclaimed = [dict(r) for r in c.fetchall()]
+    conn.close()
+
+    if not unclaimed:
+        return {"message": "No unclaimed rounds found", "total": 0}
+
+    # Group by round_id for auto_credit_medicpoints
+    from collections import defaultdict
+    by_round = defaultdict(list)
+    for row in unclaimed:
+        by_round[row["round_id"]].append({"user_id": row["user_id"], "user_name": row["user_name"]})
+
+    total_credited = 0
+    total_skipped = 0
+    total_failed = 0
+
+    for round_id, winners in by_round.items():
+        try:
+            result = auto_credit_medicpoints(round_id, winners)
+            total_credited += result.get("credited", 0)
+            total_skipped += result.get("skipped", 0)
+            total_failed += result.get("failed", 0)
+        except Exception as e:
+            logger.error(f"Flush round {round_id} failed: {e}")
+            total_failed += len(winners)
+
+    return {
+        "message": "Flush complete",
+        "total_unclaimed": len(unclaimed),
+        "rounds_processed": len(by_round),
+        "credited": total_credited,
+        "skipped": total_skipped,
+        "failed": total_failed,
     }

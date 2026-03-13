@@ -103,6 +103,19 @@ def get_firestore():
 
 # ─── Core Logic ──────────────────────────────────────────────────
 
+def _sanitize_email(email: str) -> str:
+    """Sanitize email: lowercase, strip, fix double-domain typos like user@gmail.com@gmail.com."""
+    email_clean = email.strip().lower()
+    # Fix double-domain: user@gmail.com@gmail.com -> user@gmail.com
+    at_count = email_clean.count("@")
+    if at_count > 1:
+        parts = email_clean.split("@")
+        # Take the local part (before first @) and last domain
+        email_clean = parts[0] + "@" + parts[-1]
+        logger.info(f"Fixed double-domain email: {email} -> {email_clean}")
+    return email_clean
+
+
 def preload_points_for_email(email: str, telegram_id: str, telegram_name: str, round_id: int) -> dict:
     """
     Preload MedicPoints into Firebase for an email address.
@@ -114,19 +127,30 @@ def preload_points_for_email(email: str, telegram_id: str, telegram_name: str, r
 
     Returns dict with success status and details.
     """
-    email_clean = email.strip().lower()
+    email_clean = _sanitize_email(email)
     if not email_clean or "@" not in email_clean:
         return {"success": False, "reason": "Invalid email address"}
 
-    # Check if this user already claimed for this round
+    # Validate round_id is a real integer
+    try:
+        round_id = int(round_id)
+    except (TypeError, ValueError):
+        return {"success": False, "reason": "Invalid round_id"}
+
+    # Check if this user already claimed for this round (deduplicate)
     conn = _get_db()
     existing = conn.execute(
-        "SELECT id FROM medicpoints_claims WHERE telegram_id = ? AND round_id = ?",
+        "SELECT id, points, firebase_preloaded FROM medicpoints_claims WHERE telegram_id = ? AND round_id = ?",
         (str(telegram_id), round_id)
     ).fetchone()
     if existing:
-        conn.close()
-        return {"success": False, "reason": "You already claimed MedicPoints for this round"}
+        if existing["firebase_preloaded"]:
+            conn.close()
+            return {"success": False, "reason": "You already claimed MedicPoints for this round"}
+        # Previous claim failed (firebase_preloaded=0) — delete it and retry
+        conn.execute("DELETE FROM medicpoints_claims WHERE id = ?", (existing["id"],))
+        conn.commit()
+        logger.info(f"Deleted failed claim {existing['id']} for user {telegram_id} round {round_id}, retrying")
 
     db = get_firestore()
     firebase_preloaded = False
@@ -216,11 +240,21 @@ def preload_points_for_email(email: str, telegram_id: str, telegram_name: str, r
 
         except Exception as e:
             logger.error(f"Firebase preload failed for {email_clean}: {e}")
+    else:
+        logger.error(f"Firebase unavailable for claim: user={telegram_id}, round={round_id}")
 
-    # Store claim in SQLite
+    if not firebase_preloaded:
+        # Don't store a broken claim — return failure so user can retry
+        conn.close()
+        return {
+            "success": False,
+            "reason": "Could not connect to Firebase. Please try again in a moment.",
+        }
+
+    # Store claim in SQLite only on success
     conn.execute(
         "INSERT INTO medicpoints_claims (telegram_id, telegram_name, email, round_id, points, firebase_preloaded) VALUES (?,?,?,?,?,?)",
-        (str(telegram_id), telegram_name, email_clean, round_id, MEDICPOINTS_REWARD, 1 if firebase_preloaded else 0)
+        (str(telegram_id), telegram_name, email_clean, round_id, MEDICPOINTS_REWARD, 1)
     )
     conn.commit()
     conn.close()
@@ -232,6 +266,65 @@ def preload_points_for_email(email: str, telegram_id: str, telegram_name: str, r
         "preloaded": firebase_preloaded,
         "existing_user": existing_user,
     }
+
+
+def auto_credit_medicpoints(round_id: int, winners: list) -> dict:
+    """
+    Auto-credit MedicPoints to Firebase for users who already have an email on file.
+    Called from send_winner_to_channel after marking capped_medic/medicpoints_eligible.
+
+    winners: list of dicts with user_id, user_name keys.
+    Returns dict with counts of credited/skipped/failed.
+    """
+    credited = 0
+    skipped = 0
+    failed = 0
+
+    conn = _get_db()
+    for w in winners:
+        user_id = str(w["user_id"])
+        user_name = w.get("user_name", "Anon")
+
+        # Check if already claimed for this round
+        existing = conn.execute(
+            "SELECT id, firebase_preloaded FROM medicpoints_claims WHERE telegram_id = ? AND round_id = ?",
+            (user_id, round_id)
+        ).fetchone()
+        if existing and existing["firebase_preloaded"]:
+            skipped += 1
+            continue
+
+        # Look up email from previous successful claims
+        row = conn.execute(
+            "SELECT email FROM medicpoints_claims WHERE telegram_id = ? AND firebase_preloaded = 1 ORDER BY created_at DESC LIMIT 1",
+            (user_id,)
+        ).fetchone()
+        if not row:
+            skipped += 1  # No email on file — user will need to claim manually via popup
+            continue
+
+        email = row["email"]
+
+        # Delete any failed prior claim for this round before retrying
+        if existing and not existing["firebase_preloaded"]:
+            conn.execute("DELETE FROM medicpoints_claims WHERE id = ?", (existing["id"],))
+            conn.commit()
+
+        try:
+            result = preload_points_for_email(email, user_id, user_name, round_id)
+            if result.get("success"):
+                credited += 1
+                logger.info(f"Auto-credited {MEDICPOINTS_REWARD} MedicPoints to {user_id} ({email}) for round {round_id}")
+            else:
+                failed += 1
+                logger.warning(f"Auto-credit failed for {user_id}: {result.get('reason')}")
+        except Exception as e:
+            failed += 1
+            logger.error(f"Auto-credit exception for {user_id}: {e}")
+
+    conn.close()
+    logger.info(f"auto_credit_medicpoints round {round_id}: credited={credited}, skipped={skipped}, failed={failed}")
+    return {"credited": credited, "skipped": skipped, "failed": failed}
 
 
 def check_and_apply_pending_points(firebase_uid: str, email: str) -> int:

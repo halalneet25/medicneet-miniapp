@@ -109,7 +109,7 @@ def get_firestore():
 
 # ─── Core Logic ──────────────────────────────────────────────────
 
-def _resolve_firebase_uid(email_clean: str) -> str | None:
+def _resolve_firebase_uid(email_clean: str):
     """
     Resolve email → Firebase UID using Firebase Auth (primary method).
     Returns UID string or None if user not found in Firebase Auth.
@@ -122,7 +122,7 @@ def _resolve_firebase_uid(email_clean: str) -> str | None:
         return None
 
 
-def _get_cached_firebase_uid(conn, telegram_id: str) -> str | None:
+def _get_cached_firebase_uid(conn, telegram_id: str):
     """Look up cached firebase_uid from a previous successful claim."""
     row = conn.execute(
         "SELECT firebase_uid FROM medicpoints_claims WHERE telegram_id = ? AND firebase_uid IS NOT NULL ORDER BY created_at DESC LIMIT 1",

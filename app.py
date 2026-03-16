@@ -3176,8 +3176,8 @@ async def api_medicpoints_balance(user_id: str):
     total_rounds_won = c.fetchone()["cnt"]
     total_points = total_rounds_won * 20
 
-    # Check how many were claimed via email
-    c.execute("SELECT COUNT(*) as cnt FROM medicpoints_claims WHERE telegram_id = ?", (user_id,))
+    # Check how many were successfully claimed (firebase_preloaded=1, excluding link-only rows with round_id=0)
+    c.execute("SELECT COUNT(*) as cnt FROM medicpoints_claims WHERE telegram_id = ? AND firebase_preloaded = 1 AND round_id != 0", (user_id,))
     claimed_rounds = c.fetchone()["cnt"]
     claimed_points = claimed_rounds * 20
 

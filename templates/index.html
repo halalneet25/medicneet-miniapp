@@ -3117,38 +3117,51 @@
                     <div style="font-size:14px;font-weight:700;color:#fbbf24;text-transform:uppercase;letter-spacing:1px">MedicPoints</div>
                 </div>
                 <div style="font-size:42px;font-weight:900;color:#fde68a;line-height:1" id="mpBalanceCount">0</div>
+                <div style="font-size:12px;font-weight:700;color:#94a3b8;margin-top:4px" id="mpPendingLabel">pending to be linked</div>
                 <div style="font-size:12px;font-weight:700;color:#94a3b8;margin-top:8px">Earn 20 points every time you score 4/4</div>
                 <div style="font-size:11px;font-weight:700;color:#f59e0b;margin-top:4px">Top MedicPoints winner gets Apple iPad + Apple Pencil after NEET 2026!</div>
-                <button id="mpWithdrawBtn" onclick="showMedicPointsWithdraw()" style="margin-top:14px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:14px;font-weight:900;border:none;border-radius:14px;padding:12px 24px;cursor:pointer;box-shadow:0 3px 0 #92400e;width:100%">
-                    Withdraw MedicPoints
-                </button>
-            </div>
 
-            <!-- Link Email Card -->
-            <div id="linkEmailCard" style="background:var(--bg2);border:2px solid var(--border);border-radius:18px;padding:20px;margin-bottom:20px;box-shadow:0 3px 0 var(--border)">
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-                    <span style="font-size:22px">📧</span>
-                    <div style="font-size:15px;font-weight:800;color:var(--txt)">Link Email</div>
-                </div>
-                <!-- Linked state -->
-                <div id="emailLinkedState" style="display:none">
-                    <div style="display:flex;align-items:center;gap:10px;background:var(--green-lt);border:2px solid var(--green);border-radius:14px;padding:12px 16px">
-                        <span style="font-size:18px">✅</span>
-                        <div style="flex:1">
-                            <div style="font-size:11px;color:var(--green-dk);font-weight:700;text-transform:uppercase">Linked Email</div>
-                            <div id="linkedEmailDisplay" style="font-size:14px;font-weight:800;color:var(--txt);word-break:break-all"></div>
+                <!-- Link button (shown when not yet linking) -->
+                <button id="mpLinkBtn" onclick="showMpLinkFlow()" style="margin-top:14px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:13px;font-weight:900;border:none;border-radius:14px;padding:12px 24px;cursor:pointer;box-shadow:0 3px 0 #92400e;width:100%">
+                    Link MedicPoints to App
+                </button>
+
+                <!-- Inline link flow (shown after clicking button) -->
+                <div id="mpLinkFlow" style="display:none;margin-top:16px;text-align:left">
+                    <div style="background:rgba(255,255,255,0.08);border-radius:14px;padding:14px;margin-bottom:12px">
+                        <div style="font-size:13px;font-weight:800;color:#fbbf24;margin-bottom:10px">Steps to link your MedicPoints:</div>
+                        <div style="font-size:12px;color:#cbd5e1;line-height:1.6">
+                            <div style="margin-bottom:6px">1. Install MedicNEET App from Play Store</div>
+                            <div style="margin-bottom:6px">2. Sign up using your Gmail</div>
+                            <div style="margin-bottom:6px">3. Enter the same Gmail below</div>
+                            <div>4. Tap "Link & Sync" to transfer your points</div>
                         </div>
+                        <button onclick="openPlayStore('mp_link_flow')" style="margin-top:10px;background:rgba(255,255,255,0.12);color:#fbbf24;font-size:12px;font-weight:800;border:1px solid rgba(251,191,36,0.3);border-radius:10px;padding:8px 16px;cursor:pointer;width:100%">
+                            Install MedicNEET App
+                        </button>
                     </div>
-                    <div style="font-size:11px;color:var(--txt3);margin-top:8px;text-align:center">MedicPoints will be synced to this email in the MedicNEET app</div>
-                </div>
-                <!-- Unlinked state -->
-                <div id="emailUnlinkedState" style="display:none">
-                    <div style="font-size:12px;color:var(--txt2);margin-bottom:10px">Link your email to withdraw MedicPoints to the MedicNEET Flutter app</div>
-                    <div style="display:flex;gap:8px">
-                        <input type="email" id="walletEmailInput" placeholder="your@email.com" style="flex:1;padding:12px 14px;border:2px solid var(--border);border-radius:12px;font-size:14px;font-weight:700;background:var(--bg);color:var(--txt);outline:none">
-                        <button onclick="walletLinkEmail()" id="walletLinkBtn" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:14px;font-weight:900;border:none;border-radius:12px;padding:12px 20px;cursor:pointer;box-shadow:0 3px 0 #92400e;white-space:nowrap">Link</button>
+
+                    <!-- Email already linked state -->
+                    <div id="mpLinkedState" style="display:none">
+                        <div style="display:flex;align-items:center;gap:10px;background:rgba(34,197,94,0.15);border:2px solid rgba(34,197,94,0.4);border-radius:14px;padding:12px 16px;margin-bottom:8px">
+                            <span style="font-size:18px">✅</span>
+                            <div style="flex:1">
+                                <div style="font-size:11px;color:#4ade80;font-weight:700;text-transform:uppercase">Linked Email</div>
+                                <div id="mpLinkedEmailDisplay" style="font-size:14px;font-weight:800;color:#fde68a;word-break:break-all"></div>
+                            </div>
+                        </div>
+                        <div style="font-size:11px;color:#94a3b8;text-align:center">MedicPoints will be synced to this email in the MedicNEET app</div>
                     </div>
-                    <div id="walletEmailStatus" style="font-size:12px;margin-top:8px;min-height:16px;text-align:center"></div>
+
+                    <!-- Email input state -->
+                    <div id="mpUnlinkedState" style="display:none">
+                        <div style="font-size:12px;color:#94a3b8;margin-bottom:8px;text-align:center">Enter the Gmail you used to sign up in MedicNEET app</div>
+                        <div style="display:flex;gap:8px">
+                            <input type="email" id="walletEmailInput" placeholder="your@gmail.com" style="flex:1;padding:12px 14px;border:2px solid rgba(251,191,36,0.3);border-radius:12px;font-size:14px;font-weight:700;background:rgba(255,255,255,0.08);color:#fde68a;outline:none">
+                            <button onclick="walletLinkEmail()" id="walletLinkBtn" style="background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;font-size:13px;font-weight:900;border:none;border-radius:12px;padding:12px 16px;cursor:pointer;box-shadow:0 3px 0 #15803d;white-space:nowrap">Link & Sync</button>
+                        </div>
+                        <div id="walletEmailStatus" style="font-size:12px;margin-top:8px;min-height:16px;text-align:center;color:#94a3b8"></div>
+                    </div>
                 </div>
             </div>
 
@@ -5054,15 +5067,8 @@
                 // Sync MedicPoints from backend
                 loadMedicPointsBalance();
 
-                // Update Link Email card
-                if (data.linked_email) {
-                    document.getElementById('emailLinkedState').style.display = 'block';
-                    document.getElementById('emailUnlinkedState').style.display = 'none';
-                    document.getElementById('linkedEmailDisplay').textContent = data.linked_email;
-                } else {
-                    document.getElementById('emailLinkedState').style.display = 'none';
-                    document.getElementById('emailUnlinkedState').style.display = 'block';
-                }
+                // Store linked email for MedicPoints link flow
+                window._linkedEmail = data.linked_email || null;
 
                 // Update wallet screen
                 document.getElementById('walletCurrentBalance').textContent = balance;
@@ -5129,20 +5135,38 @@
                 const res = await fetch(`${API}/api/medicpoints/balance?user_id=${userId}`);
                 const data = await res.json();
                 const el = document.getElementById('mpBalanceCount');
-                if (el) el.textContent = data.total_points || 0;
+                const pendingLabel = document.getElementById('mpPendingLabel');
+                const unclaimed = data.unclaimed_points || 0;
+                const total = data.total_points || 0;
+
+                // Show unclaimed (pending) points as the main number
+                if (el) el.textContent = unclaimed;
+
+                if (pendingLabel) {
+                    if (unclaimed > 0) {
+                        pendingLabel.textContent = 'pending to be linked';
+                        pendingLabel.style.color = '#f59e0b';
+                    } else if (total > 0) {
+                        pendingLabel.textContent = 'all points linked!';
+                        pendingLabel.style.color = '#4ade80';
+                    } else {
+                        pendingLabel.textContent = 'pending to be linked';
+                        pendingLabel.style.color = '#94a3b8';
+                    }
+                }
 
                 // Sync localStorage with backend truth
                 const key = 'medicpoints_' + userId;
                 const stored = getLocalMedicPoints();
-                if (data.total_points > stored.total) {
-                    stored.total = data.total_points;
+                if (total > stored.total) {
+                    stored.total = total;
                     localStorage.setItem(key, JSON.stringify(stored));
                 }
 
-                // Show/hide withdraw button based on points
-                const withdrawBtn = document.getElementById('mpWithdrawBtn');
-                if (withdrawBtn) {
-                    withdrawBtn.style.display = (data.total_points > 0) ? 'block' : 'none';
+                // Show/hide link button based on unclaimed points
+                const linkBtn = document.getElementById('mpLinkBtn');
+                if (linkBtn) {
+                    linkBtn.style.display = (unclaimed > 0) ? 'block' : 'none';
                 }
             } catch(e) {
                 // Fall back to localStorage
@@ -5152,12 +5176,25 @@
             }
         }
 
-        function showMedicPointsWithdraw() {
-            // MedicPoints withdrawal requires app install
-            const points = parseInt(document.getElementById('mpBalanceCount').textContent) || 0;
-            const msg = `You have ${points} MedicPoints!\n\nTo withdraw MedicPoints and compete for the iPad prize, you need to:\n\n1. Install the MedicNEET App\n2. Sign up with your email\n3. Your points will be linked to your account\n\nInstall now?`;
-            if (confirm(msg)) {
-                openPlayStore('medicpoints_withdraw');
+        function showMpLinkFlow() {
+            const flow = document.getElementById('mpLinkFlow');
+            const btn = document.getElementById('mpLinkBtn');
+            flow.style.display = 'block';
+            btn.style.display = 'none';
+
+            if (window._linkedEmail) {
+                // Email already linked — show linked state, offer to re-sync
+                document.getElementById('mpLinkedState').style.display = 'block';
+                document.getElementById('mpUnlinkedState').style.display = 'none';
+                document.getElementById('mpLinkedEmailDisplay').textContent = window._linkedEmail;
+                // Auto-trigger flush for pending points
+                fetch(`${API}/api/medicpoints/flush-unclaimed`, {method: 'POST'})
+                    .then(() => { setTimeout(() => { loadMedicPointsBalance(); }, 2000); })
+                    .catch(e => console.error('Flush error:', e));
+            } else {
+                // No email linked — show input
+                document.getElementById('mpLinkedState').style.display = 'none';
+                document.getElementById('mpUnlinkedState').style.display = 'block';
             }
         }
 
@@ -5808,9 +5845,10 @@
                 }
             }
             btn.disabled = true;
-            btn.textContent = '...';
-            statusEl.textContent = 'Linking...';
+            btn.textContent = 'Syncing...';
+            statusEl.innerHTML = '<span style="color:#fbbf24">Linking email...</span>';
             try {
+                // Step 1: Link email
                 const res = await fetch(`${API}/api/v2-link-email`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
@@ -5818,21 +5856,34 @@
                 });
                 const data = await res.json();
                 if (res.ok && data.success) {
-                    document.getElementById('emailLinkedState').style.display = 'block';
-                    document.getElementById('emailUnlinkedState').style.display = 'none';
-                    document.getElementById('linkedEmailDisplay').textContent = data.email;
-                    if (!data.found_in_firebase) {
-                        statusEl.innerHTML = '<span style="color:var(--orange);font-weight:700">Linked! Install MedicNEET app & sign up with this email to receive points.</span>';
+                    // Show linked state
+                    document.getElementById('mpLinkedState').style.display = 'block';
+                    document.getElementById('mpUnlinkedState').style.display = 'none';
+                    document.getElementById('mpLinkedEmailDisplay').textContent = data.email;
+
+                    // Step 2: Flush unclaimed points to Firebase
+                    statusEl.innerHTML = '<span style="color:#fbbf24">Syncing points to app...</span>';
+                    try {
+                        await fetch(`${API}/api/medicpoints/flush-unclaimed`, {method: 'POST'});
+                    } catch(e) { console.error('Flush error:', e); }
+
+                    if (data.found_in_firebase) {
+                        statusEl.innerHTML = '<span style="color:#4ade80;font-weight:700">Points synced to your MedicNEET app account!</span>';
+                    } else {
+                        statusEl.innerHTML = '<span style="color:#f59e0b;font-weight:700">Email linked! Install MedicNEET app & sign up with this email to receive your points.</span>';
                     }
+
+                    // Refresh balance to show updated pending count
+                    setTimeout(() => { loadMedicPointsBalance(); }, 2000);
                 } else {
-                    statusEl.innerHTML = '<span style="color:var(--red);font-weight:700">' + (data.detail || 'Failed to link') + '</span>';
+                    statusEl.innerHTML = '<span style="color:#ef4444;font-weight:700">' + (data.detail || 'Failed to link') + '</span>';
                 }
             } catch (e) {
                 console.error('Email link error:', e);
-                statusEl.innerHTML = '<span style="color:var(--red)">Failed. Try again.</span>';
+                statusEl.innerHTML = '<span style="color:#ef4444">Failed. Try again.</span>';
             }
             btn.disabled = false;
-            btn.textContent = 'Link';
+            btn.textContent = 'Link & Sync';
         }
 
         async function wgSubmitIgLink() {

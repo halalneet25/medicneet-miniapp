@@ -3124,6 +3124,34 @@
                 </button>
             </div>
 
+            <!-- Link Email Card -->
+            <div id="linkEmailCard" style="background:var(--bg2);border:2px solid var(--border);border-radius:18px;padding:20px;margin-bottom:20px;box-shadow:0 3px 0 var(--border)">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+                    <span style="font-size:22px">📧</span>
+                    <div style="font-size:15px;font-weight:800;color:var(--txt)">Link Email</div>
+                </div>
+                <!-- Linked state -->
+                <div id="emailLinkedState" style="display:none">
+                    <div style="display:flex;align-items:center;gap:10px;background:var(--green-lt);border:2px solid var(--green);border-radius:14px;padding:12px 16px">
+                        <span style="font-size:18px">✅</span>
+                        <div style="flex:1">
+                            <div style="font-size:11px;color:var(--green-dk);font-weight:700;text-transform:uppercase">Linked Email</div>
+                            <div id="linkedEmailDisplay" style="font-size:14px;font-weight:800;color:var(--txt);word-break:break-all"></div>
+                        </div>
+                    </div>
+                    <div style="font-size:11px;color:var(--txt3);margin-top:8px;text-align:center">MedicPoints will be synced to this email in the MedicNEET app</div>
+                </div>
+                <!-- Unlinked state -->
+                <div id="emailUnlinkedState" style="display:none">
+                    <div style="font-size:12px;color:var(--txt2);margin-bottom:10px">Link your email to withdraw MedicPoints to the MedicNEET Flutter app</div>
+                    <div style="display:flex;gap:8px">
+                        <input type="email" id="walletEmailInput" placeholder="your@email.com" style="flex:1;padding:12px 14px;border:2px solid var(--border);border-radius:12px;font-size:14px;font-weight:700;background:var(--bg);color:var(--txt);outline:none">
+                        <button onclick="walletLinkEmail()" id="walletLinkBtn" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:14px;font-weight:900;border:none;border-radius:12px;padding:12px 20px;cursor:pointer;box-shadow:0 3px 0 #92400e;white-space:nowrap">Link</button>
+                    </div>
+                    <div id="walletEmailStatus" style="font-size:12px;margin-top:8px;min-height:16px;text-align:center"></div>
+                </div>
+            </div>
+
             <div id="statsSection" style="margin-bottom:20px">
                 <h3 style="font-size:18px;font-weight:900;margin-bottom:12px">📊 YOUR STATS</h3>
 
@@ -5026,6 +5054,16 @@
                 // Sync MedicPoints from backend
                 loadMedicPointsBalance();
 
+                // Update Link Email card
+                if (data.linked_email) {
+                    document.getElementById('emailLinkedState').style.display = 'block';
+                    document.getElementById('emailUnlinkedState').style.display = 'none';
+                    document.getElementById('linkedEmailDisplay').textContent = data.linked_email;
+                } else {
+                    document.getElementById('emailLinkedState').style.display = 'none';
+                    document.getElementById('emailUnlinkedState').style.display = 'block';
+                }
+
                 // Update wallet screen
                 document.getElementById('walletCurrentBalance').textContent = balance;
                 document.getElementById('walletTotalEarned').textContent = totalEarned;
@@ -5742,6 +5780,59 @@
                 console.error('Email link error:', e);
                 statusEl.innerHTML = '<span style="color:var(--red)">Failed. Try again.</span>';
             }
+        }
+
+        async function walletLinkEmail() {
+            const input = document.getElementById('walletEmailInput');
+            const statusEl = document.getElementById('walletEmailStatus');
+            const btn = document.getElementById('walletLinkBtn');
+            const email = input ? input.value.trim().toLowerCase() : '';
+            if (!email || !email.includes('@')) {
+                alert('Please enter a valid email address');
+                return;
+            }
+            const domain = email.split('@')[1] || '';
+            const typoMap = {
+                'gmail.co': 'gmail.com', 'gmail.con': 'gmail.com', 'gmail.cm': 'gmail.com',
+                'gmail.om': 'gmail.com', 'gmai.com': 'gmail.com', 'gmial.com': 'gmail.com',
+                'gamil.com': 'gmail.com', 'gmal.com': 'gmail.com', 'gnail.com': 'gmail.com',
+                'yahoo.co': 'yahoo.com', 'yahoo.con': 'yahoo.com',
+                'outlok.com': 'outlook.com', 'outloo.com': 'outlook.com',
+                'hotmal.com': 'hotmail.com', 'hotmai.com': 'hotmail.com',
+            };
+            if (typoMap[domain]) {
+                const corrected = email.replace('@' + domain, '@' + typoMap[domain]);
+                if (confirm('Did you mean ' + corrected + '?')) {
+                    input.value = corrected;
+                    return walletLinkEmail();
+                }
+            }
+            btn.disabled = true;
+            btn.textContent = '...';
+            statusEl.textContent = 'Linking...';
+            try {
+                const res = await fetch(`${API}/api/v2-link-email`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({user_id: userId, email: input.value.trim().toLowerCase()})
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    document.getElementById('emailLinkedState').style.display = 'block';
+                    document.getElementById('emailUnlinkedState').style.display = 'none';
+                    document.getElementById('linkedEmailDisplay').textContent = data.email;
+                    if (!data.found_in_firebase) {
+                        statusEl.innerHTML = '<span style="color:var(--orange);font-weight:700">Linked! Install MedicNEET app & sign up with this email to receive points.</span>';
+                    }
+                } else {
+                    statusEl.innerHTML = '<span style="color:var(--red);font-weight:700">' + (data.detail || 'Failed to link') + '</span>';
+                }
+            } catch (e) {
+                console.error('Email link error:', e);
+                statusEl.innerHTML = '<span style="color:var(--red)">Failed. Try again.</span>';
+            }
+            btn.disabled = false;
+            btn.textContent = 'Link';
         }
 
         async function wgSubmitIgLink() {

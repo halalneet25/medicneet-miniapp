@@ -1727,6 +1727,11 @@ async def api_wallet(user_id: str):
     c.execute("SELECT amount, type, round_id, created_at FROM transactions WHERE user_id = ? AND type IN ('win', 'medic_points_cap') ORDER BY created_at DESC LIMIT 50", (user_id,))
     transactions = [dict(t) for t in c.fetchall()]
 
+    # Get linked email from medicpoints_claims
+    c.execute("SELECT email FROM medicpoints_claims WHERE telegram_id = ? AND email IS NOT NULL AND email != '' ORDER BY created_at DESC LIMIT 1", (user_id,))
+    email_row = c.fetchone()
+    linked_email = email_row["email"] if email_row else None
+
     conn.close()
 
     return {
@@ -1735,6 +1740,7 @@ async def api_wallet(user_id: str):
         "upi_id": wallet["upi_id"],
         "withdrawal_count": wallet["withdrawal_count"] or 0,
         "is_capped": balance >= 50,
+        "linked_email": linked_email,
         "transactions": transactions
     }
 

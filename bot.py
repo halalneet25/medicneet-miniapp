@@ -5,7 +5,7 @@ import os
 import logging
 import sqlite3
 import anthropic
-import httpx
+from datetime import datetime, timedelta, timezone
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 
@@ -16,7 +16,7 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN", "8574043659:AAEQHtEmevdGoQFcpLmWl8vsc6GS
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 BOT_ID = 8574043659
 DB_PATH = "/home/opc/medicneet-miniapp/medicneet.db"
-API_BASE_URL = os.environ.get("API_BASE_URL", "https://quiz.medicneet.com")
+IST = timezone(timedelta(hours=5, minutes=30))
 
 client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY) if ANTHROPIC_API_KEY else None
 
@@ -112,54 +112,117 @@ async def handle_reminder_callback(update: Update, context: ContextTypes.DEFAULT
             await query.edit_message_text(text="Something went wrong. Try opening the quiz directly!")
 
 async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Show full platform stats for the past 7 days"""
-    await update.message.reply_text("\u23f3 Fetching 7-day stats...")
+    """Show full platform stats for the past 7 days — queries DB directly"""
     try:
-        async with httpx.AsyncClient(timeout=15) as client_http:
-            resp = await client_http.get(f"{API_BASE_URL}/api/platform-stats", params={"days": 7})
-            resp.raise_for_status()
-            s = resp.json()
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        cutoff = (datetime.now(IST) - timedelta(days=7)).strftime("%Y-%m-%d %H:%M:%S")
 
-        fastest = s.get("fastest_win")
-        fastest_text = f"{fastest['name']} ({fastest['time_ms']/1000:.1f}s)" if fastest else "N/A"
+        # Quiz activity
+        c.execute("SELECT COUNT(*) as cnt FROM rounds WHERE started_at >= ?", (cutoff,))
+        total_rounds = c.fetchone()["cnt"]
 
+        c.execute("SELECT COUNT(*) as cnt, COUNT(DISTINCT user_id) as players FROM attempts WHERE attempted_at >= ?", (cutoff,))
+        row = c.fetchone()
+        total_attempts, active_players = row["cnt"], row["players"]
+
+        c.execute("SELECT COUNT(*) as cnt, COUNT(DISTINCT user_id) as uniq FROM winners WHERE created_at >= ?", (cutoff,))
+        row = c.fetchone()
+        total_wins, unique_winners = row["cnt"], row["uniq"]
+
+        avg_per_round = round(total_attempts / total_rounds, 1) if total_rounds > 0 else 0
+
+        c.execute("SELECT user_name, time_ms FROM winners WHERE created_at >= ? AND time_ms IS NOT NULL ORDER BY time_ms ASC LIMIT 1", (cutoff,))
+        fastest = c.fetchone()
+        fastest_text = f"{fastest['user_name']} ({fastest['time_ms']/1000:.1f}s)" if fastest else "N/A"
+
+        # Earnings & withdrawals
+        c.execute("SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE type = 'win' AND created_at >= ?", (cutoff,))
+        cash_distributed = c.fetchone()["total"]
+
+        c.execute("SELECT COUNT(*) as cnt, COALESCE(SUM(amount), 0) as total FROM withdrawal_requests WHERE created_at >= ?", (cutoff,))
+        row = c.fetchone()
+        wd_count, wd_amount = row["cnt"], row["total"]
+
+        # Challenges
+        c.execute("SELECT COUNT(*) as cnt FROM challenges WHERE created_at >= ?", (cutoff,))
+        challenges_total = c.fetchone()["cnt"]
+
+        c.execute("SELECT COUNT(*) as cnt FROM challenges WHERE status IN ('won', 'lost') AND completed_at >= ?", (cutoff,))
+        challenges_done = c.fetchone()["cnt"]
+
+        # Growth
+        c.execute("SELECT COUNT(*) as cnt FROM wallets WHERE created_at >= ?", (cutoff,))
+        new_signups = c.fetchone()["cnt"]
+
+        c.execute("SELECT COUNT(*) as cnt FROM referrals WHERE created_at >= ?", (cutoff,))
+        new_referrals = c.fetchone()["cnt"]
+
+        c.execute("SELECT COUNT(*) as cnt FROM notify_emails WHERE created_at >= ?", (cutoff,))
+        new_emails = c.fetchone()["cnt"]
+
+        c.execute("SELECT COUNT(*) as cnt FROM app_clicks WHERE created_at >= ?", (cutoff,))
+        app_clicks = c.fetchone()["cnt"]
+
+        # Engagement
+        c.execute("SELECT COUNT(*) as cnt FROM study_events WHERE created_at >= ?", (cutoff,))
+        study_events = c.fetchone()["cnt"]
+
+        c.execute("SELECT COUNT(*) as cnt FROM disqualifications WHERE created_at >= ?", (cutoff,))
+        disqualifications = c.fetchone()["cnt"]
+
+        # Top 5 earners in period
+        c.execute("""
+            SELECT t.user_id, w.user_name, SUM(t.amount) as earned
+            FROM transactions t LEFT JOIN wallets w ON w.user_id = t.user_id
+            WHERE t.type = 'win' AND t.created_at >= ?
+            GROUP BY t.user_id ORDER BY earned DESC LIMIT 5
+        """, (cutoff,))
         top_earners_text = ""
-        for i, e in enumerate(s.get("top_earners", []), 1):
-            top_earners_text += f"  {i}. {e['name']} — \u20b9{e['earned']}\n"
+        for i, r in enumerate(c.fetchall(), 1):
+            top_earners_text += f"  {i}. {r['user_name'] or 'Unknown'} — \u20b9{r['earned']}\n"
         if not top_earners_text:
             top_earners_text = "  No earnings yet\n"
+
+        # All time
+        c.execute("SELECT COUNT(*) as cnt FROM wallets")
+        alltime_users = c.fetchone()["cnt"]
+        c.execute("SELECT COALESCE(SUM(total_earned), 0) as total FROM wallets")
+        alltime_earned = c.fetchone()["total"]
+
+        conn.close()
 
         msg = (
             f"\U0001f4ca MedicNEET — 7 Day Stats\n"
             f"{'─' * 28}\n\n"
             f"\U0001f3ae QUIZ ACTIVITY\n"
-            f"  Rounds played: {s['rounds']}\n"
-            f"  Total attempts: {s['total_attempts']}\n"
-            f"  Active players: {s['active_players']}\n"
-            f"  Avg per round: {s['avg_attempts_per_round']}\n"
-            f"  Winners (4/4): {s['total_wins']} ({s['unique_winners']} unique)\n"
+            f"  Rounds played: {total_rounds}\n"
+            f"  Total attempts: {total_attempts}\n"
+            f"  Active players: {active_players}\n"
+            f"  Avg per round: {avg_per_round}\n"
+            f"  Winners (4/4): {total_wins} ({unique_winners} unique)\n"
             f"  Fastest win: {fastest_text}\n\n"
             f"\U0001f4b0 EARNINGS & WITHDRAWALS\n"
-            f"  Cash distributed: \u20b9{s['cash_distributed']}\n"
-            f"  Withdrawals: {s['withdrawals']['count']} (\u20b9{s['withdrawals']['amount']})\n\n"
+            f"  Cash distributed: \u20b9{cash_distributed}\n"
+            f"  Withdrawals: {wd_count} (\u20b9{wd_amount})\n\n"
             f"\u2694\ufe0f CHALLENGES\n"
-            f"  Created: {s['challenges']['total']}\n"
-            f"  Completed: {s['challenges']['completed']}\n\n"
+            f"  Created: {challenges_total}\n"
+            f"  Completed: {challenges_done}\n\n"
             f"\U0001f4c8 GROWTH\n"
-            f"  New signups: {s['new_signups']}\n"
-            f"  Referrals: {s['new_referrals']}\n"
-            f"  Email signups: {s['new_emails']}\n"
-            f"  App clicks: {s['app_clicks']}\n\n"
+            f"  New signups: {new_signups}\n"
+            f"  Referrals: {new_referrals}\n"
+            f"  Email signups: {new_emails}\n"
+            f"  App clicks: {app_clicks}\n\n"
             f"\U0001f4da ENGAGEMENT\n"
-            f"  Study events: {s['study_events']}\n"
-            f"  Disqualifications: {s['disqualifications']}\n\n"
+            f"  Study events: {study_events}\n"
+            f"  Disqualifications: {disqualifications}\n\n"
             f"\U0001f3c6 TOP EARNERS (7 days)\n"
             f"{top_earners_text}\n"
             f"\U0001f30d ALL TIME\n"
-            f"  Total users: {s['alltime_users']}\n"
-            f"  Total earned: \u20b9{s['alltime_earned']}\n"
+            f"  Total users: {alltime_users}\n"
+            f"  Total earned: \u20b9{alltime_earned}\n"
         )
-
         await update.message.reply_text(msg)
     except Exception as e:
         logger.error(f"Stats command failed: {e}")

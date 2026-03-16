@@ -5,6 +5,7 @@ import os
 import logging
 import sqlite3
 import anthropic
+import httpx
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 
@@ -15,6 +16,7 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN", "8574043659:AAEQHtEmevdGoQFcpLmWl8vsc6GS
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 BOT_ID = 8574043659
 DB_PATH = "/home/opc/medicneet-miniapp/medicneet.db"
+API_BASE_URL = os.environ.get("API_BASE_URL", "https://quiz.medicneet.com")
 
 client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY) if ANTHROPIC_API_KEY else None
 
@@ -109,6 +111,60 @@ async def handle_reminder_callback(update: Update, context: ContextTypes.DEFAULT
             logger.error(f"Failed to show stats: {e}")
             await query.edit_message_text(text="Something went wrong. Try opening the quiz directly!")
 
+async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show full platform stats for the past 7 days"""
+    await update.message.reply_text("\u23f3 Fetching 7-day stats...")
+    try:
+        async with httpx.AsyncClient(timeout=15) as client_http:
+            resp = await client_http.get(f"{API_BASE_URL}/api/platform-stats", params={"days": 7})
+            resp.raise_for_status()
+            s = resp.json()
+
+        fastest = s.get("fastest_win")
+        fastest_text = f"{fastest['name']} ({fastest['time_ms']/1000:.1f}s)" if fastest else "N/A"
+
+        top_earners_text = ""
+        for i, e in enumerate(s.get("top_earners", []), 1):
+            top_earners_text += f"  {i}. {e['name']} — \u20b9{e['earned']}\n"
+        if not top_earners_text:
+            top_earners_text = "  No earnings yet\n"
+
+        msg = (
+            f"\U0001f4ca MedicNEET — 7 Day Stats\n"
+            f"{'─' * 28}\n\n"
+            f"\U0001f3ae QUIZ ACTIVITY\n"
+            f"  Rounds played: {s['rounds']}\n"
+            f"  Total attempts: {s['total_attempts']}\n"
+            f"  Active players: {s['active_players']}\n"
+            f"  Avg per round: {s['avg_attempts_per_round']}\n"
+            f"  Winners (4/4): {s['total_wins']} ({s['unique_winners']} unique)\n"
+            f"  Fastest win: {fastest_text}\n\n"
+            f"\U0001f4b0 EARNINGS & WITHDRAWALS\n"
+            f"  Cash distributed: \u20b9{s['cash_distributed']}\n"
+            f"  Withdrawals: {s['withdrawals']['count']} (\u20b9{s['withdrawals']['amount']})\n\n"
+            f"\u2694\ufe0f CHALLENGES\n"
+            f"  Created: {s['challenges']['total']}\n"
+            f"  Completed: {s['challenges']['completed']}\n\n"
+            f"\U0001f4c8 GROWTH\n"
+            f"  New signups: {s['new_signups']}\n"
+            f"  Referrals: {s['new_referrals']}\n"
+            f"  Email signups: {s['new_emails']}\n"
+            f"  App clicks: {s['app_clicks']}\n\n"
+            f"\U0001f4da ENGAGEMENT\n"
+            f"  Study events: {s['study_events']}\n"
+            f"  Disqualifications: {s['disqualifications']}\n\n"
+            f"\U0001f3c6 TOP EARNERS (7 days)\n"
+            f"{top_earners_text}\n"
+            f"\U0001f30d ALL TIME\n"
+            f"  Total users: {s['alltime_users']}\n"
+            f"  Total earned: \u20b9{s['alltime_earned']}\n"
+        )
+
+        await update.message.reply_text(msg)
+    except Exception as e:
+        logger.error(f"Stats command failed: {e}")
+        await update.message.reply_text(f"\u274c Failed to fetch stats: {e}")
+
 async def handle_group_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text:
         return
@@ -157,6 +213,7 @@ async def handle_group_message(update: Update, context: ContextTypes.DEFAULT_TYP
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start_command))
+    app.add_handler(CommandHandler("stats", stats_command))
     app.add_handler(CallbackQueryHandler(handle_reminder_callback, pattern=r"^remind_"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_group_message))
     logger.info("Bot starting...")

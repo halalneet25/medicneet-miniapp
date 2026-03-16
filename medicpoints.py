@@ -291,9 +291,9 @@ def auto_credit_medicpoints(round_id: int, winners: list) -> dict:
             skipped += 1
             continue
 
-        # Look up email from previous successful claims
+        # Look up email from previous successful claims OR manual link (v2-link-email)
         row = conn.execute(
-            "SELECT email FROM medicpoints_claims WHERE telegram_id = ? AND firebase_preloaded = 1 ORDER BY created_at DESC LIMIT 1",
+            "SELECT email FROM medicpoints_claims WHERE telegram_id = ? AND (firebase_preloaded = 1 OR round_id = 0) ORDER BY firebase_preloaded DESC, created_at DESC LIMIT 1",
             (user_id,)
         ).fetchone()
         if not row:

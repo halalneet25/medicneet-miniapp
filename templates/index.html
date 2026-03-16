@@ -5163,10 +5163,15 @@
                     localStorage.setItem(key, JSON.stringify(stored));
                 }
 
-                // Show/hide link button based on unclaimed points
+                // Update button text and visibility based on link status and points
                 const linkBtn = document.getElementById('mpLinkBtn');
                 if (linkBtn) {
-                    linkBtn.style.display = (unclaimed > 0) ? 'block' : 'none';
+                    if (unclaimed > 0) {
+                        linkBtn.style.display = 'block';
+                        linkBtn.textContent = window._linkedEmail ? 'Withdraw MedicPoints to App' : 'Link MedicPoints to App';
+                    } else {
+                        linkBtn.style.display = 'none';
+                    }
                 }
             } catch(e) {
                 // Fall back to localStorage
@@ -5177,22 +5182,30 @@
         }
 
         function showMpLinkFlow() {
-            const flow = document.getElementById('mpLinkFlow');
-            const btn = document.getElementById('mpLinkBtn');
-            flow.style.display = 'block';
-            btn.style.display = 'none';
-
             if (window._linkedEmail) {
-                // Email already linked — show linked state, offer to re-sync
-                document.getElementById('mpLinkedState').style.display = 'block';
-                document.getElementById('mpUnlinkedState').style.display = 'none';
-                document.getElementById('mpLinkedEmailDisplay').textContent = window._linkedEmail;
-                // Auto-trigger flush for pending points
+                // Email already linked — flush points and open app directly
+                const btn = document.getElementById('mpLinkBtn');
+                btn.textContent = 'Syncing...';
+                btn.disabled = true;
                 fetch(`${API}/api/medicpoints/flush-unclaimed`, {method: 'POST'})
-                    .then(() => { setTimeout(() => { loadMedicPointsBalance(); }, 2000); })
-                    .catch(e => console.error('Flush error:', e));
+                    .then(() => {
+                        setTimeout(() => { loadMedicPointsBalance(); }, 2000);
+                        openPlayStore('mp_withdraw');
+                        btn.textContent = 'Withdraw MedicPoints to App';
+                        btn.disabled = false;
+                    })
+                    .catch(e => {
+                        console.error('Flush error:', e);
+                        openPlayStore('mp_withdraw');
+                        btn.textContent = 'Withdraw MedicPoints to App';
+                        btn.disabled = false;
+                    });
             } else {
-                // No email linked — show input
+                // No email linked — show link instructions
+                const flow = document.getElementById('mpLinkFlow');
+                const btn = document.getElementById('mpLinkBtn');
+                flow.style.display = 'block';
+                btn.style.display = 'none';
                 document.getElementById('mpLinkedState').style.display = 'none';
                 document.getElementById('mpUnlinkedState').style.display = 'block';
             }
@@ -5856,10 +5869,8 @@
                 });
                 const data = await res.json();
                 if (res.ok && data.success) {
-                    // Show linked state
-                    document.getElementById('mpLinkedState').style.display = 'block';
-                    document.getElementById('mpUnlinkedState').style.display = 'none';
-                    document.getElementById('mpLinkedEmailDisplay').textContent = data.email;
+                    // Store linked email
+                    window._linkedEmail = data.email;
 
                     // Step 2: Flush unclaimed points to Firebase
                     statusEl.innerHTML = '<span style="color:#fbbf24">Syncing points to app...</span>';
@@ -5867,8 +5878,14 @@
                         await fetch(`${API}/api/medicpoints/flush-unclaimed`, {method: 'POST'});
                     } catch(e) { console.error('Flush error:', e); }
 
+                    // Hide link flow, show withdraw button
+                    document.getElementById('mpLinkFlow').style.display = 'none';
+                    const mpBtn = document.getElementById('mpLinkBtn');
+                    mpBtn.style.display = 'block';
+                    mpBtn.textContent = 'Withdraw MedicPoints to App';
+
                     if (data.found_in_firebase) {
-                        statusEl.innerHTML = '<span style="color:#4ade80;font-weight:700">Points synced to your MedicNEET app account!</span>';
+                        statusEl.innerHTML = '<span style="color:#4ade80;font-weight:700">Points synced! Tap "Withdraw MedicPoints to App" to open the app.</span>';
                     } else {
                         statusEl.innerHTML = '<span style="color:#f59e0b;font-weight:700">Email linked! Install MedicNEET app & sign up with this email to receive your points.</span>';
                     }

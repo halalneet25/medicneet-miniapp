@@ -5143,14 +5143,17 @@
                 if (el) el.textContent = unclaimed;
 
                 if (pendingLabel) {
-                    if (unclaimed > 0) {
-                        pendingLabel.textContent = 'pending to be linked';
+                    if (unclaimed > 0 && window._linkedEmail) {
+                        pendingLabel.textContent = 'pending sync to app';
+                        pendingLabel.style.color = '#f59e0b';
+                    } else if (unclaimed > 0) {
+                        pendingLabel.textContent = 'link email to sync';
                         pendingLabel.style.color = '#f59e0b';
                     } else if (total > 0) {
-                        pendingLabel.textContent = 'all points linked!';
+                        pendingLabel.textContent = 'all points synced!';
                         pendingLabel.style.color = '#4ade80';
                     } else {
-                        pendingLabel.textContent = 'pending to be linked';
+                        pendingLabel.textContent = 'earn by scoring 4/4';
                         pendingLabel.style.color = '#94a3b8';
                     }
                 }

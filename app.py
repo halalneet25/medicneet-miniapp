@@ -3256,6 +3256,53 @@ async def api_medicpoints_flush_unclaimed():
         "failed": total_failed,
     }
 
+# ─── ADMIN: TEST MEDICPOINTS ──────────────────────────────────────
+@app.post("/api/admin/test-medicpoints")
+async def api_admin_test_medicpoints(request: Request):
+    """
+    Admin-only: Add test MedicPoints for a user and optionally unlink their email.
+    Body: { "user_id": "...", "user_name": "...", "unlink_email": true }
+    """
+    data = await request.json()
+    user_id = str(data.get("user_id", ""))
+    user_name = str(data.get("user_name", "TestUser"))
+    unlink_email = data.get("unlink_email", False)
+
+    if not user_id:
+        raise HTTPException(400, "user_id required")
+
+    conn = get_db()
+    c = conn.cursor()
+
+    # Create a fake round for testing
+    now = datetime.utcnow().isoformat()
+    c.execute("INSERT INTO rounds (question, options, correct_index, started_at) VALUES (?, ?, ?, ?)",
+              ("TEST ROUND - Admin test medicpoints", '["A","B","C","D"]', 0, now))
+    test_round_id = c.lastrowid
+
+    # Insert winner row as medicpoints_eligible
+    c.execute("INSERT INTO winners (round_id, user_id, user_name, time_ms, prize_amount, winner_type, created_at) VALUES (?,?,?,?,?,?,?)",
+              (test_round_id, user_id, user_name, 1000, 0, "medicpoints_eligible", now))
+
+    # Unlink email if requested (delete the round_id=0 link row and all claims)
+    unlinked_count = 0
+    if unlink_email:
+        c.execute("DELETE FROM medicpoints_claims WHERE telegram_id = ?", (user_id,))
+        unlinked_count = c.rowcount
+
+    conn.commit()
+    conn.close()
+
+    return {
+        "success": True,
+        "test_round_id": test_round_id,
+        "user_id": user_id,
+        "points_added": 20,
+        "email_unlinked": unlink_email,
+        "claims_deleted": unlinked_count,
+        "message": f"Added 20 test MedicPoints (round {test_round_id}). {'Email unlinked.' if unlink_email else ''} User should now see unclaimed points."
+    }
+
 # ─── PLATFORM STATS (7-DAY) ────────────────────────────────────────
 @app.get("/api/platform-stats")
 async def api_platform_stats(days: int = 7):

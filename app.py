@@ -3238,3 +3238,119 @@ async def api_medicpoints_flush_unclaimed():
         "skipped": total_skipped,
         "failed": total_failed,
     }
+
+# ─── PLATFORM STATS (7-DAY) ────────────────────────────────────────
+@app.get("/api/platform-stats")
+async def api_platform_stats(days: int = 7):
+    """Get comprehensive platform stats for the past N days"""
+    conn = get_db(); c = conn.cursor()
+    cutoff = (datetime.now(IST) - timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
+
+    # Rounds played in period
+    c.execute("SELECT COUNT(*) as cnt FROM rounds WHERE started_at >= ?", (cutoff,))
+    total_rounds = c.fetchone()["cnt"]
+
+    # Total attempts & unique players in period
+    c.execute("SELECT COUNT(*) as cnt, COUNT(DISTINCT user_id) as players FROM attempts WHERE attempted_at >= ?", (cutoff,))
+    row = c.fetchone()
+    total_attempts = row["cnt"]
+    active_players = row["players"]
+
+    # Total winners (4/4 correct) in period
+    c.execute("SELECT COUNT(*) as cnt, COUNT(DISTINCT user_id) as unique_winners FROM winners WHERE created_at >= ?", (cutoff,))
+    row = c.fetchone()
+    total_wins = row["cnt"]
+    unique_winners = row["unique_winners"]
+
+    # Cash distributed in period
+    c.execute("SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE type = 'win' AND created_at >= ?", (cutoff,))
+    cash_distributed = c.fetchone()["total"]
+
+    # Withdrawals in period
+    c.execute("SELECT COUNT(*) as cnt, COALESCE(SUM(amount), 0) as total FROM withdrawal_requests WHERE created_at >= ?", (cutoff,))
+    row = c.fetchone()
+    withdrawal_count = row["cnt"]
+    withdrawal_amount = row["total"]
+
+    # Challenges in period
+    c.execute("SELECT COUNT(*) as cnt FROM challenges WHERE created_at >= ?", (cutoff,))
+    total_challenges = c.fetchone()["cnt"]
+
+    c.execute("SELECT COUNT(*) as cnt FROM challenges WHERE status IN ('won', 'lost') AND completed_at >= ?", (cutoff,))
+    completed_challenges = c.fetchone()["cnt"]
+
+    # New signups (wallets created in period)
+    c.execute("SELECT COUNT(*) as cnt FROM wallets WHERE created_at >= ?", (cutoff,))
+    new_signups = c.fetchone()["cnt"]
+
+    # Referrals in period
+    c.execute("SELECT COUNT(*) as cnt FROM referrals WHERE created_at >= ?", (cutoff,))
+    new_referrals = c.fetchone()["cnt"]
+
+    # Disqualifications in period
+    c.execute("SELECT COUNT(*) as cnt FROM disqualifications WHERE created_at >= ?", (cutoff,))
+    disqualifications = c.fetchone()["cnt"]
+
+    # App clicks in period
+    c.execute("SELECT COUNT(*) as cnt FROM app_clicks WHERE created_at >= ?", (cutoff,))
+    app_clicks = c.fetchone()["cnt"]
+
+    # Study events in period
+    c.execute("SELECT COUNT(*) as cnt FROM study_events WHERE created_at >= ?", (cutoff,))
+    study_events = c.fetchone()["cnt"]
+
+    # Email signups in period
+    c.execute("SELECT COUNT(*) as cnt FROM notify_emails WHERE created_at >= ?", (cutoff,))
+    new_emails = c.fetchone()["cnt"]
+
+    # Top 5 earners in period
+    c.execute("""
+        SELECT t.user_id, w.user_name, SUM(t.amount) as earned
+        FROM transactions t
+        LEFT JOIN wallets w ON w.user_id = t.user_id
+        WHERE t.type = 'win' AND t.created_at >= ?
+        GROUP BY t.user_id
+        ORDER BY earned DESC
+        LIMIT 5
+    """, (cutoff,))
+    top_earners = [{"user_id": r["user_id"], "name": r["user_name"] or "Unknown", "earned": r["earned"]} for r in c.fetchall()]
+
+    # Fastest win in period
+    c.execute("SELECT user_name, time_ms FROM winners WHERE created_at >= ? AND time_ms IS NOT NULL ORDER BY time_ms ASC LIMIT 1", (cutoff,))
+    fastest = c.fetchone()
+    fastest_win = {"name": fastest["user_name"], "time_ms": fastest["time_ms"]} if fastest else None
+
+    # Avg attempts per round
+    avg_attempts = round(total_attempts / total_rounds, 1) if total_rounds > 0 else 0
+
+    # Overall totals (all time)
+    c.execute("SELECT COUNT(*) as cnt FROM wallets")
+    total_users_alltime = c.fetchone()["cnt"]
+    c.execute("SELECT COALESCE(SUM(total_earned), 0) as total FROM wallets")
+    total_earned_alltime = c.fetchone()["total"]
+
+    conn.close()
+
+    return {
+        "period_days": days,
+        "cutoff": cutoff,
+        "rounds": total_rounds,
+        "total_attempts": total_attempts,
+        "active_players": active_players,
+        "avg_attempts_per_round": avg_attempts,
+        "total_wins": total_wins,
+        "unique_winners": unique_winners,
+        "cash_distributed": cash_distributed,
+        "withdrawals": {"count": withdrawal_count, "amount": withdrawal_amount},
+        "challenges": {"total": total_challenges, "completed": completed_challenges},
+        "new_signups": new_signups,
+        "new_referrals": new_referrals,
+        "disqualifications": disqualifications,
+        "app_clicks": app_clicks,
+        "study_events": study_events,
+        "new_emails": new_emails,
+        "top_earners": top_earners,
+        "fastest_win": fastest_win,
+        "alltime_users": total_users_alltime,
+        "alltime_earned": total_earned_alltime,
+    }

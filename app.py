@@ -3274,10 +3274,11 @@ async def api_admin_test_medicpoints(request: Request):
     conn = get_db()
     c = conn.cursor()
 
-    # Create a fake round for testing
+    # Create a fake round for testing (use question_1_id..question_4_id = 0 as dummy)
     now = datetime.utcnow().isoformat()
-    c.execute("INSERT INTO rounds (question, options, correct_index, started_at) VALUES (?, ?, ?, ?)",
-              ("TEST ROUND - Admin test medicpoints", '["A","B","C","D"]', 0, now))
+    ends_at = now
+    c.execute("INSERT INTO rounds (question_1_id, question_2_id, question_3_id, question_4_id, started_at, ends_at) VALUES (?,?,?,?,?,?)",
+              (0, 0, 0, 0, now, ends_at))
     test_round_id = c.lastrowid
 
     # Insert winner row as medicpoints_eligible

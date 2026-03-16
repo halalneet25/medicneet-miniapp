@@ -3201,7 +3201,7 @@ async def api_medicpoints_flush_unclaimed():
     conn = get_db()
     c = conn.cursor()
 
-    # Find all unclaimed (winner_type in capped_medic/medicpoints_eligible, no claim row)
+    # Find all unclaimed (winner_type in capped_medic/medicpoints_eligible, no successful claim row)
     c.execute("""
         SELECT w.round_id, w.user_id, w.user_name
         FROM winners w
@@ -3211,10 +3211,18 @@ async def api_medicpoints_flush_unclaimed():
         ORDER BY w.round_id ASC
     """)
     unclaimed = [dict(r) for r in c.fetchall()]
+
+    # Also log failed claims that might be blocking
+    c.execute("SELECT telegram_id, round_id, firebase_preloaded, email FROM medicpoints_claims WHERE firebase_preloaded = 0 AND round_id != 0")
+    failed_claims = [dict(r) for r in c.fetchall()]
+    if failed_claims:
+        logger.warning(f"Found {len(failed_claims)} failed claims (firebase_preloaded=0): {failed_claims[:5]}")
+
     conn.close()
 
+    logger.info(f"Flush: found {len(unclaimed)} unclaimed rounds to process")
     if not unclaimed:
-        return {"message": "No unclaimed rounds found", "total": 0}
+        return {"message": "No unclaimed rounds found", "total": 0, "credited": 0, "skipped": 0, "failed": 0}
 
     # Group by round_id for auto_credit_medicpoints
     from collections import defaultdict
@@ -3228,14 +3236,17 @@ async def api_medicpoints_flush_unclaimed():
 
     for round_id, winners in by_round.items():
         try:
+            logger.info(f"Flush: processing round {round_id} with {len(winners)} winners: {[w['user_id'] for w in winners]}")
             result = auto_credit_medicpoints(round_id, winners)
+            logger.info(f"Flush: round {round_id} result: {result}")
             total_credited += result.get("credited", 0)
             total_skipped += result.get("skipped", 0)
             total_failed += result.get("failed", 0)
         except Exception as e:
-            logger.error(f"Flush round {round_id} failed: {e}")
+            logger.error(f"Flush round {round_id} failed: {e}", exc_info=True)
             total_failed += len(winners)
 
+    logger.info(f"Flush complete: credited={total_credited}, skipped={total_skipped}, failed={total_failed}")
     return {
         "message": "Flush complete",
         "total_unclaimed": len(unclaimed),

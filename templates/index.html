@@ -5168,7 +5168,7 @@
                 if (linkBtn) {
                     if (unclaimed > 0) {
                         linkBtn.style.display = 'block';
-                        linkBtn.textContent = window._linkedEmail ? 'Withdraw MedicPoints to App' : 'Link MedicPoints to App';
+                        linkBtn.textContent = window._linkedEmail ? 'Sync MedicPoints to App' : 'Link MedicPoints to App';
                     } else {
                         linkBtn.style.display = 'none';
                     }
@@ -5183,30 +5183,43 @@
 
         function showMpLinkFlow() {
             if (window._linkedEmail) {
-                // Email already linked — flush points and open app directly
+                // Email already linked — flush points to Firebase
                 const btn = document.getElementById('mpLinkBtn');
-                btn.textContent = 'Syncing points to app...';
+                const pendingLabel = document.getElementById('mpPendingLabel');
+                btn.textContent = 'Syncing points...';
                 btn.disabled = true;
                 fetch(`${API}/api/medicpoints/flush-unclaimed`, {method: 'POST'})
                     .then(r => r.json())
                     .then(data => {
+                        console.log('Flush result:', JSON.stringify(data));
                         const credited = data.credited || 0;
+                        const failed = data.failed || 0;
                         if (credited > 0) {
-                            btn.textContent = `${credited * 20} points synced! Opening app...`;
+                            btn.textContent = `✅ ${credited * 20} points synced to app!`;
+                            btn.style.background = 'linear-gradient(135deg,#22c55e,#16a34a)';
+                            btn.style.boxShadow = '0 3px 0 #15803d';
+                            if (pendingLabel) { pendingLabel.textContent = 'points synced to app!'; pendingLabel.style.color = '#4ade80'; }
+                        } else if (failed > 0) {
+                            btn.textContent = '❌ Sync failed — tap to retry';
+                            btn.style.background = 'linear-gradient(135deg,#ef4444,#dc2626)';
+                            btn.style.boxShadow = '0 3px 0 #991b1b';
                         } else {
-                            btn.textContent = 'Opening app...';
+                            btn.textContent = '✅ All points already synced!';
+                            btn.style.background = 'linear-gradient(135deg,#22c55e,#16a34a)';
+                            btn.style.boxShadow = '0 3px 0 #15803d';
+                            if (pendingLabel) { pendingLabel.textContent = 'all points synced!'; pendingLabel.style.color = '#4ade80'; }
                         }
                         loadMedicPointsBalance();
                         setTimeout(() => {
-                            openPlayStore('mp_withdraw');
-                            btn.textContent = 'Withdraw MedicPoints to App';
                             btn.disabled = false;
-                        }, 1500);
+                            btn.style.background = 'linear-gradient(135deg,#f59e0b,#d97706)';
+                            btn.style.boxShadow = '0 3px 0 #92400e';
+                            btn.textContent = 'Sync MedicPoints to App';
+                        }, 4000);
                     })
                     .catch(e => {
                         console.error('Flush error:', e);
-                        openPlayStore('mp_withdraw');
-                        btn.textContent = 'Withdraw MedicPoints to App';
+                        btn.textContent = '❌ Sync failed — tap to retry';
                         btn.disabled = false;
                     });
             } else {
@@ -5891,10 +5904,10 @@
                     document.getElementById('mpLinkFlow').style.display = 'none';
                     const mpBtn = document.getElementById('mpLinkBtn');
                     mpBtn.style.display = 'block';
-                    mpBtn.textContent = 'Withdraw MedicPoints to App';
+                    mpBtn.textContent = 'Sync MedicPoints to App';
 
                     if (data.found_in_firebase) {
-                        statusEl.innerHTML = '<span style="color:#4ade80;font-weight:700">Points synced! Tap "Withdraw MedicPoints to App" to open the app.</span>';
+                        statusEl.innerHTML = '<span style="color:#4ade80;font-weight:700">Points synced! Tap "Sync MedicPoints to App" to open the app.</span>';
                     } else {
                         statusEl.innerHTML = '<span style="color:#f59e0b;font-weight:700">Email linked! Install MedicNEET app & sign up with this email to receive your points.</span>';
                     }

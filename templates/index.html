@@ -5185,14 +5185,23 @@
             if (window._linkedEmail) {
                 // Email already linked — flush points and open app directly
                 const btn = document.getElementById('mpLinkBtn');
-                btn.textContent = 'Syncing...';
+                btn.textContent = 'Syncing points to app...';
                 btn.disabled = true;
                 fetch(`${API}/api/medicpoints/flush-unclaimed`, {method: 'POST'})
-                    .then(() => {
-                        setTimeout(() => { loadMedicPointsBalance(); }, 2000);
-                        openPlayStore('mp_withdraw');
-                        btn.textContent = 'Withdraw MedicPoints to App';
-                        btn.disabled = false;
+                    .then(r => r.json())
+                    .then(data => {
+                        const credited = data.credited || 0;
+                        if (credited > 0) {
+                            btn.textContent = `${credited * 20} points synced! Opening app...`;
+                        } else {
+                            btn.textContent = 'Opening app...';
+                        }
+                        loadMedicPointsBalance();
+                        setTimeout(() => {
+                            openPlayStore('mp_withdraw');
+                            btn.textContent = 'Withdraw MedicPoints to App';
+                            btn.disabled = false;
+                        }, 1500);
                     })
                     .catch(e => {
                         console.error('Flush error:', e);

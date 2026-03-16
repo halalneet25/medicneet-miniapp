@@ -3171,12 +3171,12 @@ async def api_medicpoints_balance(user_id: str):
     conn = get_db()
     c = conn.cursor()
 
-    # Count all rounds where user got 4/4 (exists in winners table)
-    c.execute("SELECT COUNT(*) as cnt FROM winners WHERE user_id = ?", (user_id,))
+    # Count only medicpoints-eligible rounds (not speed/lucky cash winners)
+    c.execute("SELECT COUNT(*) as cnt FROM winners WHERE user_id = ? AND winner_type IN ('capped_medic', 'medicpoints_eligible')", (user_id,))
     total_rounds_won = c.fetchone()["cnt"]
     total_points = total_rounds_won * 20
 
-    # Check how many were successfully claimed (firebase_preloaded=1, excluding link-only rows with round_id=0)
+    # Check how many were successfully synced to Firebase
     c.execute("SELECT COUNT(*) as cnt FROM medicpoints_claims WHERE telegram_id = ? AND firebase_preloaded = 1 AND round_id != 0", (user_id,))
     claimed_rounds = c.fetchone()["cnt"]
     claimed_points = claimed_rounds * 20

@@ -228,6 +228,399 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.error(f"Stats command failed: {e}")
         await update.message.reply_text(f"\u274c Failed to fetch stats: {e}")
 
+async def statsmonth_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show platform stats for the current month"""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        now = datetime.now(IST)
+        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).strftime("%Y-%m-%d %H:%M:%S")
+        month_name = now.strftime("%B %Y")
+
+        # Quiz activity
+        c.execute("SELECT COUNT(*) as cnt FROM rounds WHERE started_at >= ?", (month_start,))
+        total_rounds = c.fetchone()["cnt"]
+
+        c.execute("SELECT COUNT(*) as cnt, COUNT(DISTINCT user_id) as players FROM attempts WHERE attempted_at >= ?", (month_start,))
+        row = c.fetchone()
+        total_attempts, active_players = row["cnt"], row["players"]
+
+        c.execute("SELECT COUNT(*) as cnt, COUNT(DISTINCT user_id) as uniq FROM winners WHERE created_at >= ?", (month_start,))
+        row = c.fetchone()
+        total_wins, unique_winners = row["cnt"], row["uniq"]
+
+        avg_per_round = round(total_attempts / total_rounds, 1) if total_rounds > 0 else 0
+
+        c.execute("SELECT user_name, time_ms FROM winners WHERE created_at >= ? AND time_ms IS NOT NULL ORDER BY time_ms ASC LIMIT 1", (month_start,))
+        fastest = c.fetchone()
+        fastest_text = f"{fastest['user_name']} ({fastest['time_ms']/1000:.1f}s)" if fastest else "N/A"
+
+        # Earnings & withdrawals
+        c.execute("SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE type = 'win' AND created_at >= ?", (month_start,))
+        cash_distributed = c.fetchone()["total"]
+
+        c.execute("SELECT COUNT(*) as cnt, COALESCE(SUM(amount), 0) as total FROM withdrawal_requests WHERE created_at >= ?", (month_start,))
+        row = c.fetchone()
+        wd_count, wd_amount = row["cnt"], row["total"]
+
+        # Challenges
+        c.execute("SELECT COUNT(*) as cnt FROM challenges WHERE created_at >= ?", (month_start,))
+        challenges_total = c.fetchone()["cnt"]
+
+        c.execute("SELECT COUNT(*) as cnt FROM challenges WHERE status IN ('won', 'lost') AND completed_at >= ?", (month_start,))
+        challenges_done = c.fetchone()["cnt"]
+
+        # Growth
+        c.execute("SELECT COUNT(*) as cnt FROM wallets WHERE created_at >= ?", (month_start,))
+        new_signups = c.fetchone()["cnt"]
+
+        c.execute("SELECT COUNT(*) as cnt FROM referrals WHERE created_at >= ?", (month_start,))
+        new_referrals = c.fetchone()["cnt"]
+
+        c.execute("SELECT COUNT(*) as cnt FROM notify_emails WHERE created_at >= ?", (month_start,))
+        new_emails = c.fetchone()["cnt"]
+
+        c.execute("SELECT COUNT(*) as cnt FROM app_clicks WHERE created_at >= ?", (month_start,))
+        app_clicks = c.fetchone()["cnt"]
+
+        # MedicPoints this month
+        c.execute("SELECT COUNT(*) as cnt FROM winners WHERE created_at >= ? AND winner_type IN ('capped_medic', 'medicpoints_eligible')", (month_start,))
+        mp_rounds = c.fetchone()["cnt"]
+        mp_points = mp_rounds * 20
+
+        c.execute("SELECT COUNT(*) as cnt FROM medicpoints_claims WHERE created_at >= ? AND firebase_preloaded = 1 AND round_id != 0", (month_start,))
+        mp_claimed = c.fetchone()["cnt"]
+
+        # Top 5 earners this month
+        c.execute("""
+            SELECT t.user_id, w.user_name, SUM(t.amount) as earned
+            FROM transactions t LEFT JOIN wallets w ON w.user_id = t.user_id
+            WHERE t.type = 'win' AND t.created_at >= ?
+            GROUP BY t.user_id ORDER BY earned DESC LIMIT 5
+        """, (month_start,))
+        top_earners_text = ""
+        for i, r in enumerate(c.fetchall(), 1):
+            top_earners_text += f"  {i}. {r['user_name'] or 'Unknown'} \u2014 \u20b9{r['earned']}\n"
+        if not top_earners_text:
+            top_earners_text = "  No earnings yet\n"
+
+        # Top 5 MedicPoints earners this month
+        c.execute("""
+            SELECT w.user_name, COUNT(*) as wins
+            FROM winners w
+            WHERE w.created_at >= ? AND w.winner_type IN ('capped_medic', 'medicpoints_eligible')
+            GROUP BY w.user_id ORDER BY wins DESC LIMIT 5
+        """, (month_start,))
+        top_mp_text = ""
+        for i, r in enumerate(c.fetchall(), 1):
+            top_mp_text += f"  {i}. {r['user_name'] or 'Unknown'} \u2014 {r['wins'] * 20} pts\n"
+        if not top_mp_text:
+            top_mp_text = "  No MedicPoints yet\n"
+
+        conn.close()
+
+        msg = (
+            f"\U0001f4c5 MedicNEET \u2014 {month_name} Stats\n"
+            f"{'─' * 28}\n\n"
+            f"\U0001f3ae QUIZ ACTIVITY\n"
+            f"  Rounds played: {total_rounds}\n"
+            f"  Total attempts: {total_attempts}\n"
+            f"  Active players: {active_players}\n"
+            f"  Avg per round: {avg_per_round}\n"
+            f"  Winners (4/4): {total_wins} ({unique_winners} unique)\n"
+            f"  Fastest win: {fastest_text}\n\n"
+            f"\U0001f4b0 EARNINGS & WITHDRAWALS\n"
+            f"  Cash distributed: \u20b9{cash_distributed}\n"
+            f"  Withdrawals: {wd_count} (\u20b9{wd_amount})\n\n"
+            f"\U0001f3c5 MEDICPOINTS\n"
+            f"  Points earned: {mp_points} ({mp_rounds} rounds)\n"
+            f"  Synced to app: {mp_claimed * 20} ({mp_claimed} rounds)\n\n"
+            f"\u2694\ufe0f CHALLENGES\n"
+            f"  Created: {challenges_total}\n"
+            f"  Completed: {challenges_done}\n\n"
+            f"\U0001f4c8 GROWTH\n"
+            f"  New signups: {new_signups}\n"
+            f"  Referrals: {new_referrals}\n"
+            f"  Email signups: {new_emails}\n"
+            f"  App clicks: {app_clicks}\n\n"
+            f"\U0001f3c6 TOP EARNERS ({month_name})\n"
+            f"{top_earners_text}\n"
+            f"\U0001f3c5 TOP MEDICPOINTS ({month_name})\n"
+            f"{top_mp_text}"
+        )
+        await update.message.reply_text(msg)
+    except Exception as e:
+        logger.error(f"Statsmonth command failed: {e}")
+        await update.message.reply_text(f"\u274c Failed to fetch monthly stats: {e}")
+
+async def statsoverall_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show all-time platform stats"""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+
+        # Quiz activity
+        c.execute("SELECT COUNT(*) as cnt FROM rounds")
+        total_rounds = c.fetchone()["cnt"]
+
+        c.execute("SELECT COUNT(*) as cnt, COUNT(DISTINCT user_id) as players FROM attempts")
+        row = c.fetchone()
+        total_attempts, total_players = row["cnt"], row["players"]
+
+        c.execute("SELECT COUNT(*) as cnt, COUNT(DISTINCT user_id) as uniq FROM winners")
+        row = c.fetchone()
+        total_wins, unique_winners = row["cnt"], row["uniq"]
+
+        avg_per_round = round(total_attempts / total_rounds, 1) if total_rounds > 0 else 0
+        win_rate = round(total_wins / total_attempts * 100, 1) if total_attempts > 0 else 0
+
+        c.execute("SELECT user_name, time_ms FROM winners WHERE time_ms IS NOT NULL ORDER BY time_ms ASC LIMIT 1")
+        fastest = c.fetchone()
+        fastest_text = f"{fastest['user_name']} ({fastest['time_ms']/1000:.1f}s)" if fastest else "N/A"
+
+        # Earnings
+        c.execute("SELECT COALESCE(SUM(total_earned), 0) as total FROM wallets")
+        total_earned = c.fetchone()["total"]
+
+        c.execute("SELECT COALESCE(SUM(balance), 0) as total FROM wallets")
+        total_pending = c.fetchone()["total"]
+
+        c.execute("SELECT COUNT(*) as cnt, COALESCE(SUM(amount), 0) as total FROM withdrawal_requests")
+        row = c.fetchone()
+        wd_count, wd_amount = row["cnt"], row["total"]
+
+        # Users
+        c.execute("SELECT COUNT(*) as cnt FROM wallets")
+        total_users = c.fetchone()["cnt"]
+
+        c.execute("SELECT COUNT(*) as cnt FROM wallets WHERE balance >= 50")
+        users_with_50 = c.fetchone()["cnt"]
+
+        c.execute("SELECT COUNT(*) as cnt FROM wallets WHERE withdrawal_count > 0")
+        users_withdrawn = c.fetchone()["cnt"]
+
+        # MedicPoints
+        c.execute("SELECT COUNT(*) as cnt FROM winners WHERE winner_type IN ('capped_medic', 'medicpoints_eligible')")
+        mp_rounds = c.fetchone()["cnt"]
+
+        c.execute("SELECT COUNT(*) as cnt FROM medicpoints_claims WHERE firebase_preloaded = 1 AND round_id != 0")
+        mp_claimed = c.fetchone()["cnt"]
+
+        # Challenges
+        c.execute("SELECT COUNT(*) as cnt FROM challenges")
+        challenges_total = c.fetchone()["cnt"]
+
+        c.execute("SELECT COUNT(*) as cnt FROM challenges WHERE status IN ('won', 'lost')")
+        challenges_done = c.fetchone()["cnt"]
+
+        # Growth
+        c.execute("SELECT COUNT(*) as cnt FROM referrals")
+        total_referrals = c.fetchone()["cnt"]
+
+        c.execute("SELECT COUNT(*) as cnt FROM notify_emails")
+        total_emails = c.fetchone()["cnt"]
+
+        c.execute("SELECT COUNT(*) as cnt FROM app_clicks")
+        total_app_clicks = c.fetchone()["cnt"]
+
+        # Top 10 all-time earners
+        c.execute("""
+            SELECT user_name, total_earned, balance, withdrawal_count
+            FROM wallets ORDER BY total_earned DESC LIMIT 10
+        """)
+        top_earners_text = ""
+        for i, r in enumerate(c.fetchall(), 1):
+            wd_tag = f" [{r['withdrawal_count']}x wd]" if r['withdrawal_count'] > 0 else ""
+            top_earners_text += f"  {i}. {r['user_name'] or 'Unknown'} \u2014 \u20b9{r['total_earned']} (bal: \u20b9{r['balance']}){wd_tag}\n"
+        if not top_earners_text:
+            top_earners_text = "  No earnings yet\n"
+
+        # Top 5 MedicPoints all-time
+        c.execute("""
+            SELECT w.user_name, COUNT(*) as wins
+            FROM winners w
+            WHERE w.winner_type IN ('capped_medic', 'medicpoints_eligible')
+            GROUP BY w.user_id ORDER BY wins DESC LIMIT 5
+        """)
+        top_mp_text = ""
+        for i, r in enumerate(c.fetchall(), 1):
+            top_mp_text += f"  {i}. {r['user_name'] or 'Unknown'} \u2014 {r['wins'] * 20} pts\n"
+        if not top_mp_text:
+            top_mp_text = "  No MedicPoints yet\n"
+
+        # First and last round dates
+        c.execute("SELECT MIN(started_at) as first, MAX(started_at) as last FROM rounds")
+        dates = c.fetchone()
+        first_round = dates["first"][:10] if dates["first"] else "N/A"
+        last_round = dates["last"][:10] if dates["last"] else "N/A"
+
+        conn.close()
+
+        msg = (
+            f"\U0001f30d MedicNEET \u2014 All-Time Stats\n"
+            f"{'─' * 28}\n"
+            f"  {first_round} \u2192 {last_round}\n\n"
+            f"\U0001f3ae QUIZ ACTIVITY\n"
+            f"  Rounds played: {total_rounds}\n"
+            f"  Total attempts: {total_attempts}\n"
+            f"  Total players: {total_players}\n"
+            f"  Avg per round: {avg_per_round}\n"
+            f"  Winners (4/4): {total_wins} ({unique_winners} unique)\n"
+            f"  Win rate: {win_rate}%\n"
+            f"  Fastest ever: {fastest_text}\n\n"
+            f"\U0001f4b0 EARNINGS\n"
+            f"  Total earned: \u20b9{total_earned}\n"
+            f"  Pending balance: \u20b9{total_pending}\n"
+            f"  Withdrawals: {wd_count} (\u20b9{wd_amount})\n\n"
+            f"\U0001f465 USERS\n"
+            f"  Total users: {total_users}\n"
+            f"  Balance \u2265\u20b950: {users_with_50}\n"
+            f"  Withdrawn at least once: {users_withdrawn}\n\n"
+            f"\U0001f3c5 MEDICPOINTS\n"
+            f"  Total earned: {mp_rounds * 20} ({mp_rounds} rounds)\n"
+            f"  Synced to app: {mp_claimed * 20} ({mp_claimed} rounds)\n\n"
+            f"\u2694\ufe0f CHALLENGES\n"
+            f"  Created: {challenges_total}\n"
+            f"  Completed: {challenges_done}\n\n"
+            f"\U0001f4c8 GROWTH\n"
+            f"  Referrals: {total_referrals}\n"
+            f"  Email signups: {total_emails}\n"
+            f"  App clicks: {total_app_clicks}\n\n"
+            f"\U0001f3c6 TOP 10 EARNERS (All-Time)\n"
+            f"{top_earners_text}\n"
+            f"\U0001f3c5 TOP MEDICPOINTS (All-Time)\n"
+            f"{top_mp_text}"
+        )
+        await update.message.reply_text(msg)
+    except Exception as e:
+        logger.error(f"Statsoverall command failed: {e}")
+        await update.message.reply_text(f"\u274c Failed to fetch overall stats: {e}")
+
+async def statswithdrawal_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Detailed withdrawal task tracker — who did what, how many, how much"""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+
+        # Overall withdrawal summary
+        c.execute("SELECT COUNT(*) as cnt, COALESCE(SUM(amount), 0) as total FROM withdrawal_requests")
+        row = c.fetchone()
+        total_wd, total_wd_amount = row["cnt"], row["total"]
+
+        c.execute("SELECT COUNT(*) as cnt, COALESCE(SUM(amount), 0) as total FROM withdrawal_requests WHERE status = 'pending'")
+        row = c.fetchone()
+        pending_wd, pending_amount = row["cnt"], row["total"]
+
+        c.execute("SELECT COUNT(*) as cnt FROM withdrawal_requests WHERE status = 'completed'")
+        completed_wd = c.fetchone()["cnt"]
+
+        # Users who have withdrawn
+        c.execute("SELECT COUNT(*) as cnt FROM wallets WHERE withdrawal_count > 0")
+        users_withdrawn = c.fetchone()["cnt"]
+
+        c.execute("SELECT COUNT(*) as cnt FROM wallets WHERE balance >= 50")
+        users_eligible = c.fetchone()["cnt"]
+
+        # V1 vs V2 breakdown
+        c.execute("SELECT COUNT(*) as cnt FROM wallets WHERE withdrawal_count = 0 AND balance >= 50")
+        v1_eligible = c.fetchone()["cnt"]
+
+        c.execute("SELECT COUNT(*) as cnt FROM wallets WHERE withdrawal_count >= 1 AND balance >= 50")
+        v2_eligible = c.fetchone()["cnt"]
+
+        # Task completion stats (V1 click tasks)
+        v1_tasks = ["install_app", "rate_app", "subscribe_yt", "follow_ig"]
+        task_stats_text = ""
+        for task_name in v1_tasks:
+            c.execute("SELECT COUNT(*) as cnt FROM withdrawal_tasks WHERE task = ? AND completed = 1", (task_name,))
+            cnt = c.fetchone()["cnt"]
+            task_stats_text += f"  {task_name}: {cnt} users\n"
+
+        # OTP verified
+        c.execute("SELECT COUNT(*) as cnt FROM withdrawal_tasks WHERE task = 'otp_verified' AND completed = 1")
+        otp_verified = c.fetchone()["cnt"]
+        task_stats_text += f"  otp_verified: {otp_verified} users\n"
+
+        # UGC video submissions
+        c.execute("SELECT COUNT(DISTINCT user_id) as cnt FROM v2_withdrawal_proofs WHERE task = 'ugc_video'")
+        ugc_users = c.fetchone()["cnt"]
+
+        # Instagram post submissions
+        c.execute("SELECT COUNT(DISTINCT user_id) as cnt FROM v2_withdrawal_proofs WHERE task = 'instagram_post'")
+        ig_users = c.fetchone()["cnt"]
+
+        # Referral stats
+        c.execute("SELECT COUNT(DISTINCT referrer_id) as cnt FROM referrals")
+        referrers = c.fetchone()["cnt"]
+
+        c.execute("""SELECT r.referrer_id, w.user_name, COUNT(*) as refs, w.withdrawal_count
+            FROM referrals r LEFT JOIN wallets w ON w.user_id = r.referrer_id
+            GROUP BY r.referrer_id ORDER BY refs DESC LIMIT 5""")
+        top_referrers_text = ""
+        for i, r in enumerate(c.fetchall(), 1):
+            top_referrers_text += f"  {i}. {r['user_name'] or 'Unknown'} \u2014 {r['refs']} referrals (wd: {r['withdrawal_count'] or 0}x)\n"
+        if not top_referrers_text:
+            top_referrers_text = "  No referrals yet\n"
+
+        # Recent withdrawals (last 10)
+        c.execute("""SELECT wr.user_name, wr.amount, wr.status, wr.created_at, w.withdrawal_count
+            FROM withdrawal_requests wr LEFT JOIN wallets w ON w.user_id = wr.user_id
+            ORDER BY wr.created_at DESC LIMIT 10""")
+        recent_text = ""
+        for r in c.fetchall():
+            status_icon = "\u2705" if r["status"] == "completed" else "\u23f3" if r["status"] == "pending" else "\u274c"
+            date = r["created_at"][:10] if r["created_at"] else "?"
+            recent_text += f"  {status_icon} {r['user_name'] or 'Unknown'} \u2014 \u20b9{r['amount']} ({date}) [wd #{r['withdrawal_count'] or 1}]\n"
+        if not recent_text:
+            recent_text = "  No withdrawals yet\n"
+
+        # Users with most withdrawals
+        c.execute("""SELECT user_name, withdrawal_count, total_earned, balance
+            FROM wallets WHERE withdrawal_count > 0
+            ORDER BY withdrawal_count DESC LIMIT 5""")
+        top_withdrawers_text = ""
+        for i, r in enumerate(c.fetchall(), 1):
+            top_withdrawers_text += f"  {i}. {r['user_name'] or 'Unknown'} \u2014 {r['withdrawal_count']}x withdrawn, earned \u20b9{r['total_earned']} (bal: \u20b9{r['balance']})\n"
+        if not top_withdrawers_text:
+            top_withdrawers_text = "  No one has withdrawn yet\n"
+
+        # Email linked stats
+        c.execute("SELECT COUNT(DISTINCT telegram_id) as cnt FROM medicpoints_claims WHERE email IS NOT NULL AND email != ''")
+        emails_linked = c.fetchone()["cnt"]
+
+        conn.close()
+
+        msg = (
+            f"\U0001f4b8 MedicNEET \u2014 Withdrawal Tracker\n"
+            f"{'─' * 28}\n\n"
+            f"\U0001f4ca OVERVIEW\n"
+            f"  Total withdrawals: {total_wd} (\u20b9{total_wd_amount})\n"
+            f"  Completed: {completed_wd}\n"
+            f"  Pending: {pending_wd} (\u20b9{pending_amount})\n"
+            f"  Users withdrawn: {users_withdrawn}\n"
+            f"  Users eligible (\u2265\u20b950): {users_eligible}\n"
+            f"    V1 (first-time): {v1_eligible}\n"
+            f"    V2 (repeat): {v2_eligible}\n\n"
+            f"\u2705 TASK COMPLETION (all users)\n"
+            f"{task_stats_text}"
+            f"  ugc_video: {ugc_users} users\n"
+            f"  instagram_post: {ig_users} users\n"
+            f"  emails_linked: {emails_linked} users\n\n"
+            f"\U0001f517 TOP REFERRERS\n"
+            f"{top_referrers_text}\n"
+            f"\U0001f451 TOP WITHDRAWERS\n"
+            f"{top_withdrawers_text}\n"
+            f"\U0001f4dd RECENT WITHDRAWALS\n"
+            f"{recent_text}"
+        )
+        await update.message.reply_text(msg)
+    except Exception as e:
+        logger.error(f"Statswithdrawal command failed: {e}")
+        await update.message.reply_text(f"\u274c Failed to fetch withdrawal stats: {e}")
+
 async def handle_group_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text:
         return
@@ -277,6 +670,9 @@ def main():
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("stats", stats_command))
+    app.add_handler(CommandHandler("statsmonth", statsmonth_command))
+    app.add_handler(CommandHandler("statsoverall", statsoverall_command))
+    app.add_handler(CommandHandler("statswithdrawal", statswithdrawal_command))
     app.add_handler(CallbackQueryHandler(handle_reminder_callback, pattern=r"^remind_"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_group_message))
     logger.info("Bot starting...")

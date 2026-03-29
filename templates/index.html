@@ -711,8 +711,175 @@
             display: block
         }
 
-        
-        
+        /* ─── 30-Day Plan ─── */
+        .plan-hero {
+            background: linear-gradient(135deg, #0f3460 0%, #1a1a2e 40%, #16213e 100%);
+            border-radius: 18px;
+            padding: 20px;
+            margin-bottom: 16px;
+            text-align: center;
+            border: 2px solid rgba(88,167,0,.3);
+            box-shadow: 0 4px 0 rgba(0,0,0,.2)
+        }
+        .plan-hero-title {
+            font-size: 20px;
+            font-weight: 900;
+            color: #fff;
+            margin-bottom: 4px
+        }
+        .plan-hero-sub {
+            font-size: 13px;
+            font-weight: 700;
+            color: #94a3b8;
+            margin-bottom: 14px
+        }
+        .plan-week-nav {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 16px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 4px
+        }
+        .plan-week-btn {
+            flex: 1;
+            min-width: 70px;
+            padding: 10px 8px;
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            background: var(--bg2);
+            font-size: 11px;
+            font-weight: 800;
+            font-family: inherit;
+            color: var(--txt2);
+            cursor: pointer;
+            text-align: center;
+            -webkit-tap-highlight-color: transparent;
+            transition: all .2s
+        }
+        .plan-week-btn.active {
+            border-color: var(--green);
+            background: var(--green-lt);
+            color: var(--green-dk)
+        }
+        .plan-week-btn .pw-num {
+            display: block;
+            font-size: 13px;
+            font-weight: 900
+        }
+        .plan-day-card {
+            background: var(--bg);
+            border: 2px solid var(--border);
+            border-radius: 16px;
+            margin-bottom: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 0 var(--border);
+            transition: box-shadow .2s
+        }
+        .plan-day-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 16px;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent
+        }
+        .plan-day-num {
+            font-size: 15px;
+            font-weight: 900;
+            color: var(--txt)
+        }
+        .plan-day-arrow {
+            font-size: 12px;
+            color: var(--txt3);
+            transition: transform .2s
+        }
+        .plan-day-card.expanded .plan-day-arrow {
+            transform: rotate(180deg)
+        }
+        .plan-day-body {
+            display: none;
+            padding: 0 16px 14px
+        }
+        .plan-day-card.expanded .plan-day-body {
+            display: block
+        }
+        .plan-subject {
+            margin-bottom: 10px;
+            padding: 10px 12px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 600;
+            line-height: 1.5;
+            color: var(--txt)
+        }
+        .plan-subject-label {
+            font-size: 11px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            margin-bottom: 4px;
+            display: block
+        }
+        .plan-subject.bio { background: #e8f5e9 }
+        .plan-subject.bio .plan-subject-label { color: #2e7d32 }
+        .plan-subject.phy { background: #e3f2fd }
+        .plan-subject.phy .plan-subject-label { color: #1565c0 }
+        .plan-subject.chem { background: #fff3e0 }
+        .plan-subject.chem .plan-subject-label { color: #e65100 }
+        .plan-tip {
+            background: var(--gold-lt);
+            border: 1.5px solid var(--gold);
+            border-radius: 10px;
+            padding: 8px 12px;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--gold-dk)
+        }
+        .plan-week-info {
+            background: var(--bg2);
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            padding: 14px 16px;
+            margin-bottom: 14px
+        }
+        .plan-week-title {
+            font-size: 16px;
+            font-weight: 900;
+            color: var(--txt);
+            margin-bottom: 2px
+        }
+        .plan-week-subtitle {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--txt2);
+            line-height: 1.4;
+            margin-bottom: 6px
+        }
+        .plan-week-target {
+            font-size: 11px;
+            font-weight: 800;
+            color: var(--green-dk);
+            background: var(--green-lt);
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 8px
+        }
+        .plan-site-link {
+            display: block;
+            text-align: center;
+            padding: 14px;
+            background: linear-gradient(135deg, #0f3460, #16213e);
+            border: 2px solid rgba(88,167,0,.3);
+            border-radius: 16px;
+            color: #58cc02;
+            font-size: 14px;
+            font-weight: 800;
+            text-decoration: none;
+            margin-top: 16px;
+            box-shadow: 0 3px 0 rgba(0,0,0,.2)
+        }
+
         /* ─── PYQ CTA Banner ─── */
         .pyq-cta-banner {
             margin: 16px 0;
@@ -3085,6 +3252,7 @@
                 <button class="sub-tab-btn active" id="studyPyqTabBtn" onclick="switchStudyTab('pyq')">PYQ</button>
                 <button class="sub-tab-btn" id="studyChaptersTabBtn" onclick="switchStudyTab('chapters')">Chapters</button>
                 <button class="sub-tab-btn" id="studyResourcesTabBtn" onclick="switchStudyTab('resources')">Resources</button>
+                <button class="sub-tab-btn" id="studyPlanTabBtn" onclick="switchStudyTab('plan')">30 Days</button>
             </div>
 
             <div class="sub-tab-content active" id="studyPyqTab">
@@ -3097,6 +3265,16 @@
 
             <div class="sub-tab-content" id="studyResourcesTab">
                 <div id="studyResourcesList"></div>
+            </div>
+
+            <div class="sub-tab-content" id="studyPlanTab">
+                <div class="plan-hero">
+                    <div class="plan-hero-title">📅 30-Day NEET Plan</div>
+                    <div class="plan-hero-sub">Day-by-day study schedule for NEET 2026. Biology, Physics & Chemistry.</div>
+                </div>
+                <div class="plan-week-nav" id="planWeekNav"></div>
+                <div id="planWeekContent"></div>
+                <a class="plan-site-link" href="https://www.medicneet.com/neet-2026-study-plan" target="_blank" onclick="trackEvent('plan_site_link',{})">📊 View Full Plan with PYQ Data & PDF Download →</a>
             </div>
         </div>
 
@@ -3424,6 +3602,9 @@
             if (startParam.startsWith('challenge_')) {
                 activeChallengeCode = startParam.replace('challenge_', '');
                 loadChallengeInfo(activeChallengeCode);
+            } else if (startParam === 'plan' || startParam === 'study_plan' || startParam === '30days') {
+                // Deep link directly to 30-Day Plan tab
+                setTimeout(() => { switchTab('study'); switchStudyTab('plan'); }, 500);
             } else if (startParam === 'study' || startParam.startsWith('study_')) {
                 // Deep link to Study tab (e.g., from Telegram channel blog posts)
                 setTimeout(() => { switchTab('study'); }, 500);
@@ -6466,23 +6647,114 @@
         let studyRendered = false;
 
         function switchStudyTab(tab) {
-            document.getElementById('studyPyqTabBtn').classList.remove('active');
-            document.getElementById('studyChaptersTabBtn').classList.remove('active');
-            document.getElementById('studyResourcesTabBtn').classList.remove('active');
-            document.getElementById('studyPyqTab').classList.remove('active');
-            document.getElementById('studyChaptersTab').classList.remove('active');
-            document.getElementById('studyResourcesTab').classList.remove('active');
-
-            if (tab === 'pyq') {
-                document.getElementById('studyPyqTabBtn').classList.add('active');
-                document.getElementById('studyPyqTab').classList.add('active');
-            } else if (tab === 'chapters') {
-                document.getElementById('studyChaptersTabBtn').classList.add('active');
-                document.getElementById('studyChaptersTab').classList.add('active');
-            } else if (tab === 'resources') {
-                document.getElementById('studyResourcesTabBtn').classList.add('active');
-                document.getElementById('studyResourcesTab').classList.add('active');
+            ['Pyq','Chapters','Resources','Plan'].forEach(t => {
+                const btn = document.getElementById('study' + t + 'TabBtn');
+                const content = document.getElementById('study' + t + 'Tab');
+                if (btn) btn.classList.remove('active');
+                if (content) content.classList.remove('active');
+            });
+            const tabMap = { pyq: 'Pyq', chapters: 'Chapters', resources: 'Resources', plan: 'Plan' };
+            const key = tabMap[tab];
+            if (key) {
+                document.getElementById('study' + key + 'TabBtn')?.classList.add('active');
+                document.getElementById('study' + key + 'Tab')?.classList.add('active');
             }
+            if (tab === 'plan') { renderStudyPlan(); trackEvent('plan_view', {}); }
+        }
+
+        // ─── 30-Day Study Plan ───
+        const PLAN_DATA = [
+            {
+                week: 1, title: "Priority Chapter Blitz",
+                subtitle: "Fix your weakest high-yield chapters. No mocks this week.",
+                target: "8 hrs — 4 Bio, 2 Phy, 2 Chem",
+                days: [
+                    { day:1, bio:"Molecular Basis of Inheritance — PYQ-Marked NCERT + All Format MCQs.", phy:"Laws of Motion — NCERT Ch.5. Formulas. 20 DC Pandey MCQs.", chem:"GOC — Complete section. Toughest chapter first.", tip:"Full focus. Toughest chapter first." },
+                    { day:2, bio:"Molecular Basis — Assertion & Reasoning + NEET 2025 Style Long-Form MCQs.", phy:"Laws of Motion — 20 more DC Pandey MCQs.", chem:"GOC — Revise notes. 20 MS Chauhan problems." },
+                    { day:3, bio:"Biotechnology: P&P — PYQ-Marked NCERT + All Format MCQs.", phy:"Work, Energy & Power — NCERT Ch.6. 20 DC Pandey MCQs.", chem:"Haloalkanes & Haloarenes — NCERT + MS Chauhan. SN1/SN2.", tip:"Biotech questions are highly patterned — identify the 5 recurring formats." },
+                    { day:4, bio:"Biotechnology: P&P — Assertion & Reasoning + Long-Form MCQs.", phy:"Work, Energy & Power — 20 more MCQs. Track accuracy.", chem:"Haloalkanes — Revise + 20 MCQs." },
+                    { day:5, bio:"Genetics — PYQ-Marked NCERT. Focus: Mendelian ratios, pedigree, blood groups.", phy:"Electrostatics — NCERT Ch.1 (XII) + capacitors. 20 MCQs.", chem:"Chemical Equilibrium — NCERT Ch.7 (XI) + Le Chatelier.", tip:"Pedigree shortcut: autosomal vs X-linked in 30 seconds — learn today." },
+                    { day:6, bio:"Genetics — Assertion & Reasoning + Long-Form MCQs.", phy:"Electrostatics — 20 more MCQs. All wrong answers resolved.", chem:"Ionic Equilibrium — pH, buffer. 15 N Avasthi problems." },
+                    { day:7, bio:"Ecology: Organisms & Populations — PYQ-Marked NCERT + All Format MCQs.", phy:"Current Electricity — NCERT Ch.3 (XII) + Wheatstone. 20 MCQs.", chem:"d & f Block — NCERT Ch.8 (XII). Questions are copy-paste from NCERT.", tip:"Ecology is almost entirely NCERT. Every sentence is a potential question." }
+                ]
+            },
+            {
+                week: 2, title: "PYQ Solving + Gap Patching",
+                subtitle: "Solve full chapter PYQ sets. Track accuracy. Below 60%? → Week 3 patch list.",
+                target: "8 hrs — 3.5 Bio, 2.5 Phy, 2 Chem",
+                days: [
+                    { day:8, bio:"Ecology: Ecosystem — PYQ-Marked NCERT + All Format MCQs.", phy:"Current Electricity — 20 more MCQs. Build formula card.", chem:"Coordination Compounds — NCERT Ch.9 (XII). Names, isomerism, VBT." },
+                    { day:9, bio:"Ecology: Biodiversity — PYQ-Marked NCERT + A&R. Hotspots, HIPPO, species-area.", phy:"Modern Physics Part 1 — Photoelectric effect. 15 DC Pandey MCQs.", chem:"p-Block: Group 15 & 16 — Properties of N, P, S. Every structure.", tip:"Ecology done. 89 PYQs covered. That's 36 marks." },
+                    { day:10, bio:"Cell Division — PYQ-Marked NCERT + A&R. Mitosis vs Meiosis traps.", phy:"Modern Physics Part 2 — Nuclei. 15 DC Pandey MCQs.", chem:"p-Block: Group 17 & 18 — Noble gases, interhalogen compounds." },
+                    { day:11, bio:"Biomolecules — PYQ-Marked NCERT + Long-Form MCQs.", phy:"Ray Optics — NCERT Ch.9 (XII) + prism. 20 MCQs.", chem:"Aldehydes & Ketones — Named reactions: Aldol, Cannizzaro, Clemmensen.", tip:"Biomolecule questions are almost entirely NCERT lines." },
+                    { day:12, bio:"Human Reproduction — PYQ-Marked NCERT + A&R. Gametogenesis, menstrual cycle.", phy:"Ray Optics — 20 more MCQs. Eye defects, optical instruments.", chem:"Amines — Basicity order, Gabriel synthesis, Hoffmann." },
+                    { day:13, bio:"Sexual Reproduction in Plants — PYQ-Marked NCERT + Long-Form MCQs.", phy:"Wave Optics — NCERT Ch.10 (XII) + diffraction. 10 MCQs.", chem:"Electrochemistry — NCERT Ch.3 (XII) + cell EMF. 10 N Avasthi.", tip:"'7-celled 8-nucleate' appears almost every year. Know it cold." },
+                    { day:14, bio:"Accuracy Review — Redo All Format MCQs for every chapter below 60%.", phy:"Accuracy Review — Every chapter below 60% — reattempt 15 MCQs.", chem:"Accuracy Review — GOC + named reactions. 15 MS Chauhan problems.", tip:"Gap audit day. Be brutal about what needs more time." }
+                ]
+            },
+            {
+                week: 3, title: "Full Mock Tests + Analysis",
+                subtitle: "One full 3-hour mock every day or alternate. Equal time analysing each mock.",
+                target: "Mock: 3 hrs strict, no breaks. Analysis: equal time.",
+                days: [
+                    { day:15, bio:"Human Health & Disease — PYQ-Marked NCERT + A&R. Pathogens, vaccines, AIDS, cancer.", phy:"Magnetic Effects — Biot-Savart, Ampere, force on wire. 15 MCQs.", chem:"Chemical Kinetics — Arrhenius, half-life. 10 N Avasthi." },
+                    { day:16, bio:"MOCK TEST 1 — Full 3 Hours. Mark every wrong answer. Find the NCERT line.", phy:"MOCK TEST 1 — Full 3 Hours.", chem:"MOCK TEST 1 — Full 3 Hours.", tip:"The analysis after the mock IS the practice. Don't skip it." },
+                    { day:17, bio:"Mock 1 Analysis — Revise every wrong Biology answer. NCERT lines only.", phy:"Mock 1 Analysis — Find formula gap. Rewrite formula card.", chem:"Mock 1 Analysis — NCERT or MS Chauhan source. Fix it." },
+                    { day:18, bio:"MOCK TEST 2 — Full 3 Hours. Track: score vs Mock 1.", phy:"MOCK TEST 2 — Full 3 Hours.", chem:"MOCK TEST 2 — Full 3 Hours.", tip:"Compare Mock 1 vs Mock 2 accuracy chapter by chapter." },
+                    { day:19, bio:"Mock 2 Analysis — Wrong answers mapped to NCERT.", phy:"Mock 2 Analysis — Wrong answers resolved.", chem:"Mock 2 Analysis — Wrong answers resolved." },
+                    { day:20, bio:"MOCK TEST 3 — Full 3 Hours. You should be improving per mock.", phy:"MOCK TEST 3 — Full 3 Hours.", chem:"MOCK TEST 3 — Full 3 Hours.", tip:"3 mocks in Week 3. Pattern should be visible by now." },
+                    { day:21, bio:"Mock 3 Analysis + Week 3 Review — List 5 most recurring wrong chapters.", phy:"Mock 3 Analysis — List 3 weakest chapters.", chem:"Mock 3 Analysis — List 3 weakest topics.", tip:"This list becomes your Week 4 revision roadmap." }
+                ]
+            },
+            {
+                week: 4, title: "Rapid Revision — Make It Airtight",
+                subtitle: "No new chapters. No new topics. Only what you already know — make it perfect.",
+                target: "Focus on speed and accuracy. No new content.",
+                days: [
+                    { day:22, bio:"Molecular Basis Rapid Revision — Long-Form MCQs timed (90 sec/q) + A&R.", phy:"Physics Formula Card — Every formula on one A4 sheet. Read every morning.", chem:"NCERT Inorganic Full Read — d & f Block + Coordination + p-Block.", tip:"No new content from today. Zero." },
+                    { day:23, bio:"Biotechnology Rapid Revision — All Format MCQs timed (45 sec/q).", phy:"Electrostatics + Current Electricity — Formula drill. 15 mixed MCQs each.", chem:"Organic Named Reactions Master List — All 15 reactions + product." },
+                    { day:24, bio:"Ecology Block Final Pass — All 3 Ecology chapters in one sitting + A&R.", phy:"Modern Physics Final Pass — 20 mixed MCQs.", chem:"GOC + Amines Final Pass — 20 MS Chauhan problems.", tip:"Ecology should be near-perfect by now." },
+                    { day:25, bio:"MOCK TEST 4 — Full 3 Hours. Benchmark mock. Target: highest score yet.", phy:"MOCK TEST 4 — Full 3 Hours.", chem:"MOCK TEST 4 — Full 3 Hours.", tip:"Treat this like the real exam. Full conditions." },
+                    { day:26, bio:"Mock 4 Analysis — Only revise wrong answer chapters. NCERT lines only.", phy:"Mock 4 Analysis — Update formula card if anything missing.", chem:"Mock 4 Analysis — Named reactions check." },
+                    { day:27, bio:"Reproduction Rapid Revision — All Format MCQs timed + A&R.", phy:"Laws of Motion + WEP Final Pass — 15 MCQs each, under 45 sec/q.", chem:"Electrochemistry Final Pass — 10 Nernst equation problems." },
+                    { day:28, bio:"Genetics Rapid Revision — Long-Form MCQs timed + A&R. Pedigree + blood groups.", phy:"Ray Optics + Wave Optics Final Pass — 15 MCQs.", chem:"Chemical Equilibrium Final Pass — 10 problems. Kc/Kp conversions." },
+                    { day:29, bio:"High Confidence Only — Revise only chapters with 80%+ accuracy.", phy:"Formula card — read 3 times. That is all.", chem:"Inorganic NCERT — one more read. d-block + p-block." },
+                    { day:30, bio:"Exam Eve — Ecology key facts. Molecular Basis numbers (3.4nm, 10bp/turn). Biotech flowchart.", phy:"Formula card — final read only.", chem:"Named reactions — final read only.", tip:"SLEEP BY 10PM. Exam at 2pm. Brain peaks at 2pm." }
+                ]
+            }
+        ];
+
+        let planRendered = false;
+        let currentPlanWeek = 0;
+
+        function renderStudyPlan() {
+            if (planRendered) return;
+            planRendered = true;
+
+            // Render week nav buttons
+            const nav = document.getElementById('planWeekNav');
+            nav.innerHTML = PLAN_DATA.map((w, i) => `<button class="plan-week-btn${i===0?' active':''}" onclick="showPlanWeek(${i})"><span class="pw-num">Week ${w.week}</span>${w.title.split(' ').slice(0,2).join(' ')}</button>`).join('');
+
+            showPlanWeek(0);
+        }
+
+        function showPlanWeek(idx) {
+            currentPlanWeek = idx;
+            document.querySelectorAll('.plan-week-btn').forEach((b,i) => b.classList.toggle('active', i===idx));
+            const w = PLAN_DATA[idx];
+            let html = `<div class="plan-week-info"><div class="plan-week-title">Week ${w.week}: ${w.title}</div><div class="plan-week-subtitle">${w.subtitle}</div><span class="plan-week-target">${w.target}</span></div>`;
+            w.days.forEach(d => {
+                html += `<div class="plan-day-card" onclick="this.classList.toggle('expanded')">
+                    <div class="plan-day-header"><span class="plan-day-num">Day ${d.day}</span><span class="plan-day-arrow">▼</span></div>
+                    <div class="plan-day-body">
+                        <div class="plan-subject bio"><span class="plan-subject-label">🧬 Biology</span>${d.bio}</div>
+                        <div class="plan-subject phy"><span class="plan-subject-label">⚡ Physics</span>${d.phy}</div>
+                        <div class="plan-subject chem"><span class="plan-subject-label">🧪 Chemistry</span>${d.chem}</div>
+                        ${d.tip ? `<div class="plan-tip">💡 ${d.tip}</div>` : ''}
+                    </div>
+                </div>`;
+            });
+            document.getElementById('planWeekContent').innerHTML = html;
         }
 
         function renderStudyLinks() {

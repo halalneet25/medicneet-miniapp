@@ -3602,6 +3602,9 @@
             if (startParam.startsWith('challenge_')) {
                 activeChallengeCode = startParam.replace('challenge_', '');
                 loadChallengeInfo(activeChallengeCode);
+            } else if (startParam === 'result') {
+                // Deep link to view result — loadCurrentRound will handle showing result if user attempted
+                // No extra action needed — the default flow with user_id check handles it
             } else if (startParam === 'plan' || startParam === 'study_plan' || startParam === '30days') {
                 // Deep link directly to 30-Day Plan tab
                 setTimeout(() => { switchTab('study'); switchStudyTab('plan'); }, 500);
@@ -3983,10 +3986,19 @@
 
         async function loadCurrentRound() {
             try {
-                const res = await fetch(`${API}/api/current-round`);
+                const res = await fetch(`${API}/api/current-round?user_id=${userId}`);
                 if (!res.ok) { showScreen('waitingScreen'); loadSchedule(); return }
                 const data = await res.json();
                 currentRound = data;
+
+                // If user already attempted this round, show their result
+                if (data.user_attempted && data.user_attempt) {
+                    hasAttempted = true;
+                    userAnswers = data.user_attempt.selected_answers || [null, null, null, null];
+                    showResult(data.user_attempt, data.user_attempt.time_ms);
+                    return;
+                }
+
                 hasAttempted = false;
                 userAnswers = [null, null, null, null];
                 questionTimes = [null, null, null, null];
@@ -4846,12 +4858,16 @@
                         `;
                     }
 
+                    const practiced = localStorage.getItem('practiced_' + round.round_id);
                     return `
                         <div class="practice-round-card">
                             <div class="practice-round-header">Round #${round.round_id} - ${dateStr}</div>
                             <div class="practice-round-info">🏆 Winner: ${round.winner_name} (${winnerTime})</div>
                             <div class="practice-round-info">👥 ${round.total_participants} participants</div>
-                            <button class="practice-round-btn" onclick="startPracticeRound(${round.round_id})">Practice This Round</button>
+                            ${practiced
+                                ? `<button class="practice-round-btn" disabled style="opacity:.6">✅ Already Practiced</button>`
+                                : `<button class="practice-round-btn" onclick="startPracticeRound(${round.round_id})">Practice This Round</button>`
+                            }
                         </div>
                     `;
                 }).join('');
@@ -4862,6 +4878,10 @@
         }
 
         async function startPracticeRound(roundId) {
+            if (localStorage.getItem('practiced_' + roundId)) {
+                alert('You already practiced this round.');
+                return;
+            }
             trackEvent('practice_start', {round_id: roundId});
             try {
                 showScreen('loadingScreen');
@@ -5011,6 +5031,9 @@
                         </div>
                     `;
                 }).join('');
+
+                // Lock this round from replay
+                try { localStorage.setItem('practiced_' + practiceRoundData.round_id, '1'); } catch(e) {}
 
                 buildBlogCTA('practiceBlogCTAContainer');
                 showScreen('practiceResultScreen'); window.scrollTo(0, 0);

@@ -523,7 +523,10 @@ async def send_winner_to_channel(round_id):
     total_participants = c.fetchone()["cnt"]
 
     url = f"https://api.telegram.org/bot{BOT_TOKEN}"
-    button = {"inline_keyboard": [[{"text": "🧠 Play Next Round", "url": "https://t.me/Winners_neetbot/Medicneet"}]]}
+    button = {"inline_keyboard": [
+        [{"text": "📊 View Your Result", "url": "https://t.me/Winners_neetbot/Medicneet?startapp=result"}],
+        [{"text": "🧠 Play Next Round", "url": "https://t.me/Winners_neetbot/Medicneet"}]
+    ]}
 
     all_cash_winners = speed_winners + lucky_winners
     total_4of4 = len(all_entries)
@@ -894,7 +897,8 @@ async def api_schedule():
     }
 
 @app.get("/api/current-round")
-async def api_current_round():
+async def api_current_round(request: Request):
+    uid = request.query_params.get("user_id", "")
     rnd = get_current_round()
     if not rnd: return JSONResponse({"error":"No active round"}, status_code=404)
     conn = get_db(); c = conn.cursor()
@@ -917,8 +921,45 @@ async def api_current_round():
     ]
     c.execute("SELECT COUNT(*) as cnt FROM attempts WHERE round_id = ?", (rnd["id"],)); ac = c.fetchone()["cnt"]
     c.execute("SELECT user_name, time_ms FROM attempts WHERE round_id = ? AND is_correct = 1 ORDER BY time_ms ASC LIMIT 1", (rnd["id"],))
-    f = c.fetchone(); conn.close()
-    return {"round_id":rnd["id"],"ends_at":rnd["ends_at"],"prize_ends_at":rnd.get("prize_ends_at"),"questions":questions,"stats":{"attempts":ac,"fastest_name":f["user_name"] if f else None,"fastest_time_ms":f["time_ms"] if f else None}}
+    f = c.fetchone()
+
+    result = {"round_id":rnd["id"],"ends_at":rnd["ends_at"],"prize_ends_at":rnd.get("prize_ends_at"),"questions":questions,"stats":{"attempts":ac,"fastest_name":f["user_name"] if f else None,"fastest_time_ms":f["time_ms"] if f else None}}
+
+    # Check if user already attempted this round
+    if uid:
+        c.execute("SELECT selected_answers, is_correct, time_ms FROM attempts WHERE round_id = ? AND user_id = ?", (rnd["id"], uid))
+        attempt = c.fetchone()
+        if attempt:
+            now = datetime.utcnow()
+            prize_ended = not rnd.get("prize_ends_at") or datetime.fromisoformat(rnd["prize_ends_at"]) <= now
+            selected = json.loads(attempt["selected_answers"]) if attempt["selected_answers"] else []
+            attempt_data = {
+                "selected_answers": selected,
+                "is_correct": bool(attempt["is_correct"]),
+                "time_ms": attempt["time_ms"],
+                "score": 0,
+                "results": [],
+                "correct_answers": [],
+                "prize_window_active": not prize_ended
+            }
+            # Compute per-question results
+            for i, qid in enumerate(q_ids):
+                if qid in questions_dict:
+                    correct_ans = questions_dict[qid]["correct_answer"]
+                    user_ans = selected[i] if isinstance(selected, list) and i < len(selected) else ""
+                    attempt_data["correct_answers"].append(correct_ans)
+                    is_q_correct = user_ans == correct_ans
+                    attempt_data["results"].append(is_q_correct)
+                    if is_q_correct:
+                        attempt_data["score"] += 1
+            attempt_data["all_correct"] = attempt_data["score"] == 4
+            result["user_attempted"] = True
+            result["user_attempt"] = attempt_data
+        else:
+            result["user_attempted"] = False
+
+    conn.close()
+    return result
 
 @app.post("/api/submit")
 async def api_submit(request: Request):

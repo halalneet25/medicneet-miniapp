@@ -524,8 +524,7 @@ async def send_winner_to_channel(round_id):
 
     url = f"https://api.telegram.org/bot{BOT_TOKEN}"
     button = {"inline_keyboard": [
-        [{"text": "📊 View Your Result", "url": "https://t.me/Winners_neetbot/Medicneet?startapp=result"}],
-        [{"text": "🧠 Play Next Round", "url": "https://t.me/Winners_neetbot/Medicneet"}]
+        [{"text": "📊 View Your Result", "url": "https://t.me/Winners_neetbot/Medicneet?startapp=result"}]
     ]}
 
     all_cash_winners = speed_winners + lucky_winners

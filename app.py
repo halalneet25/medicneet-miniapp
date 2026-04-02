@@ -2335,6 +2335,38 @@ async def api_v2_withdrawal_proof(request: Request):
     conn.commit(); conn.close()
     return {"success": True, "task": task, "proof_link": proof_link}
 
+@app.get("/api/debug/drive-check")
+async def api_debug_drive_check():
+    """Quick check if Google Drive credentials are configured and working"""
+    import json as _json
+    creds_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+    creds_json = os.getenv("FIREBASE_CREDENTIALS_JSON")
+    creds_file = os.getenv("GOOGLE_CREDS_FILE", "credentials.json")
+    found = None
+    if creds_path and os.path.exists(creds_path): found = f"GOOGLE_APPLICATION_CREDENTIALS={creds_path}"
+    elif creds_json: found = "FIREBASE_CREDENTIALS_JSON (env var)"
+    elif creds_file and os.path.exists(creds_file): found = f"GOOGLE_CREDS_FILE={creds_file}"
+    if not found:
+        return {"ok": False, "error": "No Google credentials found", "checked": [
+            f"GOOGLE_APPLICATION_CREDENTIALS={creds_path or '(not set)'}",
+            f"FIREBASE_CREDENTIALS_JSON={'(set)' if creds_json else '(not set)'}",
+            f"GOOGLE_CREDS_FILE={creds_file} (exists={os.path.exists(creds_file) if creds_file else False})"
+        ]}
+    try:
+        from google.oauth2 import service_account
+        from googleapiclient.discovery import build
+        if creds_path and os.path.exists(creds_path):
+            creds = service_account.Credentials.from_service_account_file(creds_path, scopes=["https://www.googleapis.com/auth/drive.file"])
+        elif creds_json:
+            creds = service_account.Credentials.from_service_account_info(_json.loads(creds_json), scopes=["https://www.googleapis.com/auth/drive.file"])
+        else:
+            creds = service_account.Credentials.from_service_account_file(creds_file, scopes=["https://www.googleapis.com/auth/drive.file"])
+        service = build("drive", "v3", credentials=creds)
+        about = service.about().get(fields="user").execute()
+        return {"ok": True, "credentials": found, "drive_user": about.get("user", {}).get("emailAddress"), "folder_id": os.getenv("GOOGLE_DRIVE_FOLDER_ID", "(not set)")}
+    except Exception as e:
+        return {"ok": False, "credentials": found, "error": str(e)}
+
 @app.post("/api/v2-upload-video")
 async def api_v2_upload_video(request: Request):
     """Upload UGC video to Google Drive for V2 withdrawal"""

@@ -6000,13 +6000,13 @@
                 } else {
                     statusEl.textContent = 'Upload failed: ' + (data.detail || 'Try again');
                     btn.disabled = false;
-                    btn.textContent = 'Choose Video';
+                    btn.textContent = 'Upload Video';
                 }
             } catch (e) {
                 console.error('Video upload error:', e);
                 statusEl.textContent = 'Upload failed. Please try again.';
                 btn.disabled = false;
-                btn.textContent = 'Choose Video';
+                btn.textContent = 'Upload Video';
             }
         }
 

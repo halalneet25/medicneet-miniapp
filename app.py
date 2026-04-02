@@ -2360,6 +2360,7 @@ async def api_v2_upload_video(request: Request):
     result = upload_to_google_drive(content, filename, content_type)
 
     if not result["success"]:
+        logger.error(f"UGC video upload failed for user {user_id}: {result.get('reason', 'Unknown error')}")
         raise HTTPException(500, f"Upload failed: {result.get('reason', 'Unknown error')}")
 
     # Save proof link in DB

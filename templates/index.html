@@ -5992,21 +5992,26 @@
                     method: 'POST',
                     body: formData
                 });
-                const data = await res.json();
+
+                let data;
+                const text = await res.text();
+                try { data = JSON.parse(text); } catch(_) { data = { detail: text.substring(0, 200) }; }
 
                 if (res.ok && data.success) {
                     statusEl.textContent = 'Uploaded successfully!';
+                    btn.textContent = 'Uploaded ✅';
                     loadWithdrawTasks();
                 } else {
-                    statusEl.textContent = 'Upload failed: ' + (data.detail || 'Try again');
+                    const errMsg = data.detail || data.error || 'Server error ' + res.status;
+                    statusEl.textContent = 'Upload failed: ' + errMsg;
                     btn.disabled = false;
-                    btn.textContent = 'Choose Video';
+                    btn.textContent = 'Upload Video';
                 }
             } catch (e) {
                 console.error('Video upload error:', e);
-                statusEl.textContent = 'Upload failed. Please try again.';
+                statusEl.textContent = 'Network error — check connection and try again.';
                 btn.disabled = false;
-                btn.textContent = 'Choose Video';
+                btn.textContent = 'Upload Video';
             }
         }
 

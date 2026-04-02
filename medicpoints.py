@@ -548,6 +548,7 @@ def upload_to_google_drive(file_content: bytes, filename: str, mime_type: str) -
 
         creds_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
         creds_json = os.getenv("FIREBASE_CREDENTIALS_JSON")
+        creds_file = os.getenv("GOOGLE_CREDS_FILE", "credentials.json")
 
         if creds_path and os.path.exists(creds_path):
             creds = service_account.Credentials.from_service_account_file(
@@ -557,6 +558,10 @@ def upload_to_google_drive(file_content: bytes, filename: str, mime_type: str) -
             info = json.loads(creds_json)
             creds = service_account.Credentials.from_service_account_info(
                 info, scopes=["https://www.googleapis.com/auth/drive.file"]
+            )
+        elif creds_file and os.path.exists(creds_file):
+            creds = service_account.Credentials.from_service_account_file(
+                creds_file, scopes=["https://www.googleapis.com/auth/drive.file"]
             )
         else:
             return {"success": False, "reason": "No Google credentials configured"}

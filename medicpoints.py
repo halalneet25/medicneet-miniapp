@@ -576,10 +576,30 @@ def upload_to_google_drive(file_content: bytes, filename: str, mime_type: str) -
         if drive_folder_id:
             file_metadata["parents"] = [drive_folder_id]
 
-        media = MediaInMemoryUpload(file_content, mimetype=mime_type)
-        file = service.files().create(
-            body=file_metadata, media_body=media, fields="id,webViewLink"
-        ).execute()
+        media = MediaInMemoryUpload(file_content, mimetype=mime_type, resumable=True)
+        try:
+            request = service.files().create(
+                body=file_metadata, media_body=media, fields="id,webViewLink"
+            )
+            response = None
+            while response is None:
+                status, response = request.next_chunk()
+            file = response
+        except Exception as upload_err:
+            # If folder upload fails (permission denied), retry without folder
+            if drive_folder_id and "parents" in file_metadata:
+                logger.warning(f"Folder upload failed ({upload_err}), retrying without folder")
+                del file_metadata["parents"]
+                media = MediaInMemoryUpload(file_content, mimetype=mime_type, resumable=True)
+                request = service.files().create(
+                    body=file_metadata, media_body=media, fields="id,webViewLink"
+                )
+                response = None
+                while response is None:
+                    status, response = request.next_chunk()
+                file = response
+            else:
+                raise
 
         # Make file viewable by anyone with link
         service.permissions().create(
@@ -594,7 +614,8 @@ def upload_to_google_drive(file_content: bytes, filename: str, mime_type: str) -
         }
 
     except Exception as e:
-        logger.error(f"Google Drive upload failed: {e}")
+        import traceback
+        logger.error(f"Google Drive upload failed: {e}\n{traceback.format_exc()}")
         return {"success": False, "reason": str(e)}
 
 

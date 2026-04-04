@@ -15,7 +15,7 @@ from urllib.parse import parse_qsl
 import httpx
 from fastapi import FastAPI, Request, HTTPException
 from medicpoints import preload_points_for_email, get_claim_status, init_medicpoints_table, get_user_medicpoints, flush_pending_medicpoints, auto_credit_medicpoints
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -825,6 +825,42 @@ app = FastAPI(lifespan=lifespan)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 os.makedirs("static/uploads", exist_ok=True)
+
+# ─── ADMIN AUTH ───────────────────────────────────
+ADMIN_USER = os.getenv("ADMIN_USER", "shahul")
+ADMIN_PASS = os.getenv("ADMIN_PASS", "Medic@97")
+admin_tokens = set()
+
+def verify_admin(request: Request):
+    token = request.cookies.get("admin_token")
+    if not token or token not in admin_tokens:
+        raise HTTPException(401, "Unauthorized")
+
+@app.get("/admin", response_class=HTMLResponse)
+async def admin_page(request: Request):
+    token = request.cookies.get("admin_token")
+    if not token or token not in admin_tokens:
+        return templates.TemplateResponse("admin.html", {"request": request, "logged_in": False})
+    return templates.TemplateResponse("admin.html", {"request": request, "logged_in": True})
+
+@app.post("/admin/login")
+async def admin_login(request: Request):
+    data = await request.json()
+    if data.get("username") == ADMIN_USER and data.get("password") == ADMIN_PASS:
+        token = secrets.token_hex(32)
+        admin_tokens.add(token)
+        response = JSONResponse({"success": True})
+        response.set_cookie("admin_token", token, httponly=True, max_age=86400)
+        return response
+    raise HTTPException(401, "Invalid credentials")
+
+@app.post("/admin/logout")
+async def admin_logout(request: Request):
+    token = request.cookies.get("admin_token")
+    admin_tokens.discard(token)
+    response = JSONResponse({"success": True})
+    response.delete_cookie("admin_token")
+    return response
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
@@ -2623,6 +2659,7 @@ async def api_withdraw_track(user_id: str = None):
 @app.post("/api/withdraw/approve")
 async def api_withdraw_approve(request: Request):
     """Admin: Approve a pending withdrawal — deducts balance, increments cycle, resets tasks"""
+    verify_admin(request)
     data = await request.json()
     request_id = data.get("request_id")
     if not request_id:
@@ -2678,6 +2715,7 @@ async def api_withdraw_approve(request: Request):
 @app.post("/api/withdraw/reject")
 async def api_withdraw_reject(request: Request):
     """Admin: Reject a pending withdrawal — cancels the request, no wallet changes"""
+    verify_admin(request)
     data = await request.json()
     request_id = data.get("request_id")
     reason = data.get("reason", "Rejected by admin")

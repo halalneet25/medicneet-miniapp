@@ -1808,6 +1808,21 @@ async def api_wallet(user_id: str):
     email_row = c.fetchone()
     linked_email = email_row["email"] if email_row else None
 
+    # Check for pending or recently rejected withdrawal
+    c.execute("SELECT id, amount, status, created_at FROM withdrawal_requests WHERE user_id = ? ORDER BY created_at DESC LIMIT 1", (user_id,))
+    last_request = c.fetchone()
+    pending_withdrawal = None
+    rejected_withdrawal = None
+    if last_request:
+        if last_request["status"] == "pending":
+            pending_withdrawal = {"id": last_request["id"], "amount": last_request["amount"]}
+        elif last_request["status"] == "rejected":
+            # Show rejection for 7 days
+            from datetime import timedelta
+            rejected_at = datetime.fromisoformat(last_request["created_at"])
+            if datetime.utcnow() - rejected_at < timedelta(days=7):
+                rejected_withdrawal = {"id": last_request["id"], "amount": last_request["amount"]}
+
     conn.close()
 
     return {
@@ -1817,7 +1832,9 @@ async def api_wallet(user_id: str):
         "withdrawal_count": wallet["withdrawal_count"] or 0,
         "is_capped": balance >= 50,
         "linked_email": linked_email,
-        "transactions": transactions
+        "transactions": transactions,
+        "pending_withdrawal": pending_withdrawal,
+        "rejected_withdrawal": rejected_withdrawal
     }
 
 @app.post("/api/withdraw")

@@ -5960,57 +5960,6 @@
             }
         }
 
-        // ─── V2 SPECIFIC FUNCTIONS ───────────────────────
-
-        async function wgHandleVideoSelect() {
-            const fileInput = document.getElementById('wgVideoFile');
-            const statusEl = document.getElementById('wgVideoStatus');
-            const btn = document.getElementById('wgUploadVideoBtn');
-            if (!fileInput || !fileInput.files || fileInput.files.length === 0) return;
-
-            const file = fileInput.files[0];
-            if (file.size > 100 * 1024 * 1024) {
-                alert('Video must be under 100MB');
-                fileInput.value = '';
-                return;
-            }
-
-            btn.disabled = true;
-            btn.textContent = 'Uploading...';
-            statusEl.textContent = 'Uploading ' + file.name + ' (' + (file.size / (1024*1024)).toFixed(1) + ' MB)...';
-
-            try {
-                const formData = new FormData();
-                formData.append('user_id', userId);
-                formData.append('video', file);
-
-                const res = await fetch(`${API}/api/v2-upload-video`, {
-                    method: 'POST',
-                    body: formData
-                });
-
-                let data;
-                const text = await res.text();
-                try { data = JSON.parse(text); } catch(_) { data = { detail: text.substring(0, 200) }; }
-
-                if (res.ok && data.success) {
-                    statusEl.textContent = 'Uploaded successfully!';
-                    btn.textContent = 'Uploaded ✅';
-                    loadWithdrawTasks();
-                } else {
-                    const errMsg = data.detail || data.error || 'Server error ' + res.status;
-                    statusEl.textContent = 'Upload failed: ' + errMsg;
-                    btn.disabled = false;
-                    btn.textContent = 'Upload Video';
-                }
-            } catch (e) {
-                console.error('Video upload error:', e);
-                statusEl.textContent = 'Network error — check connection and try again.';
-                btn.disabled = false;
-                btn.textContent = 'Upload Video';
-            }
-        }
-
         async function wgLinkMpEmail() {
             const input = document.getElementById('wgMpEmailInput');
             const statusEl = document.getElementById('wgMpEmailStatus');

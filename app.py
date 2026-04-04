@@ -14,7 +14,7 @@ from contextlib import asynccontextmanager
 from urllib.parse import parse_qsl
 import httpx
 from fastapi import FastAPI, Request, HTTPException
-from medicpoints import preload_points_for_email, get_claim_status, init_medicpoints_table, get_user_medicpoints, upload_to_google_drive, flush_pending_medicpoints, auto_credit_medicpoints
+from medicpoints import preload_points_for_email, get_claim_status, init_medicpoints_table, get_user_medicpoints, flush_pending_medicpoints, auto_credit_medicpoints
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -1882,17 +1882,11 @@ async def api_withdraw_tasks(user_id: str):
             "error": mp_data.get("reason") if not mp_data.get("success") else None
         }
 
-        # 4. ugc_video: Check v2_withdrawal_proofs OR withdrawal_tasks (Google Form flow)
-        c.execute("SELECT proof_link FROM v2_withdrawal_proofs WHERE user_id = ? AND task = 'ugc_video' ORDER BY created_at DESC LIMIT 1", (user_id,))
+        # 4. ugc_video: Check withdrawal_tasks (Google Form flow)
+        c.execute("SELECT completed FROM withdrawal_tasks WHERE user_id = ? AND task = 'ugc_video'", (user_id,))
         ugc_row = c.fetchone()
-        ugc_completed = bool(ugc_row and ugc_row["proof_link"])
-        if not ugc_completed:
-            c.execute("SELECT completed FROM withdrawal_tasks WHERE user_id = ? AND task = 'ugc_video'", (user_id,))
-            ugc_task_row = c.fetchone()
-            ugc_completed = bool(ugc_task_row and ugc_task_row["completed"])
         tasks["ugc_video"] = {
-            "completed": ugc_completed,
-            "value": ugc_row["proof_link"] if ugc_row else None
+            "completed": bool(ugc_row and ugc_row["completed"])
         }
 
         # 5. refer_5_friends: Count NEW referrals (in current withdrawal cycle)
@@ -1977,17 +1971,11 @@ async def api_withdraw_tasks(user_id: str):
             "error": mp_data.get("reason") if not mp_data.get("success") else None
         }
 
-        # 4. ugc_video: Check v2_withdrawal_proofs OR withdrawal_tasks (Google Form flow)
-        c.execute("SELECT proof_link FROM v2_withdrawal_proofs WHERE user_id = ? AND task = 'ugc_video' ORDER BY created_at DESC LIMIT 1", (user_id,))
+        # 4. ugc_video: Check withdrawal_tasks (Google Form flow)
+        c.execute("SELECT completed FROM withdrawal_tasks WHERE user_id = ? AND task = 'ugc_video'", (user_id,))
         ugc_row = c.fetchone()
-        ugc_completed = bool(ugc_row and ugc_row["proof_link"])
-        if not ugc_completed:
-            c.execute("SELECT completed FROM withdrawal_tasks WHERE user_id = ? AND task = 'ugc_video'", (user_id,))
-            ugc_task_row = c.fetchone()
-            ugc_completed = bool(ugc_task_row and ugc_task_row["completed"])
         tasks["ugc_video"] = {
-            "completed": ugc_completed,
-            "value": ugc_row["proof_link"] if ugc_row else None
+            "completed": bool(ugc_row and ugc_row["completed"])
         }
 
         # 5-6, 9-10: Click-tracked tasks
@@ -2377,43 +2365,6 @@ async def api_debug_drive_check():
     except Exception as e:
         return {"ok": False, "credentials": found, "error": str(e)}
 
-@app.post("/api/v2-upload-video")
-async def api_v2_upload_video(request: Request):
-    """Upload UGC video to Google Drive for V2 withdrawal"""
-    from fastapi import UploadFile, File, Form
-
-    form = await request.form()
-    user_id = str(form.get("user_id", ""))
-    video_file = form.get("video")
-
-    if not user_id or not video_file:
-        raise HTTPException(400, "user_id and video file required")
-
-    # Read file content
-    content = await video_file.read()
-    if len(content) > 100 * 1024 * 1024:  # 100MB limit
-        raise HTTPException(400, "File too large. Maximum 100MB.")
-
-    # Get content type
-    content_type = video_file.content_type or "video/mp4"
-    filename = f"ugc_{user_id}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{video_file.filename}"
-
-    # Upload to Google Drive
-    result = upload_to_google_drive(content, filename, content_type)
-
-    if not result["success"]:
-        logger.error(f"UGC video upload failed for user {user_id}: {result.get('reason', 'Unknown error')}")
-        raise HTTPException(500, f"Upload failed: {result.get('reason', 'Unknown error')}")
-
-    # Save proof link in DB
-    conn = get_db(); c = conn.cursor()
-    now = datetime.utcnow().isoformat()
-    c.execute("""INSERT INTO v2_withdrawal_proofs (user_id, task, proof_link, created_at)
-        VALUES (?,?,?,?)""", (user_id, "ugc_video", result["link"], now))
-    conn.commit(); conn.close()
-
-    return {"success": True, "link": result["link"]}
-
 @app.post("/api/withdraw/request")
 async def api_withdraw_request(request: Request):
     """Submit withdrawal request - only if ALL tasks completed (V1 or V2)"""
@@ -2472,13 +2423,13 @@ async def api_withdraw_request(request: Request):
             conn.close()
             raise HTTPException(400, f"Need at least {required_points} Medic Points")
 
-        # Verify UGC video uploaded
-        c.execute("SELECT proof_link FROM v2_withdrawal_proofs WHERE user_id = ? AND task = 'ugc_video' ORDER BY created_at DESC LIMIT 1", (user_id,))
+        # Verify UGC video submitted via Google Form
+        c.execute("SELECT completed FROM withdrawal_tasks WHERE user_id = ? AND task = 'ugc_video'", (user_id,))
         ugc_row = c.fetchone()
-        if not ugc_row or not ugc_row["proof_link"]:
+        if not ugc_row or not ugc_row["completed"]:
             conn.close()
-            raise HTTPException(400, "UGC video not uploaded")
-        ugc_video_link = ugc_row["proof_link"]
+            raise HTTPException(400, "UGC video not submitted")
+        ugc_video_link = "Submitted via Google Form"
 
         # Verify 5 new referrals in current cycle
         c.execute("""SELECT COUNT(*) as cnt FROM referrals r
@@ -2506,13 +2457,13 @@ async def api_withdraw_request(request: Request):
             conn.close()
             raise HTTPException(400, f"Need at least {required_points} Medic Points")
 
-        # Verify UGC video uploaded
-        c.execute("SELECT proof_link FROM v2_withdrawal_proofs WHERE user_id = ? AND task = 'ugc_video' ORDER BY created_at DESC LIMIT 1", (user_id,))
+        # Verify UGC video submitted via Google Form
+        c.execute("SELECT completed FROM withdrawal_tasks WHERE user_id = ? AND task = 'ugc_video'", (user_id,))
         ugc_row = c.fetchone()
-        if not ugc_row or not ugc_row["proof_link"]:
+        if not ugc_row or not ugc_row["completed"]:
             conn.close()
-            raise HTTPException(400, "UGC video not uploaded")
-        ugc_video_link = ugc_row["proof_link"]
+            raise HTTPException(400, "UGC video not submitted")
+        ugc_video_link = "Submitted via Google Form"
 
         # Verify click-tracked tasks
         for task_name in ["install_app", "rate_app", "subscribe_yt", "follow_ig"]:

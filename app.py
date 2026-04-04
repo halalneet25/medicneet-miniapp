@@ -1882,11 +1882,16 @@ async def api_withdraw_tasks(user_id: str):
             "error": mp_data.get("reason") if not mp_data.get("success") else None
         }
 
-        # 4. ugc_video: Check v2_withdrawal_proofs for uploaded video
+        # 4. ugc_video: Check v2_withdrawal_proofs OR withdrawal_tasks (Google Form flow)
         c.execute("SELECT proof_link FROM v2_withdrawal_proofs WHERE user_id = ? AND task = 'ugc_video' ORDER BY created_at DESC LIMIT 1", (user_id,))
         ugc_row = c.fetchone()
+        ugc_completed = bool(ugc_row and ugc_row["proof_link"])
+        if not ugc_completed:
+            c.execute("SELECT completed FROM withdrawal_tasks WHERE user_id = ? AND task = 'ugc_video'", (user_id,))
+            ugc_task_row = c.fetchone()
+            ugc_completed = bool(ugc_task_row and ugc_task_row["completed"])
         tasks["ugc_video"] = {
-            "completed": bool(ugc_row and ugc_row["proof_link"]),
+            "completed": ugc_completed,
             "value": ugc_row["proof_link"] if ugc_row else None
         }
 
@@ -1972,11 +1977,16 @@ async def api_withdraw_tasks(user_id: str):
             "error": mp_data.get("reason") if not mp_data.get("success") else None
         }
 
-        # 4. ugc_video: Check v2_withdrawal_proofs for uploaded video
+        # 4. ugc_video: Check v2_withdrawal_proofs OR withdrawal_tasks (Google Form flow)
         c.execute("SELECT proof_link FROM v2_withdrawal_proofs WHERE user_id = ? AND task = 'ugc_video' ORDER BY created_at DESC LIMIT 1", (user_id,))
         ugc_row = c.fetchone()
+        ugc_completed = bool(ugc_row and ugc_row["proof_link"])
+        if not ugc_completed:
+            c.execute("SELECT completed FROM withdrawal_tasks WHERE user_id = ? AND task = 'ugc_video'", (user_id,))
+            ugc_task_row = c.fetchone()
+            ugc_completed = bool(ugc_task_row and ugc_task_row["completed"])
         tasks["ugc_video"] = {
-            "completed": bool(ugc_row and ugc_row["proof_link"]),
+            "completed": ugc_completed,
             "value": ugc_row["proof_link"] if ugc_row else None
         }
 
@@ -2076,7 +2086,7 @@ async def api_withdraw_complete_task(request: Request):
         raise HTTPException(400, "user_id and task required")
 
     # Only allow click-tracked tasks
-    allowed_tasks = ["install_app", "rate_app", "subscribe_yt", "follow_ig"]
+    allowed_tasks = ["install_app", "rate_app", "subscribe_yt", "follow_ig", "ugc_video"]
     if task not in allowed_tasks:
         raise HTTPException(400, f"Task '{task}' cannot be manually completed")
 

@@ -15,7 +15,7 @@ from urllib.parse import parse_qsl
 import httpx
 from fastapi import FastAPI, Request, HTTPException
 from medicpoints import preload_points_for_email, get_claim_status, init_medicpoints_table, get_user_medicpoints, flush_pending_medicpoints, auto_credit_medicpoints
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -825,6 +825,42 @@ app = FastAPI(lifespan=lifespan)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 os.makedirs("static/uploads", exist_ok=True)
+
+# ─── ADMIN AUTH ───────────────────────────────────
+ADMIN_USER = os.getenv("ADMIN_USER", "shahul")
+ADMIN_PASS = os.getenv("ADMIN_PASS", "Medic@97")
+admin_tokens = set()
+
+def verify_admin(request: Request):
+    token = request.cookies.get("admin_token")
+    if not token or token not in admin_tokens:
+        raise HTTPException(401, "Unauthorized")
+
+@app.get("/admin", response_class=HTMLResponse)
+async def admin_page(request: Request):
+    token = request.cookies.get("admin_token")
+    if not token or token not in admin_tokens:
+        return templates.TemplateResponse("admin.html", {"request": request, "logged_in": False})
+    return templates.TemplateResponse("admin.html", {"request": request, "logged_in": True})
+
+@app.post("/admin/login")
+async def admin_login(request: Request):
+    data = await request.json()
+    if data.get("username") == ADMIN_USER and data.get("password") == ADMIN_PASS:
+        token = secrets.token_hex(32)
+        admin_tokens.add(token)
+        response = JSONResponse({"success": True})
+        response.set_cookie("admin_token", token, httponly=True, max_age=86400)
+        return response
+    raise HTTPException(401, "Invalid credentials")
+
+@app.post("/admin/logout")
+async def admin_logout(request: Request):
+    token = request.cookies.get("admin_token")
+    admin_tokens.discard(token)
+    response = JSONResponse({"success": True})
+    response.delete_cookie("admin_token")
+    return response
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
@@ -2513,12 +2549,16 @@ async def api_withdraw_request(request: Request):
             conn.close()
             raise HTTPException(400, "Please join @neetbiotraps group first")
 
-    # All checks passed - process withdrawal
+    # All checks passed - create pending withdrawal request (wallet changes happen on admin approval)
     withdraw_amount = amount if amount and 50 <= amount <= balance else balance
     now = datetime.utcnow().isoformat()
 
-    c.execute("UPDATE wallets SET balance = balance - ?, withdrawal_count = withdrawal_count + 1, updated_at = ? WHERE user_id = ?",
-             (withdraw_amount, now, user_id))
+    # Check for existing pending withdrawal
+    c.execute("SELECT id FROM withdrawal_requests WHERE user_id = ? AND status = 'pending'", (user_id,))
+    if c.fetchone():
+        conn.close()
+        raise HTTPException(400, "You already have a pending withdrawal request")
+
     c.execute("INSERT INTO withdrawal_requests (user_id, user_name, amount, upi_id, status, created_at) VALUES (?,?,?,?,?,?)",
              (user_id, user_name, withdraw_amount, upi_id, "pending", now))
     c.execute("INSERT INTO transactions (user_id, amount, type, status, created_at) VALUES (?,?,?,?,?)",
@@ -2528,41 +2568,25 @@ async def api_withdraw_request(request: Request):
     c.execute("INSERT INTO withdrawal_audit_log (user_id, action, details, created_at) VALUES (?,?,?,?)",
               (user_id, "withdrawal_requested", json.dumps({
                   "amount": withdraw_amount, "upi_id": upi_id, "version": "v2" if is_v2 else "v1",
-                  "withdrawal_count": withdrawal_count + 1, "remaining_balance": balance - withdraw_amount
+                  "withdrawal_count": withdrawal_count + 1, "balance": balance
               }), now))
     logger.info(f"[WITHDRAWAL-REQUEST] user={user_id} name={user_name} amount={withdraw_amount} "
-                 f"upi={upi_id} version={'v2' if is_v2 else 'v1'} prev_balance={balance}")
-
-    if is_v2:
-        # Reset OTP for next withdrawal cycle
-        c.execute("DELETE FROM withdrawal_tasks WHERE user_id = ? AND task = 'otp_verified'", (user_id,))
-        # Clean up V2 proofs for next cycle
-        c.execute("DELETE FROM v2_withdrawal_proofs WHERE user_id = ?", (user_id,))
-        # Mark future referrals with new cycle number
-        # (existing referrals keep their cycle, new ones will get the incremented count)
-
-    else:
-        # V1 -> V2 transition: reset OTP for next cycle
-        c.execute("DELETE FROM withdrawal_tasks WHERE user_id = ? AND task = 'otp_verified'", (user_id,))
-        # Clean up UGC proofs for next cycle
-        c.execute("DELETE FROM v2_withdrawal_proofs WHERE user_id = ?", (user_id,))
-        # Mark all existing referrals as cycle 0 (already used for V1)
-        c.execute("UPDATE referrals SET withdrawal_cycle = 0 WHERE referrer_id = ? AND withdrawal_cycle = 0", (user_id,))
+                 f"upi={upi_id} version={'v2' if is_v2 else 'v1'} balance={balance}")
 
     conn.commit(); conn.close()
 
     # Send email notification
     if is_v2:
         send_v2_withdrawal_request_email(user_id, user_name, withdraw_amount, upi_id,
-            balance - withdraw_amount, total_earned, ugc_video_link, ig_post_link,
+            balance, total_earned, ugc_video_link, ig_post_link,
             mp_data.get("points", 0), required_points)
     else:
-        send_withdrawal_request_email(user_id, user_name, withdraw_amount, upi_id, balance - withdraw_amount, total_earned,
+        send_withdrawal_request_email(user_id, user_name, withdraw_amount, upi_id, balance, total_earned,
             ugc_video_link, mp_data.get("points", 0), required_points)
 
     return {
         "success": True,
-        "message": f"Withdrawal of \u20b9{withdraw_amount} requested! You'll receive payment within 24 hours.",
+        "message": f"Withdrawal of \u20b9{withdraw_amount} requested! You'll receive payment after admin approval.",
         "amount": withdraw_amount
     }
 
@@ -2631,6 +2655,98 @@ async def api_withdraw_track(user_id: str = None):
             "recent_withdrawals": recent,
             "recent_audit": audit
         }
+
+@app.post("/api/withdraw/approve")
+async def api_withdraw_approve(request: Request):
+    """Admin: Approve a pending withdrawal — deducts balance, increments cycle, resets tasks"""
+    verify_admin(request)
+    data = await request.json()
+    request_id = data.get("request_id")
+    if not request_id:
+        raise HTTPException(400, "request_id required")
+
+    conn = get_db(); c = conn.cursor()
+    c.execute("SELECT * FROM withdrawal_requests WHERE id = ? AND status = 'pending'", (request_id,))
+    req = c.fetchone()
+    if not req:
+        conn.close()
+        raise HTTPException(404, "Pending withdrawal request not found")
+
+    user_id = req["user_id"]
+    withdraw_amount = req["amount"]
+    now = datetime.utcnow().isoformat()
+
+    # Get wallet info
+    c.execute("SELECT balance, withdrawal_count FROM wallets WHERE user_id = ?", (user_id,))
+    wallet = c.fetchone()
+    if not wallet:
+        conn.close()
+        raise HTTPException(404, "Wallet not found")
+
+    withdrawal_count = wallet["withdrawal_count"] or 0
+    is_v2 = withdrawal_count >= 1
+
+    # Deduct balance and increment withdrawal count
+    c.execute("UPDATE wallets SET balance = balance - ?, withdrawal_count = withdrawal_count + 1, updated_at = ? WHERE user_id = ?",
+             (withdraw_amount, now, user_id))
+
+    # Mark request as completed
+    c.execute("UPDATE withdrawal_requests SET status = 'completed' WHERE id = ?", (request_id,))
+    c.execute("UPDATE transactions SET status = 'completed' WHERE user_id = ? AND amount = ? AND type = 'withdraw' AND status = 'pending'",
+             (user_id, withdraw_amount))
+
+    # Reset tasks for next cycle
+    c.execute("DELETE FROM withdrawal_tasks WHERE user_id = ? AND task = 'otp_verified'", (user_id,))
+    c.execute("DELETE FROM v2_withdrawal_proofs WHERE user_id = ?", (user_id,))
+    if not is_v2:
+        c.execute("UPDATE referrals SET withdrawal_cycle = 0 WHERE referrer_id = ? AND withdrawal_cycle = 0", (user_id,))
+
+    # Audit log
+    c.execute("INSERT INTO withdrawal_audit_log (user_id, action, details, created_at) VALUES (?,?,?,?)",
+              (user_id, "withdrawal_approved", json.dumps({
+                  "request_id": request_id, "amount": withdraw_amount,
+                  "remaining_balance": wallet["balance"] - withdraw_amount
+              }), now))
+    logger.info(f"[WITHDRAWAL-APPROVED] user={user_id} amount={withdraw_amount} request_id={request_id}")
+
+    conn.commit(); conn.close()
+    return {"success": True, "message": f"Approved ₹{withdraw_amount} withdrawal for {user_id}"}
+
+@app.post("/api/withdraw/reject")
+async def api_withdraw_reject(request: Request):
+    """Admin: Reject a pending withdrawal — cancels the request, no wallet changes"""
+    verify_admin(request)
+    data = await request.json()
+    request_id = data.get("request_id")
+    reason = data.get("reason", "Rejected by admin")
+    if not request_id:
+        raise HTTPException(400, "request_id required")
+
+    conn = get_db(); c = conn.cursor()
+    c.execute("SELECT * FROM withdrawal_requests WHERE id = ? AND status = 'pending'", (request_id,))
+    req = c.fetchone()
+    if not req:
+        conn.close()
+        raise HTTPException(404, "Pending withdrawal request not found")
+
+    user_id = req["user_id"]
+    withdraw_amount = req["amount"]
+    now = datetime.utcnow().isoformat()
+
+    # Cancel request and transaction
+    c.execute("UPDATE withdrawal_requests SET status = 'rejected' WHERE id = ?", (request_id,))
+    c.execute("UPDATE transactions SET status = 'cancelled' WHERE user_id = ? AND amount = ? AND type = 'withdraw' AND status = 'pending'",
+             (user_id, withdraw_amount))
+
+    # Audit log
+    c.execute("INSERT INTO withdrawal_audit_log (user_id, action, details, created_at) VALUES (?,?,?,?)",
+              (user_id, "withdrawal_rejected", json.dumps({
+                  "request_id": request_id, "amount": withdraw_amount, "reason": reason
+              }), now))
+    logger.info(f"[WITHDRAWAL-REJECTED] user={user_id} amount={withdraw_amount} request_id={request_id} reason={reason}")
+
+    conn.commit(); conn.close()
+    return {"success": True, "message": f"Rejected ₹{withdraw_amount} withdrawal for {user_id}", "reason": reason}
 
 @app.get("/api/withdraw/user-status")
 async def api_withdraw_user_status(user_id: str):

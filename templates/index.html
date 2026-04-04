@@ -3424,9 +3424,21 @@
             </div>
 
             <div id="withdrawSuccessMessage" style="display:none;text-align:center;padding:20px;background:var(--green-lt);border:2px solid var(--green);border-radius:18px;margin-bottom:20px">
-                <div style="font-size:48px;margin-bottom:12px">✅</div>
-                <h3 style="margin-bottom:8px;font-size:20px">Withdrawal Requested!</h3>
-                <p style="color:var(--txt2);font-size:14px;font-weight:600">You'll receive payment within 24 hours</p>
+                <div style="font-size:48px;margin-bottom:12px">⏳</div>
+                <h3 style="margin-bottom:8px;font-size:20px">Withdrawal Under Review</h3>
+                <p style="color:var(--txt2);font-size:14px;font-weight:600">Your request is being reviewed. You'll receive payment once approved.</p>
+            </div>
+
+            <div id="withdrawRejectedMessage" style="display:none;text-align:center;padding:20px;background:#ffebee;border:2px solid #d32f2f;border-radius:18px;margin-bottom:20px">
+                <div style="font-size:48px;margin-bottom:12px">❌</div>
+                <h3 style="margin-bottom:8px;font-size:20px;color:#d32f2f">Withdrawal Rejected</h3>
+                <p style="color:var(--txt2);font-size:14px;font-weight:600" id="withdrawRejectedReason"></p>
+            </div>
+
+            <div id="withdrawPendingMessage" style="display:none;text-align:center;padding:20px;background:#fff3e0;border:2px solid #e65100;border-radius:18px;margin-bottom:20px">
+                <div style="font-size:48px;margin-bottom:12px">⏳</div>
+                <h3 style="margin-bottom:8px;font-size:20px;color:#e65100">Withdrawal Pending Approval</h3>
+                <p style="color:var(--txt2);font-size:14px;font-weight:600">Your ₹<span id="pendingWithdrawAmount">0</span> withdrawal is being reviewed by admin.</p>
             </div>
 
             <div class="lb-section">
@@ -5278,9 +5290,45 @@
                 document.getElementById('walletCurrentBalance').textContent = balance;
                 document.getElementById('walletTotalEarned').textContent = totalEarned;
 
+                // Hide all withdrawal status messages first
+                document.getElementById('withdrawSuccessMessage').style.display = 'none';
+                document.getElementById('withdrawPendingMessage').style.display = 'none';
+                document.getElementById('withdrawRejectedMessage').style.display = 'none';
+
                 // Show/hide withdraw section and capped banner
                 const cappedBanner = document.getElementById('walletCappedBanner');
-                if (data.is_capped) {
+
+                if (data.pending_withdrawal) {
+                    // Has a pending withdrawal — show pending message, hide withdraw button
+                    document.getElementById('withdrawSection').style.display = 'none';
+                    document.getElementById('withdrawMinMessage').style.display = 'none';
+                    document.getElementById('pendingWithdrawAmount').textContent = data.pending_withdrawal.amount;
+                    document.getElementById('withdrawPendingMessage').style.display = 'block';
+                    if (cappedBanner) cappedBanner.style.display = 'none';
+                } else if (data.rejected_withdrawal) {
+                    // Recently rejected — show rejection reason + cooldown
+                    const rej = data.rejected_withdrawal;
+                    let reasonText = rej.reason || 'Rejected by admin';
+                    if (rej.cooldown_days > 0) {
+                        reasonText += ' — You can request again in ' + rej.cooldown_days + ' day(s).';
+                    }
+                    document.getElementById('withdrawRejectedReason').textContent = reasonText;
+                    document.getElementById('withdrawRejectedMessage').style.display = 'block';
+                    if (rej.cooldown_days > 0) {
+                        // Still in cooldown — hide withdraw
+                        document.getElementById('withdrawSection').style.display = 'none';
+                        document.getElementById('withdrawMinMessage').style.display = 'none';
+                    } else if (balance >= 50) {
+                        document.getElementById('withdrawSection').style.display = 'block';
+                        document.getElementById('withdrawMinMessage').style.display = 'none';
+                        document.getElementById('withdrawAmount').textContent = balance;
+                    } else {
+                        document.getElementById('withdrawSection').style.display = 'none';
+                        document.getElementById('withdrawMinMessage').style.display = 'block';
+                        document.getElementById('needMoreAmount').textContent = 50 - balance;
+                    }
+                    if (cappedBanner) cappedBanner.style.display = 'none';
+                } else if (data.is_capped) {
                     // Wallet is full — show prominent withdraw banner
                     document.getElementById('withdrawSection').style.display = 'block';
                     document.getElementById('withdrawMinMessage').style.display = 'none';
@@ -6226,13 +6274,11 @@
                 const data = await res.json();
 
                 if (res.ok && data.success) {
-                    // Show success
+                    // Show success — balance stays until admin approves
                     showScreen('walletScreen');
                     document.getElementById('withdrawSection').style.display = 'none';
                     document.getElementById('withdrawSuccessMessage').style.display = 'block';
-                    document.getElementById('walletBalance').textContent = '0';
-                    document.getElementById('walletCurrentBalance').textContent = '0';
-                    setTimeout(() => { loadWallet(); }, 3000);
+                    loadWallet();
                 } else {
                     alert(data.detail || 'Withdrawal failed. Please try again.');
                     btn.disabled = false;

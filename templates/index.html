@@ -5616,9 +5616,7 @@
                     + '5. Good video/audio clarity required'
                     + '</div>'
                     + '<div style="margin-top:8px">'
-                    + '<input type="file" id="wgVideoFile" accept="video/*" style="display:none" onchange="wgHandleVideoSelect()">'
-                    + '<button class="wg-action-btn" onclick="document.getElementById(\'wgVideoFile\').click()" id="wgUploadVideoBtn">Upload Video</button>'
-                    + '<div id="wgVideoStatus" style="font-size:11px;color:var(--txt2);margin-top:4px"></div>'
+                    + '<button class="wg-action-btn" onclick="wgOpenLink(\'https://docs.google.com/forms/d/e/1FAIpQLSeSFfmeYbtnFm-b7dwv7OSoQzYtLXCiHRxldhFgi5fYDI7JXg/viewform\', \'ugc_video\')">Upload Video via Google Form</button>'
                     + '</div>'
                     + '</div>';
             }
@@ -5776,9 +5774,7 @@
                     + '5. Good video/audio clarity required'
                     + '</div>'
                     + '<div style="margin-top:8px">'
-                    + '<input type="file" id="wgVideoFile" accept="video/*" style="display:none" onchange="wgHandleVideoSelect()">'
-                    + '<button class="wg-action-btn" onclick="document.getElementById(\'wgVideoFile\').click()" id="wgUploadVideoBtn">Upload Video</button>'
-                    + '<div id="wgVideoStatus" style="font-size:11px;color:var(--txt2);margin-top:4px"></div>'
+                    + '<button class="wg-action-btn" onclick="wgOpenLink(\'https://docs.google.com/forms/d/e/1FAIpQLSeSFfmeYbtnFm-b7dwv7OSoQzYtLXCiHRxldhFgi5fYDI7JXg/viewform\', \'ugc_video\')">Upload Video via Google Form</button>'
                     + '</div>'
                     + '</div>';
             }
@@ -5961,57 +5957,6 @@
             } else {
                 const tgUrl = 'https://t.me/share/url?url=' + encodeURIComponent(wgReferralLink) + '&text=' + encodeURIComponent(shareText);
                 window.open(tgUrl, '_blank');
-            }
-        }
-
-        // ─── V2 SPECIFIC FUNCTIONS ───────────────────────
-
-        async function wgHandleVideoSelect() {
-            const fileInput = document.getElementById('wgVideoFile');
-            const statusEl = document.getElementById('wgVideoStatus');
-            const btn = document.getElementById('wgUploadVideoBtn');
-            if (!fileInput || !fileInput.files || fileInput.files.length === 0) return;
-
-            const file = fileInput.files[0];
-            if (file.size > 100 * 1024 * 1024) {
-                alert('Video must be under 100MB');
-                fileInput.value = '';
-                return;
-            }
-
-            btn.disabled = true;
-            btn.textContent = 'Uploading...';
-            statusEl.textContent = 'Uploading ' + file.name + ' (' + (file.size / (1024*1024)).toFixed(1) + ' MB)...';
-
-            try {
-                const formData = new FormData();
-                formData.append('user_id', userId);
-                formData.append('video', file);
-
-                const res = await fetch(`${API}/api/v2-upload-video`, {
-                    method: 'POST',
-                    body: formData
-                });
-
-                let data;
-                const text = await res.text();
-                try { data = JSON.parse(text); } catch(_) { data = { detail: text.substring(0, 200) }; }
-
-                if (res.ok && data.success) {
-                    statusEl.textContent = 'Uploaded successfully!';
-                    btn.textContent = 'Uploaded ✅';
-                    loadWithdrawTasks();
-                } else {
-                    const errMsg = data.detail || data.error || 'Server error ' + res.status;
-                    statusEl.textContent = 'Upload failed: ' + errMsg;
-                    btn.disabled = false;
-                    btn.textContent = 'Upload Video';
-                }
-            } catch (e) {
-                console.error('Video upload error:', e);
-                statusEl.textContent = 'Network error — check connection and try again.';
-                btn.disabled = false;
-                btn.textContent = 'Upload Video';
             }
         }
 

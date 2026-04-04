@@ -2645,8 +2645,8 @@ async def api_withdraw_track(user_id: str = None):
         c.execute("SELECT * FROM withdrawal_requests WHERE status = 'pending' ORDER BY created_at DESC")
         pending = [dict(r) for r in c.fetchall()]
 
-        # Recent withdrawals (last 20)
-        c.execute("SELECT * FROM withdrawal_requests ORDER BY created_at DESC LIMIT 20")
+        # Recent withdrawals (last 20, from April onwards)
+        c.execute("SELECT * FROM withdrawal_requests WHERE created_at >= '2026-04-01' ORDER BY created_at DESC LIMIT 20")
         recent = [dict(r) for r in c.fetchall()]
 
         # Recent audit events (last 50)

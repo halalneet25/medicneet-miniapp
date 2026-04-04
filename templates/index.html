@@ -5306,10 +5306,19 @@
                     document.getElementById('withdrawPendingMessage').style.display = 'block';
                     if (cappedBanner) cappedBanner.style.display = 'none';
                 } else if (data.rejected_withdrawal) {
-                    // Recently rejected — show rejection + allow re-request if balance enough
-                    document.getElementById('withdrawRejectedReason').textContent = 'Your withdrawal was rejected. Please complete all tasks properly and try again.';
+                    // Recently rejected — show rejection reason + cooldown
+                    const rej = data.rejected_withdrawal;
+                    let reasonText = rej.reason || 'Rejected by admin';
+                    if (rej.cooldown_days > 0) {
+                        reasonText += ' — You can request again in ' + rej.cooldown_days + ' day(s).';
+                    }
+                    document.getElementById('withdrawRejectedReason').textContent = reasonText;
                     document.getElementById('withdrawRejectedMessage').style.display = 'block';
-                    if (balance >= 50) {
+                    if (rej.cooldown_days > 0) {
+                        // Still in cooldown — hide withdraw
+                        document.getElementById('withdrawSection').style.display = 'none';
+                        document.getElementById('withdrawMinMessage').style.display = 'none';
+                    } else if (balance >= 50) {
                         document.getElementById('withdrawSection').style.display = 'block';
                         document.getElementById('withdrawMinMessage').style.display = 'none';
                         document.getElementById('withdrawAmount').textContent = balance;

@@ -213,7 +213,8 @@
         }
 
         async function rejectRequest(id) {
-            const reason = prompt('Rejection reason (optional):') || 'Rejected by admin';
+            const reason = prompt('Enter rejection reason (will be shown to user):');
+            if (!reason) return;
             try {
                 const res = await fetch('/api/withdraw/reject', {
                     method: 'POST',

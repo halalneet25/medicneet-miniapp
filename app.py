@@ -193,6 +193,15 @@ def init_db():
         c.execute("ALTER TABLE referrals ADD COLUMN withdrawal_cycle INTEGER DEFAULT 0")
     except sqlite3.OperationalError:
         pass
+    # Migrate: add rejection_reason and rejected_at to withdrawal_requests
+    try:
+        c.execute("ALTER TABLE withdrawal_requests ADD COLUMN rejection_reason TEXT")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        c.execute("ALTER TABLE withdrawal_requests ADD COLUMN rejected_at TEXT")
+    except sqlite3.OperationalError:
+        pass
     # V2 withdrawal proofs table
     c.execute("""CREATE TABLE IF NOT EXISTS v2_withdrawal_proofs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1809,19 +1818,25 @@ async def api_wallet(user_id: str):
     linked_email = email_row["email"] if email_row else None
 
     # Check for pending or recently rejected withdrawal
-    c.execute("SELECT id, amount, status, created_at FROM withdrawal_requests WHERE user_id = ? ORDER BY created_at DESC LIMIT 1", (user_id,))
+    c.execute("SELECT id, amount, status, created_at, rejection_reason, rejected_at FROM withdrawal_requests WHERE user_id = ? ORDER BY created_at DESC LIMIT 1", (user_id,))
     last_request = c.fetchone()
     pending_withdrawal = None
     rejected_withdrawal = None
     if last_request:
         if last_request["status"] == "pending":
             pending_withdrawal = {"id": last_request["id"], "amount": last_request["amount"]}
-        elif last_request["status"] == "rejected":
-            # Show rejection for 7 days
+        elif last_request["status"] == "rejected" and last_request["rejected_at"]:
             from datetime import timedelta
-            rejected_at = datetime.fromisoformat(last_request["created_at"])
-            if datetime.utcnow() - rejected_at < timedelta(days=7):
-                rejected_withdrawal = {"id": last_request["id"], "amount": last_request["amount"]}
+            rejected_at = datetime.fromisoformat(last_request["rejected_at"])
+            days_since = (datetime.utcnow() - rejected_at).days
+            if days_since < 7:
+                cooldown_left = max(0, 3 - days_since)
+                rejected_withdrawal = {
+                    "id": last_request["id"],
+                    "amount": last_request["amount"],
+                    "reason": last_request["rejection_reason"] or "Rejected by admin",
+                    "cooldown_days": cooldown_left
+                }
 
     conn.close()
 
@@ -2576,6 +2591,18 @@ async def api_withdraw_request(request: Request):
         conn.close()
         raise HTTPException(400, "You already have a pending withdrawal request")
 
+    # Check 3-day cooldown after rejection
+    c.execute("SELECT rejected_at FROM withdrawal_requests WHERE user_id = ? AND status = 'rejected' AND rejected_at IS NOT NULL ORDER BY rejected_at DESC LIMIT 1", (user_id,))
+    rej_row = c.fetchone()
+    if rej_row:
+        from datetime import timedelta
+        rejected_at = datetime.fromisoformat(rej_row["rejected_at"])
+        cooldown_end = rejected_at + timedelta(days=3)
+        if datetime.utcnow() < cooldown_end:
+            days_left = (cooldown_end - datetime.utcnow()).days + 1
+            conn.close()
+            raise HTTPException(400, f"Please wait {days_left} day(s) before requesting again. Your last request was rejected.")
+
     c.execute("INSERT INTO withdrawal_requests (user_id, user_name, amount, upi_id, status, created_at) VALUES (?,?,?,?,?,?)",
              (user_id, user_name, withdraw_amount, upi_id, "pending", now))
     c.execute("INSERT INTO transactions (user_id, amount, type, status, created_at) VALUES (?,?,?,?,?)",
@@ -2751,7 +2778,7 @@ async def api_withdraw_reject(request: Request):
     now = datetime.utcnow().isoformat()
 
     # Cancel request and transaction
-    c.execute("UPDATE withdrawal_requests SET status = 'rejected' WHERE id = ?", (request_id,))
+    c.execute("UPDATE withdrawal_requests SET status = 'rejected', rejection_reason = ?, rejected_at = ? WHERE id = ?", (reason, now, request_id))
     c.execute("UPDATE transactions SET status = 'cancelled' WHERE user_id = ? AND amount = ? AND type = 'withdraw' AND status = 'pending'",
              (user_id, withdraw_amount))
 

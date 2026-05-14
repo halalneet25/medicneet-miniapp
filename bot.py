@@ -30,7 +30,8 @@ Rules:
 - Be accurate and exam-focused
 - End every answer with:
 
-12,771 NEET questions with NCERT references on MedicNEET App: https://play.google.com/store/apps/details?id=com.halalfire.medicneet"""
+12,771 NEET questions with NCERT references on MedicNEET App: https://play.google.com/store/apps/details?id=com.halalfire.medicneet
+(88 of 90 Biology questions in the NEET 2026 paper traced back to this question bank.)"""
 
 SKIP_WORDS = {'lol', 'haha', 'ok', 'okay', 'hi', 'hello', 'hey', 'bhai', 'yaar', 'scam',
               'wallet', 'money', 'paisa', 'withdraw', 'payment', 'paid', 'free', 'prize',
@@ -51,7 +52,8 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Welcome to MedicNEET! \U0001f9ec\n\n"
         "\U0001f3ae Play live NEET Biology quiz every night at 7 PM\n"
         "\U0001f4b0 Win cash prizes for correct answers\n"
-        "\U0001f4da Practice with 12,771 NEET-style questions\n\n"
+        "\U0001f4da Practice with 12,771 NEET-style questions\n"
+        "\U0001f3af 88 of 90 NEET 2026 Biology questions trace back to our question bank\n\n"
         "Tap below to start!",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )

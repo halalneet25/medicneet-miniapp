@@ -164,14 +164,16 @@ def main():
         print("Claude failed. Exiting.")
         return
     print(f"Generated ({len(post_text)} chars):\n{post_text}\n---")
+    gist_footer = "\n\n\U0001f3af 88 of 90 NEET 2026 Biology questions traced back to the MedicNEET question bank."
     if "===SPLIT===" in post_text:
-        for i, part in enumerate(post_text.split("===SPLIT===")):
-            part = part.strip()
-            if part:
-                print(f"Sending part {i+1}...")
-                send_telegram(part)
+        parts = [p.strip() for p in post_text.split("===SPLIT===") if p.strip()]
+        for i, part in enumerate(parts):
+            if i == len(parts) - 1:
+                part += gist_footer
+            print(f"Sending part {i+1}...")
+            send_telegram(part)
     else:
-        send_telegram(post_text)
+        send_telegram(post_text + gist_footer)
     print("Done!")
 
 if __name__ == "__main__":

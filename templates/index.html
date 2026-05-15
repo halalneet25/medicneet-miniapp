@@ -1105,6 +1105,79 @@
             animation: arrowBounce 1.5s infinite;
         }
 
+        /* ─── NEET 2026 Biology Mapping Gist ─── */
+        .mgist {
+            margin: 16px 0;
+            background: linear-gradient(135deg, #0f766e, #15803d);
+            border-radius: 18px;
+            padding: 16px;
+            box-shadow: 0 4px 0 #134e3a;
+            color: #fff;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .mgist-top {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .mgist-icon { font-size: 30px; flex-shrink: 0; }
+        .mgist-head { flex: 1; min-width: 0; }
+        .mgist-label {
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            color: rgba(255,255,255,0.85);
+            text-transform: uppercase;
+        }
+        .mgist-stat {
+            font-size: 16px;
+            font-weight: 900;
+            color: #fff;
+            margin-top: 2px;
+            line-height: 1.35;
+        }
+        .mgist-stat b { font-size: 22px; }
+        .mgist-toggle {
+            font-size: 12px;
+            font-weight: 800;
+            color: #fff;
+            background: rgba(255,255,255,0.18);
+            padding: 6px 10px;
+            border-radius: 10px;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .mgist-detail {
+            display: none;
+            margin-top: 12px;
+            background: rgba(255,255,255,0.12);
+            border-radius: 12px;
+            padding: 12px;
+        }
+        .mgist-detail.open { display: block; }
+        .mgist-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            font-size: 12px;
+            font-weight: 800;
+            color: #fff;
+            padding: 4px 0;
+        }
+        .mgist-row span:last-child {
+            color: rgba(255,255,255,0.85);
+            font-weight: 700;
+            text-align: right;
+        }
+        .mgist-note {
+            font-size: 11px;
+            font-weight: 600;
+            color: rgba(255,255,255,0.8);
+            line-height: 1.5;
+            margin-top: 8px;
+        }
+
         /* ─── NCERT In-App Reader ─── */
         .ncert-hub-header {
             text-align: center;
@@ -3086,6 +3159,22 @@
                 </div>
                 <button class="ncert-cta-btn" onclick="openNcertHub()">Open NCERT Reader <span class="ncert-cta-arrow">→</span></button>
             </div>
+            <div class="mgist" onclick="toggleMappingGist(this);trackEvent('mapping_gist_click',{source:'result'})">
+                <div class="mgist-top">
+                    <div class="mgist-icon">🧬</div>
+                    <div class="mgist-head">
+                        <div class="mgist-label">NEET 2026 Biology Mapping</div>
+                        <div class="mgist-stat"><b>88</b> / 90 questions traced to the MedicNEET bank</div>
+                    </div>
+                    <div class="mgist-toggle">Details ▾</div>
+                </div>
+                <div class="mgist-detail">
+                    <div class="mgist-row"><span>🎯 Direct match (90%+)</span><span>Same NCERT concept</span></div>
+                    <div class="mgist-row"><span>🔗 Concept match (80–89%)</span><span>NEET added a twist</span></div>
+                    <div class="mgist-row"><span>⚠️ Open gaps</span><span>Q94, Q120 — disclosed</span></div>
+                    <div class="mgist-note">Every Biology question from the released NEET 2026 paper (Q91–Q180) checked against our question bank — snapshot taken before 3 May 2026.</div>
+                </div>
+            </div>
             <div class="lb-section" id="roundLeaderboard"></div>
         </div>
 
@@ -3213,6 +3302,24 @@
 
         <div class="screen" id="studyScreen">
             <h2 style="font-size:22px;font-weight:900;margin-bottom:12px">📖 STUDY MATERIAL</h2>
+
+            <!-- NEET 2026 Biology Mapping Gist -->
+            <div class="mgist" onclick="toggleMappingGist(this);trackEvent('mapping_gist_click',{source:'study'})">
+                <div class="mgist-top">
+                    <div class="mgist-icon">🧬</div>
+                    <div class="mgist-head">
+                        <div class="mgist-label">NEET 2026 Biology Mapping</div>
+                        <div class="mgist-stat"><b>88</b> / 90 questions traced to the MedicNEET bank</div>
+                    </div>
+                    <div class="mgist-toggle">Details ▾</div>
+                </div>
+                <div class="mgist-detail">
+                    <div class="mgist-row"><span>🎯 Direct match (90%+)</span><span>Same NCERT concept</span></div>
+                    <div class="mgist-row"><span>🔗 Concept match (80–89%)</span><span>NEET added a twist</span></div>
+                    <div class="mgist-row"><span>⚠️ Open gaps</span><span>Q94, Q120 — disclosed</span></div>
+                    <div class="mgist-note">Every Biology question from the released NEET 2026 paper (Q91–Q180) checked against our question bank — snapshot taken before 3 May 2026.</div>
+                </div>
+            </div>
 
             <!-- Blog Hero Carousel -->
             <div class="blog-hero-carousel" id="blogHeroCarousel" style="display:none">
@@ -7235,6 +7342,14 @@
         let ncertCurrentChapter = null;
         let ncertCurrentMode = 'padho';
         let ncertHubLoaded = false;
+
+        function toggleMappingGist(el) {
+            var d = el.querySelector('.mgist-detail');
+            var t = el.querySelector('.mgist-toggle');
+            if (!d) return;
+            var open = d.classList.toggle('open');
+            if (t) t.textContent = open ? 'Details ▴' : 'Details ▾';
+        }
 
         function openNcertHub() {
             trackEvent('ncert_hub_open');

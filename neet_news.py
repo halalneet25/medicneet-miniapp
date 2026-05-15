@@ -267,6 +267,7 @@ def build_telegram_teaser(data):
         msg += f"{emoji} *{headline}*\n"
 
     msg += f"\n👉 *Full details padhne ke liye visit karo:*\n{WEBSITE_URL}\n\n"
+    msg += f"🎯 *88 of 90 NEET 2026 Biology questions* trace back to the MedicNEET question bank.\n"
     msg += f"Stay updated. Stay focused. 🧬\n"
     msg += f"📱 MedicNEET App: https://play.google.com/store/apps/details?id=com.halalfire.medicneet"
 
